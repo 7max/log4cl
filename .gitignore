@@ -1,0 +1,10 @@
+.*
+!.gitignore
+*.fas
+*.fasl
+*.lib
+*~
+*.bak
+*.orig
+*.class
+*.o

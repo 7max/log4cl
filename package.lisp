@@ -27,7 +27,7 @@
 	   log-user7 log-user8 log-user9
            log-indented
 	   ;; logger access functions
-	   get-logger set-log-level add-appender
+	   make-logger set-log-level add-appender
 	   ;; special variables
 	   *log-app-number* *root-logger* *default-logger-name* *log-indent*
 	   ;; application

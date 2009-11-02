@@ -489,8 +489,7 @@ the logger name would be just package
       (setf app-num *num-apps*)
       (setf (gethash app-name *apps*) app-num)
       (incf *num-apps*)
-      (adjust-all-loggers-appdata)
-      )
+      (adjust-all-loggers-appdata))
     app-num))
 
 
@@ -508,5 +507,14 @@ the logger name would be just package
   "Delete all loggers"
   (setq *root-logger* (create-root-logger))
   (values))
+
+(defmacro make-logger (&optional arg &environment env)
+  (cond
+    ((null arg)
+     (get-logger (maybe-auto-logger-name (list "") env)))
+    ((keywordp arg)
+     (get-logger (maybe-auto-logger-name (list arg) env)))
+    (t (get-logger arg))))
+
 
 

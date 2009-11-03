@@ -25,7 +25,7 @@
 (defparameter +log-level-from-string+ 
   '("OFF" "FATAL" "ERROR" "WARN" "INFO"
     "DEBUG" "USER1" "USER2" "USER3" "USER4" "TRACE"
-    "USER5" "USER6" "USER7" "USER8" "USER9"))
+    "USER5" "USER6" "USER7" "USER8" "USER9" "UNSET"))
 
 
 (defun make-log-level (arg)
@@ -40,7 +40,9 @@
   character: (o)ff (f)atal (e)rror (w)arn (i)nfo (d)ebug (t)race (u)nset,
 
   1 character digit 1 through 9 identyfing user1 through user9 levels." 
-  (cond ((symbolp arg)
+  (cond ((null arg)
+         +log-level-unset+)
+        ((symbolp arg)
          (make-log-level (symbol-name arg)))
         ((stringp arg)
          (let ((len (length arg))
@@ -63,7 +65,7 @@
                (error "~s does not match any log levels" arg))))
         ((and (numberp arg)
               (>= arg +min-log-level+)
-              (<= arg +max-log-level+))
+              (<= arg +log-level-unset+))
          arg)
         (t (error "~s does not match any log levels" arg))))
 
@@ -217,22 +219,28 @@ state indexed by this number")
       (and (>= logger-level level)
 	   (have-appenders logger)))))
 
-(defun adjust-logger (logger)
-  (let ((appdata (current-appdata logger))
-	(mask 0))
-    (declare (type fixnum mask))
-    (loop
-       for level from +min-log-level+ upto +max-log-level+
-       if (have-appenders-for-level logger level)
-       do (setf mask (logior mask (ash 1 level))))
-    (setf (logger-app-data-mask appdata) mask))
+(defun map-logger-children (function logger)
+  "Apply the function to all of logger's children (but not their descedants)" 
   (let ((child-hash (logger-children logger)))
     (when child-hash
       (maphash (lambda (name logger)
                  (declare (ignore name))
-                 (adjust-logger logger))
-               child-hash)))
-  (values logger))
+                 (funcall function logger))
+               child-hash))))
+
+(defun adjust-logger (logger)
+  (labels ((doit (logger)
+             (let ((appdata (current-appdata logger))
+                   (mask 0))
+               (declare (type fixnum mask))
+               (loop
+                  for level from +min-log-level+ upto +max-log-level+
+                  if (have-appenders-for-level logger level)
+                  do (setf mask (logior mask (ash 1 level))))
+               (setf (logger-app-data-mask appdata) mask)
+               (map-logger-children #'doit logger))))
+    (doit logger))
+  (values))
 
 (defun shortest-package-name (package)
   "Return the shortest name or nickname of the package"
@@ -514,14 +522,22 @@ the logger name would be just package
     (values)))
 
 
-(defun set-log-level (logger level)
+(defun set-log-level (logger level &optional (adjust-p t))
+  "Set the log level of a logger. Returns T if level was set or NIL if
+level was already set to stpecified value."
   (declare (type logger logger))
-  (let ((level (make-log-level level)))
-    (declare (type fixnum level))
-    (setf (logger-app-data-level (current-appdata logger))
-          (when (/= level +log-level-unset+) level))
-    (adjust-logger logger)
-    (values)))
+  (let* ((level (make-log-level level))
+         (app-data (current-appdata logger))
+         (old-level (logger-app-data-level app-data))
+         (new-level (when (/= level +log-level-unset+) level)))
+    (declare (type fixnum level)
+             (type logger-app-data app-data)
+             (type (or null fixnum) old-level new-level))
+    (unless (eql old-level new-level)
+      (setf (logger-app-data-level app-data) new-level)
+      (when adjust-p
+        (adjust-logger logger))
+      t)))
 
 (defun add-appender (logger appender)
   (declare (type logger logger) (type appender appender))
@@ -546,7 +562,9 @@ the logger name would be just package
   (values))
 
 (defun create-root-logger ()
-  (adjust-logger (create-logger :name "")))
+  (let ((root (create-logger :name "")))
+    (adjust-logger root)
+    root))
 
 (defvar *root-logger*
   (create-root-logger)
@@ -566,4 +584,88 @@ the logger name would be just package
     (t (get-logger arg))))
 
 
+(defun log-config (&rest args)
+  "User friendly way of configuring logger hierachy. 
 
+  Synopsis:
+ 
+  ;; set log level of a root logger
+  (log-config :info)
+
+  ;; unset logger specific level of all child loggers of the root logger
+  ;; (but not root itself)
+  (log-config :reset)
+
+  ;; do both at the same time
+  (log-config :info :reset)
+
+  ;; NOTE :reset has to be the last option in the list
+  
+  ;; set a logger named cl-user.mylogger to debug
+  (log-config :mylogger :debug)
+   
+  ;; set a logger named cl-user.somefunction to debug
+  (log-config somefunction :debug)
+  
+  ;; set a logger named full.logger.name to debug
+  (log-config \"full.logge.name\"  debug)
+
+  ;; set all loggers matching glob
+  (log-config :.*suffix :debug)
+
+  ;; set all loggers matching glob
+  (log-config :.*(get|set)-.*line :debug)
+" 
+  (let (do-reset loggers 
+         (num-updated 0)
+         (num-reset 0))
+    (declare (boolean do-reset)
+             (fixnum num-updated num-reset))
+    (setf args (reverse args))
+    (when (eq :reset (car args))
+      (pop args)
+      (setf do-reset t))
+    (let ((log-level (make-log-level (pop args))))
+      (dolist (arg args)
+        (cond 
+          ((or (stringp arg) (symbolp arg))
+           (push (loggers-from-string (string arg))
+                 loggers))
+          ((logger-p arg)
+           (push arg loggers))
+          (t (error "~s must be either symbol, string or a logger" arg))))
+      (when (null loggers)
+        (push *root-logger* loggers))
+      (labels ((doit (logger)
+                 (cond ((null logger))
+                       ((consp logger)
+                        (doit (car logger))
+                        (doit (cdr logger)))
+                       (t 
+                        ;; reset children first without adjusting
+                        (when do-reset
+                          (labels ((doit (logger)
+                                     (when (set-log-level logger +log-level-unset+ nil)
+                                       (incf num-reset))
+                                     (map-logger-children #'doit logger)))
+                            (map-logger-children #'doit logger)))
+                        ;; adjusts logger and descendants
+                        (when (set-log-level logger log-level)
+                          (incf num-updated))))))
+        (doit loggers)
+        (if do-reset
+            (log-info "~d loggers updated, ~d loggers reset" 
+                      num-updated num-reset)
+            (log-info "~d loggers updated" num-updated))
+        (values)))))
+
+
+(defun loggers-from-string (regexp)
+  (let ((regexp (create-scanner regexp :case-insensitive-mode t))
+        loggers)
+    (labels ((doit (logger)
+               (when (scan regexp (logger-name logger))
+                 (push logger loggers))
+               (map-logger-children #'doit logger)))
+      (doit *root-logger*))
+    (nreverse loggers)))

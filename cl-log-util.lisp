@@ -48,11 +48,14 @@
            (if (= 1 len)
                (setf match (position (char-upcase (char arg 0))
                                      +log-level-from-letter+))
-               (let ((name (string-upcase arg)))
+               (let* ((name (string-upcase arg))
+                      (len (length name)))
                  (loop 
                     for level from 0
                     for level-name in +log-level-from-string+
-                    if (alexandria:starts-with-subseq name level-name)
+                    for tmp = (mismatch name level-name)
+                    if (or (null tmp)
+                           (= tmp len))
                     do (if match
                            (error "~s matches more then one log level" arg)
                            (setf match level)))))
@@ -223,11 +226,12 @@ state indexed by this number")
        if (have-appenders-for-level logger level)
        do (setf mask (logior mask (ash 1 level))))
     (setf (logger-app-data-mask appdata) mask))
-  (awhen (logger-children logger) 
-    (maphash (lambda (name logger)
-               (declare (ignore name))
-               (adjust-logger logger))
-             it))
+  (let ((child-hash (logger-children logger)))
+    (when child-hash
+      (maphash (lambda (name logger)
+                 (declare (ignore name))
+                 (adjust-logger logger))
+               child-hash)))
   (values logger))
 
 (defun shortest-package-name (package)
@@ -327,8 +331,9 @@ if it does not exist"
             (let* ((dot-pos (position #\. name :from-end t))
                    (parent (if (null dot-pos) *root-logger*
                                (get-logger (subseq name 0 dot-pos))))
-                   (logger (awhen (logger-children parent)
-                             (gethash name it))))
+                   (logger (let ((child-hash (logger-children parent)))
+                             (when child-hash
+                               (gethash name child-hash)))))
               (unless logger
                 (setq logger (create-logger :name name :parent parent))
                 (unless (logger-children parent)

@@ -4,16 +4,9 @@
 
 
 (cl:defpackage :cl-log
-  (:shadowing-import-from :alexandria :when-let :ensure-list :ensure-function)
-  (:use :asdf
-	:closer-common-lisp
-	:closer-mop
-	:bordeaux-threads
-	:demacs
+  (:use :cl
+        :bordeaux-threads
         :cl-ppcre
-        :demacs
-        :alexandria
-        :anaphora
         #+sbcl :sb-gray
         #+clisp :gray
         )

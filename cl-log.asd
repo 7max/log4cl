@@ -5,15 +5,13 @@
   :serial t
   :version 1.0
   :depends-on (:bordeaux-threads 
-               :closer-mop 
-               :demacs
-               :alexandria
-               :cl-ppcre
-               :anaphora)
+               :cl-ppcre)
   :components ((:file "package")
 	       (:file "cl-log-util")
                (:file "cl-log-test")
-               (:file "demacs-integration")
+               ;; TODO do this dynamically only if demacs
+               ;; package is present
+               ;; (:file "demacs-integration")
 	       (:file "appender")
 	       (:file "console-appender")))
 

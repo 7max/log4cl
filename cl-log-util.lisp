@@ -21,6 +21,48 @@
 (defconstant +min-log-level+ +log-level-fatal+)
 (defconstant +max-log-level+ +log-level-user9+)
 
+(defparameter +log-level-from-letter+ "OFEWID1234T56789U")
+(defparameter +log-level-from-string+ 
+  '("OFF" "FATAL" "ERROR" "WARN" "INFO"
+    "DEBUG" "USER1" "USER2" "USER3" "USER4" "TRACE"
+    "USER5" "USER6" "USER7" "USER8" "USER9"))
+
+
+(defun make-log-level (arg)
+  "Translate a more human readable log level into one of the above
+  constants. Accepted formats can be:
+
+  Symbol or string which name matches one level, e.g: :debug, :info,
+  DEBUG, USER1, :err \"off\"
+
+  1-character long symbol or string, used as a shortcut. All standard
+  levels can be uniquely identified by their first
+  character: (o)ff (f)atal (e)rror (w)arn (i)nfo (d)ebug (t)race (u)nset,
+
+  1 character digit 1 through 9 identyfing user1 through user9 levels." 
+  (cond ((symbolp arg)
+         (make-log-level (symbol-name arg)))
+        ((stringp arg)
+         (let ((len (length arg))
+               match)
+           (if (= 1 len)
+               (setf match (position (char-upcase (char arg 0))
+                                     +log-level-from-letter+))
+               (let ((name (string-upcase arg)))
+                 (loop 
+                    for level from 0
+                    for level-name in +log-level-from-string+
+                    if (alexandria:starts-with-subseq name level-name)
+                    do (if match
+                           (error "~s matches more then one log level" arg)
+                           (setf match level)))))
+           (or match 
+               (error "~s does not match any log levels" arg))))
+        ((and (numberp arg)
+              (>= arg +min-log-level+)
+              (<= arg +max-log-level+))
+         arg)
+        (t (error "~s does not match any log levels" arg))))
 
 (defvar *default-logger-name* nil 
   "Logging macros will use this value for the default logger name
@@ -468,11 +510,13 @@ the logger name would be just package
 
 
 (defun set-log-level (logger level)
-  (declare (type logger logger) (type (or null fixnum) level))
-  (setf (logger-app-data-level (current-appdata logger))
-        (if (and level (/= level +log-level-unset+)) level nil))
-  (adjust-logger logger)
-  (values))
+  (declare (type logger logger))
+  (let ((level (make-log-level level)))
+    (declare (type fixnum level))
+    (setf (logger-app-data-level (current-appdata logger))
+          (when (/= level +log-level-unset+) level))
+    (adjust-logger logger)
+    (values)))
 
 (defun add-appender (logger appender)
   (declare (type logger logger) (type appender appender))

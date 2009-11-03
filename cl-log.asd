@@ -7,6 +7,7 @@
   :depends-on (:bordeaux-threads 
                :closer-mop 
                :demacs
+               :alexandria
                :cl-ppcre
                :anaphora)
   :components ((:file "package")

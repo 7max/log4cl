@@ -23,6 +23,7 @@
            :log-indented
 	   ;; logger access functions
 	   :make-log-level :make-logger :set-log-level :add-appender
+           :log-config
 	   ;; special variables
 	   :*log-app-number* :*root-logger* :*default-logger-name* :*log-indent*
 	   ;; application

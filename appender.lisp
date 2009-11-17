@@ -52,13 +52,6 @@ Return value of this function is ignored"))
 
 (declaim (inline write-log-level))
 
-;; for gray streams, somehow this is missing in SBCL
-(defmethod stream-line-column ((s two-way-stream))
-           (stream-line-column (two-way-stream-output-stream s)))
-
-(defmethod stream-line-column ((s synonym-stream))
-  (stream-line-column (symbol-value (synonym-stream-symbol s))))
-
 (defmethod layout-to-stream ((layout default-layout)
 			     (stream stream)
 			     (level integer)
@@ -71,11 +64,6 @@ Return value of this function is ignored"))
     (write-string " " stream)
     (write-string category stream))
   (write-string ": " stream)
-  (cond ((> (stream-line-column stream) 30)
-         (terpri stream)
-         (loop repeat 30 do (write-string " " stream)))
-        (t (loop while (< (stream-line-column stream) 30)
-                do (write-string " " stream))))
   (funcall log-func stream)
   (terpri stream)
   (values))

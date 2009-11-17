@@ -592,8 +592,8 @@ level was already set to stpecified value."
   ;; set log level of a root logger
   (log-config :info)
 
-  ;; unset logger specific level of all child loggers of the root logger
-  ;; (but not root itself)
+  ;; set root logger to :info and unset per-logger level of all
+  ;; children
   (log-config :reset)
 
   ;; do both at the same time
@@ -618,46 +618,50 @@ level was already set to stpecified value."
 " 
   (let (do-reset loggers 
          (num-updated 0)
-         (num-reset 0))
+         (num-reset 0)
+         log-level
+         had-log-level)
     (declare (boolean do-reset)
              (fixnum num-updated num-reset))
     (setf args (reverse args))
     (when (eq :reset (car args))
       (pop args)
       (setf do-reset t))
-    (let ((log-level (make-log-level (pop args))))
-      (dolist (arg args)
-        (cond 
-          ((or (stringp arg) (symbolp arg))
-           (push (loggers-from-string (string arg))
-                 loggers))
-          ((logger-p arg)
-           (push arg loggers))
-          (t (error "~s must be either symbol, string or a logger" arg))))
-      (when (null loggers)
-        (push *root-logger* loggers))
-      (labels ((doit (logger)
-                 (cond ((null logger))
-                       ((consp logger)
-                        (doit (car logger))
-                        (doit (cdr logger)))
-                       (t 
-                        ;; reset children first without adjusting
-                        (when do-reset
-                          (labels ((doit (logger)
-                                     (when (set-log-level logger +log-level-unset+ nil)
-                                       (incf num-reset))
-                                     (map-logger-children #'doit logger)))
-                            (map-logger-children #'doit logger)))
-                        ;; adjusts logger and descendants
-                        (when (set-log-level logger log-level)
-                          (incf num-updated))))))
-        (doit loggers)
-        (if do-reset
-            (log-info "~d loggers updated, ~d loggers reset" 
-                      num-updated num-reset)
-            (log-info "~d loggers updated" num-updated))
-        (values)))))
+    (when (and args  
+               (typep (first args) '(or string symbol)) 
+               (not (search "*" (string (first args)))))
+      (setf had-log-level t)
+      (setf log-level (make-log-level (pop args))))
+    (dolist (arg args)
+      (cond 
+        ((or (stringp arg) (symbolp arg))
+         (push (loggers-from-string (string arg))
+               loggers))
+        ((logger-p arg)
+         (push arg loggers))
+        (t (error "~s must be either symbol, string or a logger" arg))))
+    (when (null loggers)
+      (push *root-logger* loggers)
+      (or had-log-level
+        (setf log-level (make-log-level :error))))
+    (labels ((doit (logger)
+               (cond ((null logger))
+                     ((consp logger)
+                      (doit (car logger))
+                      (doit (cdr logger)))
+                     (t 
+                      ;; reset children first without adjusting
+                      (when do-reset
+                        (labels ((doit (logger)
+                                   (when (set-log-level logger +log-level-unset+ nil)
+                                     (incf num-reset))
+                                   (map-logger-children #'doit logger)))
+                          (map-logger-children #'doit logger)))
+                      ;; adjusts logger and descendants
+                      (when (set-log-level logger log-level)
+                        (incf num-updated))))))
+      (doit loggers)
+      (values num-updated num-reset))))
 
 
 (defun loggers-from-string (regexp)

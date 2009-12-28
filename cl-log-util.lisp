@@ -295,14 +295,9 @@ will be: package.foo.bar.lambda.baz
         (SB-C::HAIRY-ARG-PROCESSOR (include-block-debug-name? (second debug-name)))
         (SB-C::VARARGS-ENTRY (include-block-debug-name? (second debug-name))))))
 
-
-
-;; (defvar tmp)
-
 #+sbcl
 (defun sbcl-get-package-and-block-name  (env)
   "Should return a string"
-  ;; (setf tmp env)
   (flet ((ensure-string (atom)
 	   (cond ((symbolp atom) (symbol-name atom))
 		 ((stringp atom) atom)
@@ -323,7 +318,7 @@ will be: package.foo.bar.lambda.baz
       (values name))))
 
 #+sbcl 
-(setq *default-logger-name* #'sbcl-get-package-and-block-name)
+;; (setq *default-logger-name* #'sbcl-get-package-and-block-name)
 
 ;; appender interface
 (defgeneric do-append (appender logger level message))
@@ -416,20 +411,6 @@ context of the current application."
     (declare (type fixnum mask))
     (not (zerop (logand (the fixnum (ash 1 level)) mask)))))
 
-(defmacro log-debug (&rest args &environment env)
-  "Logs the message with the logger.
-
-Logger is found by examinining the first argument of the macro.
-
-If first argument is a string then logger name is automatically determined
-in a implementation dependend manner. On implementations that support it
-the logger name would be package.block-name. On implementations where
-it's not possible to determine the block name that is currently being compiled
-the logger name would be just package
-"
-  (log-with-level env +log-level-debug+ args))
-
-
 (defmacro deflog-macros (&rest levels)
   (let (list)
     (dolist (level levels)
@@ -484,6 +465,7 @@ the logger name would be just package.
            (logger-symbol (gensym "logger")))
       (if args 
           `(let ((,logger-symbol ,logger))
+             #+sbcl(declare (sb-ext:muffle-conditions sb-ext:compiler-note))
              (when
                  (locally (declare (optimize (safety 0) (debug 0) (speed 3)))
                    (is-enabled-for ,logger-symbol ,level))

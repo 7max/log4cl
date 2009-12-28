@@ -1,5 +1,5 @@
 
-(in-package :cl-log)
+(cl::in-package :cl-log)
 
 (defgeneric wrap-with-logger-name (definer forms logger-name))
 
@@ -32,19 +32,19 @@
      (cl-user::compiler-let ((*default-logger-name* ,logger-name))
        ,@(cddr forms))))
 
-#+sbcl-nope
+#+sbcl
 (defmethod wrap-with-logger-name ((definer function-definer) forms logger-name)
   `(cl-user::compiler-let ((*default-logger-name* ,logger-name))
     ,forms))
   
-;; its a subclass of function-definer, so have to overwrite it to do nothing
-#+sbcl
-(defmethod wrap-with-logger-name ((definer macro-definer) forms logger-name)
-  forms)
-;; same thing for the method
-#+sbcl
-(defmethod wrap-with-logger-name ((definer method-definer) forms logger-name)
-  forms)
+;; ;; its a subclass of function-definer, so have to overwrite it to do nothing
+;; #+sbcl
+;; (defmethod wrap-with-logger-name ((definer macro-definer) forms logger-name)
+;;   forms)
+;; ;; same thing for the method
+;; #+sbcl
+;; (defmethod wrap-with-logger-name ((definer method-definer) forms logger-name)
+;;   forms)
 
 (defmethod expand-definer :around ((definer definer))
   (let ((logger-name

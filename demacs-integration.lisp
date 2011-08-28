@@ -1,7 +1,49 @@
 
-(cl::in-package :cl-log)
+(cl:in-package :cl-log)
 
 (defgeneric wrap-with-logger-name (definer forms logger-name))
+
+(defgeneric create-logger-name (definer)
+  (:documentation "Generate automatic logger name for the definer.")
+  (:method ((definer definer))
+    (let ((symb (demacs::name-of definer)))
+      (format nil "~a.~a" 
+              (shortest-package-name *package*)
+              (symbol-name symb))))
+  ;; for methods, append the types of non-T specializers after the method name
+  (:method ((definer demacs:method-definer))
+    (multiple-value-bind
+          (specs quals)
+        (if (keywordp (demacs::lambda-list-of definer))
+            ;; handle the case of (def method foo :after
+            ;; (&lambda-list)) in above case demacs should have given
+            ;; an error but instead it has lambda-list as :after and
+            ;; the actual lambda list is CAR of the body.
+            ;;
+            ;; Since I defined a lot of my after methods with above technically
+            ;; invalid syntax, support it here
+            (values
+             (first (demacs::body-of definer))
+             (list (demacs::lambda-list-of definer)))
+            (values
+             (demacs::lambda-list-of definer)
+             (demacs::qualifiers-of definer)))
+      (let ((specializers
+             (loop for spec in specs
+                if (and (consp spec)
+                        (not (eq (second spec) t)))
+                collect (if (eq (second spec) 'eql) (third spec)
+                            (second spec)))))
+        (log-sexp specializers)
+        ;; the method qualifiers will be appended with : after method name
+        ;; ie logger for initialize-instance :around ((foo bar) &key) will be
+        ;; package.initialize-instance:around.bar
+        (format nil "~a~{:~a~}~{.~a~}"
+                (call-next-method)
+                (mapcar #'string quals)
+                (mapcar
+                 #'string
+                 (or specializers '(t))))))))
 
 ;; default method do not do anything
 (defmethod wrap-with-logger-name ((definer definer) forms logger-name)
@@ -34,8 +76,12 @@
 
 #+sbcl
 (defmethod wrap-with-logger-name ((definer function-definer) forms logger-name)
-  `(cl-user::compiler-let ((*default-logger-name* ,logger-name))
-    ,forms))
+  `(progn
+     (eval-when (:compile-toplevel :execute)
+       (setq *default-logger-name* ,logger-name)) 
+     ,forms
+     (eval-when (:compile-toplevel :execute)
+       (setq *default-logger-name* nil))))
   
 ;; ;; its a subclass of function-definer, so have to overwrite it to do nothing
 ;; #+sbcl
@@ -47,11 +93,7 @@
 ;;   forms)
 
 (defmethod expand-definer :around ((definer definer))
-  (let ((logger-name
-         (let ((symb (demacs::name-of definer)))
-           (format nil "~a.~a" 
-                   (shortest-package-name (symbol-package symb))
-                   (symbol-name symb)))))
+  (let ((logger-name (create-logger-name definer)))
     (let ((forms
            (call-next-method)))
       (wrap-with-logger-name definer forms logger-name))))

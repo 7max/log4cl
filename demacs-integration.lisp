@@ -34,7 +34,6 @@
                         (not (eq (second spec) t)))
                 collect (if (eq (second spec) 'eql) (third spec)
                             (second spec)))))
-        (log-sexp specializers)
         ;; the method qualifiers will be appended with : after method name
         ;; ie logger for initialize-instance :around ((foo bar) &key) will be
         ;; package.initialize-instance:around.bar

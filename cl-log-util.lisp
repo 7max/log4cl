@@ -120,29 +120,13 @@ to return string.")
 ;;     hierachy. So for example two web apps using the same library
 ;;     can have library.somelogger configured differently.
 ;;
-;;     By default theri is a single configuration. The current
+;;     By default there is a single configuration. The current
 ;;     configuration is referenced via a shared global variable
 ;;
-;;  5. Easy of usage and configuring of loggig system are given the 
+;;  5. Easy of usage and configuring of logging system are given the 
 ;;     highest priority. 
-;;
 ;;  
 ;;     Example usage:
-;;
-;;   (defvar logger (make-logger "this.is.a.logger)
-;;   (auto-logger-options (
-;;
-;;   (log-debug logger "test")
-;;   (log-debug-vars var1 var2 var3)
-;;   (log-debug "~d ~d ~d" var1 var2 var3)
-;;   (log-debug)
-;;
-;;   ;;; configuraiton from REPL
-;;
-;;   (log *.* debug)
-;;   (log *.* info)
-;;   (log *do-something* debug)
-;;   (log *some-logger-name
 
 
 
@@ -202,6 +186,9 @@ to return string.")
 state indexed by this number")
 
 (defun inherited-level (logger)
+  "Return logger's own log level (if set) or the one it
+had inherited from parent"
+  ;; TODO rename this function to effective-log-level
   (declare (type (or null logger) logger))
   (if (null logger) +log-level-off+
       (let* ((appdata (current-appdata logger))
@@ -210,7 +197,11 @@ state indexed by this number")
 	    (inherited-level (logger-parent logger))))))
 
 (defun have-appenders-for-level (logger level)
+  "Return non-NIL if logging with LEVEL will actually
+reach any appenders"
   (declare (type logger logger) (type fixnum level))
+  ;; Note: below code actually walk parent chain twice but since its
+  ;; cached anyway, don't optimize unless becomes a problem
   (labels ((have-appenders (logger)
 	     (when logger
 	       (or (logger-app-data-appenders (current-appdata logger))
@@ -220,7 +211,8 @@ state indexed by this number")
 	   (have-appenders logger)))))
 
 (defun map-logger-children (function logger)
-  "Apply the function to all of logger's children (but not their descedants)" 
+  "Apply the function to all of logger's children (but not their
+descedants)"
   (let ((child-hash (logger-children logger)))
     (when child-hash
       (maphash (lambda (name logger)
@@ -229,6 +221,8 @@ state indexed by this number")
                child-hash))))
 
 (defun adjust-logger (logger)
+  "Recalculate LOGGER mask by finding out which log levels have
+reachable appenders. "
   (labels ((doit (logger)
              (let ((appdata (current-appdata logger))
                    (mask 0))

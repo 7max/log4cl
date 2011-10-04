@@ -32,8 +32,11 @@
              (loop for spec in specs
                 if (and (consp spec)
                         (not (eq (second spec) t)))
-                collect (if (eq (second spec) 'eql) (third spec)
-                            (second spec)))))
+                collect (let ((val (if (and (consp (second spec))
+                                            (eq (first (second spec)) 'eql))
+                                       (eval (second (second spec)))
+                                       (second spec))))
+                          val))))
         ;; the method qualifiers will be appended with : after method name
         ;; ie logger for initialize-instance :around ((foo bar) &key) will be
         ;; package.initialize-instance:around.bar

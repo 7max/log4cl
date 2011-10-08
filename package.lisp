@@ -19,7 +19,7 @@
 	   ;; logging macros
 	   :log-fatal :log-error :log-warn :log-info :log-debug :log-trace
 	   :log-user1 :log-user2 :log-user3 :log-user4 :log-user5 :log-user6
-	   :log-user7 :log-user8 :log-user9 :log-sexp
+	   :log-user7 :log-user8 :log-user9 :log-sexp :log-trace-sexp
            :log-indented
 	   ;; logger access functions
 	   :make-log-level :make-logger :set-log-level :add-appender

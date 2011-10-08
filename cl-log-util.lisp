@@ -494,17 +494,27 @@ the logger name would be just package.
       (t
        (error "(maybe-auto-logger-name): Unable to figure out type of log statement")))))
 
-
 (defmacro log-sexp (&rest args) 
   (let ((format 
-         (with-output-to-string (*standard-output*)  
-           (let ((first t))
-             (dolist (arg args)
-               (unless first
-                 (write-string " "))
-               (setf first nil)
-               (format t "~s=~~s" arg))))))
+          (with-output-to-string (*standard-output*)  
+            (let ((first t))
+              (dolist (arg args)
+                (unless first
+                  (write-string " "))
+                (setf first nil)
+                (format t "~s=~~s" arg))))))
     `(log-debug ,format ,@args)))
+
+(defmacro log-trace-sexp (&rest args) 
+  (let ((format 
+          (with-output-to-string (*standard-output*)  
+            (let ((first t))
+              (dolist (arg args)
+                (unless first
+                  (write-string " "))
+                (setf first nil)
+                (format t "~s=~~s" arg))))))
+    `(log-trace ,format ,@args)))
 
 (defun substr (seq from &optional (to (length seq)))
   (declare (fixnum from to)

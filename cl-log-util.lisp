@@ -284,8 +284,8 @@ will be: package.foo.bar.lambda.baz
       (case (first debug-name)
         (labels (include-block-debug-name? (second debug-name)))
         (flet (include-block-debug-name? (second debug-name)))
-        (lambda 'lambda)
-        (SB-PCL::FAST-METHOD (second debug-name))
+        ;; (lambda 'lambda)
+        (SB-PCL::FAST-METHOD (rest debug-name))
         (SB-C::HAIRY-ARG-PROCESSOR (include-block-debug-name? (second debug-name)))
         (SB-C::VARARGS-ENTRY (include-block-debug-name? (second debug-name))))))
 
@@ -293,9 +293,11 @@ will be: package.foo.bar.lambda.baz
 (defun sbcl-get-package-and-block-name  (env)
   "Should return a string"
   (flet ((ensure-string (atom)
-	   (cond ((symbolp atom) (symbol-name atom))
-		 ((stringp atom) atom)
-		 (t (princ-to-string atom)))))
+	   (cond
+             ((keywordp atom) (prin1-to-string atom))
+             ((symbolp atom) (symbol-name atom))
+             ((stringp atom) atom)
+             (t (prin1-to-string atom)))))
     (let* ((names
             (loop
                as lambda = (sb-c::lexenv-lambda env)
@@ -312,7 +314,7 @@ will be: package.foo.bar.lambda.baz
       (values name))))
 
 #+sbcl 
-;; (setq *default-logger-name* #'sbcl-get-package-and-block-name)
+(setq *default-logger-name* #'sbcl-get-package-and-block-name)
 
 ;; appender interface
 (defgeneric do-append (appender logger level message))

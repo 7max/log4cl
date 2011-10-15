@@ -13,7 +13,7 @@
   ;; for methods, append the types of non-T specializers after the method name
   (:method ((definer demacs:method-definer))
     (multiple-value-bind
-          (specs quals)
+          (specializers qualifiers)
         (if (keywordp (demacs::lambda-list-of definer))
             ;; handle the case of (def method foo :after
             ;; (&lambda-list)) in above case demacs should have given
@@ -28,24 +28,30 @@
             (values
              (demacs::lambda-list-of definer)
              (demacs::qualifiers-of definer)))
-      (let ((specializers
-             (loop for spec in specs
-                if (and (consp spec)
-                        (not (eq (second spec) t)))
-                collect (let ((val (if (and (consp (second spec))
-                                            (eq (first (second spec)) 'eql))
-                                       (eval (second (second spec)))
-                                       (second spec))))
-                          val))))
+      (let (;; make a method description in the form of
+            ;; (method-name qualifiers (types of args)
+            ;; for example (a :after (STRING T (EQL 'BLAH)))
+            (method-description
+              `(,(demacs::name-of definer)
+                 ,@qualifiers
+                 ,(loop for arg in specializers
+                        if (atom arg) collect t else
+                        collect (second arg)))))
         ;; the method qualifiers will be appended with : after method name
         ;; ie logger for initialize-instance :around ((foo bar) &key) will be
         ;; package.initialize-instance:around.bar
-        (format nil "~a~{:~a~}~{.~a~}"
-                (call-next-method)
-                (mapcar #'string quals)
-                (mapcar
-                 #'string
-                 (or specializers '(t))))))))
+        (flet ((ensure-string (atom)
+                 (cond
+                   ((keywordp atom) (prin1-to-string atom))
+                   ((symbolp atom) (symbol-name atom))
+                   ((stringp atom) atom)
+                   (t (prin1-to-string atom)))))
+          (reduce
+           (lambda (name1 name2)
+             (concatenate 'string (ensure-string name1)
+                          "." (ensure-string name2)))
+           (append (list (shortest-package-name *package*))
+                   (list method-description))))))))
 
 ;; default method do not do anything
 (defmethod wrap-with-logger-name ((definer definer) forms logger-name)
@@ -66,17 +72,7 @@
 ;; of (progn) but wrapping them into let/compiler-let breaks things.
 ;;
 ;; Therefore for SBCL define just these definers that we know do work
-#+sbcl
-(defmethod wrap-with-logger-name ((definer special-variable-definer) forms logger-name)
-  (assert (and (eq (first forms) 'progn)
-               (consp (second forms))
-               (eq (caadr forms) 'defvar)))
-  `(progn
-     ,(cadr forms)
-     (cl-user::compiler-let ((*default-logger-name* ,logger-name))
-       ,@(cddr forms))))
-
-#+sbcl
+#+nil
 (defmethod wrap-with-logger-name ((definer function-definer) forms logger-name)
   `(progn
      (eval-when (:compile-toplevel :execute)

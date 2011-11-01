@@ -9,8 +9,9 @@
     (let ((symb (demacs::name-of definer)))
       (format nil "~a.~a" 
               (shortest-package-name *package*)
-              (symbol-name symb))))
+              symb)))
   ;; for methods, append the types of non-T specializers after the method name
+  #-sbcl
   (:method ((definer demacs:method-definer))
     (multiple-value-bind
           (specializers qualifiers)
@@ -90,6 +91,7 @@
 ;; (defmethod wrap-with-logger-name ((definer method-definer) forms logger-name)
 ;;   forms)
 
+#-sbcl
 (defmethod expand-definer :around ((definer definer))
   (let ((logger-name (create-logger-name definer)))
     (let ((forms

@@ -68,7 +68,6 @@ Return value of this function is ignored"))
   (terpri stream)
   (values))
 
-
 (defmethod layout-to-stream ((layout simple-layout)
 			     (stream stream)
 			     (level integer)

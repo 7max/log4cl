@@ -7,7 +7,7 @@
 
 (defsystem :cl-log
   :serial t
-  :version 1.0
+  :version "1.0"
   :depends-on (:bordeaux-threads 
                :cl-ppcre
                :demacs)
@@ -23,7 +23,7 @@
 
 (defsystem :cl-log.test
   :serial t
-  :version 1.0
+  :version "1.0"
   :depends-on (:cl-log :stefil)
   :components ((:file "test/logger")
                (:file "test/speed")))
@@ -31,7 +31,5 @@
 (defmethod perform ((op test-op) (system (eql (find-system :cl-log))))
   (operate 'load-op :cl-log.test)
   (in-package :cl-log.test)
-  (declaim (optimize (debug 3)))
-  (warn "(declaim (optimize (debug 3))) was issued to help later C-c C-c'ing")
   (eval (read-from-string "(stefil:funcall-test-with-feedback-message 'cl-log.test:test)"))
   (values))

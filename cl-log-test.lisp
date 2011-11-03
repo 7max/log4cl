@@ -43,7 +43,7 @@ one.one one.two one.three two.one two.two two.three)
     (nth-value 0 (parse-integer (remove #\, num-bytes)))))
 
 (defun test-create-loggers (logger-names)
-  (cl-log::clear-all-loggers)
+  (cl-log::reset-logging-configuration)
   #+sbcl(sb-ext:gc :full t)
   #+sbcl(sb-ext:gc :full t)
   #+sbcl(sb-ext:gc :full t)

@@ -1,7 +1,11 @@
 ;;; -*- Mode: Lisp; Syntax: ANSI-Common-Lisp; Base: 10 -*-
 
-(in-package :cl-user)
-(asdf:defsystem :cl-log
+(defpackage :cl-log.system
+  (:use :cl :asdf))
+
+(in-package :cl-log.system)
+
+(defsystem :cl-log
   :serial t
   :version 1.0
   :depends-on (:bordeaux-threads 
@@ -14,5 +18,20 @@
                ;; package is present
                (:file "demacs-integration")
 	       (:file "appender")
-	       (:file "console-appender")))
+	       (:file "console-appender")
+               (:module "test")))
 
+(defsystem :cl-log.test
+  :serial t
+  :version 1.0
+  :depends-on (:cl-log :stefil)
+  :components ((:file "test/logger")
+               (:file "test/speed")))
+
+(defmethod perform ((op test-op) (system (eql (find-system :cl-log))))
+  (operate 'load-op :cl-log.test)
+  (in-package :cl-log.test)
+  (declaim (optimize (debug 3)))
+  (warn "(declaim (optimize (debug 3))) was issued to help later C-c C-c'ing")
+  (eval (read-from-string "(stefil:funcall-test-with-feedback-message 'cl-log.test:test)"))
+  (values))

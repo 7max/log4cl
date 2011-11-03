@@ -155,6 +155,12 @@ to return string.")
   ;; and logger creation functions
   (mask 0 :type fixnum))
 
+(defun make-app-data-array ()
+  (let ((tmp (make-array *num-apps* :element-type 'logger-app-data
+                         :initial-element (make-logger-app-data))))
+    (dotimes (i *num-apps* tmp)
+      (setf (svref tmp i) (make-logger-app-data)))))
+
 (defstruct 
     (logger 
       (:constructor create-logger)
@@ -173,9 +179,7 @@ to return string.")
   ;; child loggers
   (children  nil :type (or null hash-table))
   ;; per-app configuration
-  (app-data
-   (make-array *num-apps* :element-type 'logger-app-data
-	       :initial-element (make-logger-app-data))
+  (app-data (make-app-data-array)
    :type (simple-array logger-app-data *)))
 
 (defvar *num-apps* 1
@@ -185,16 +189,21 @@ to return string.")
   "Current appplication number. All logging function use per-app
 state indexed by this number")
 
-(defun inherited-level (logger)
+(defvar *apps* (let ((table (make-hash-table)))
+                 (setf (gethash :default table) 0)
+                 table))
+
+(defvar *hierarchy-lock* (make-recursive-lock "hierarchy-lock"))
+
+(defun effective-log-level (logger)
   "Return logger's own log level (if set) or the one it
 had inherited from parent"
-  ;; TODO rename this function to effective-log-level
   (declare (type (or null logger) logger))
   (if (null logger) +log-level-off+
       (let* ((appdata (current-appdata logger))
 	     (level (logger-app-data-level appdata)))
 	(or level
-	    (inherited-level (logger-parent logger))))))
+	    (effective-log-level (logger-parent logger))))))
 
 (defun have-appenders-for-level (logger level)
   "Return non-NIL if logging with LEVEL will actually
@@ -206,7 +215,7 @@ reach any appenders"
 	     (when logger
 	       (or (logger-app-data-appenders (current-appdata logger))
 		   (have-appenders (logger-parent logger))))))
-    (let* ((logger-level (inherited-level logger)))
+    (let* ((logger-level (effective-log-level logger)))
       (and (>= logger-level level)
 	   (have-appenders logger)))))
 
@@ -393,7 +402,7 @@ from a compiled file"
   (declare (ignore env))
   `(get-logger ,(logger-name log)))
 
-(declaim (inline is-enabled-for current-appdata))
+(declaim (inline is-enabled-for current-appdata hierarchy-index))
 
 (defun current-appdata (logger)
   (svref (logger-app-data logger) *log-app-number*))
@@ -455,46 +464,54 @@ the logger name would be just package.
   "Returns a FORM that is used as an expansion of log-nnnnn macros"
   (declare (type fixnum level)
 	   (type list args))
-  (multiple-value-bind (logger-name args)
+  (multiple-value-bind (logger-form args)
       (maybe-auto-logger-name args env)
-    (let* ((logger (get-logger logger-name))
-           (logger-symbol (gensym "logger")))
+    (let* ((logger-symbol (gensym "logger"))
+           (log-stmt (gensym "log-stmt")))
       (if args 
-          `(let ((,logger-symbol ,logger))
+          `(let ((,logger-symbol ,logger-form))
              #+sbcl(declare (sb-ext:muffle-conditions sb-ext:compiler-note))
              (when
                  (locally (declare (optimize (safety 0) (debug 0) (speed 3)))
                    (is-enabled-for ,logger-symbol ,level))
-               (log-with-logger ,logger-symbol ,level
-                                (lambda (stream)
-                                  (format stream ,@args))))
+               (flet ((,log-stmt (stream)
+                        (declare (type stream stream))
+                        (format stream ,@args)))
+                 (declare (dynamic-extent #',log-stmt))
+                 (locally (declare (optimize (safety 0) (debug 0) (speed 3)))
+                   (log-with-logger ,logger-symbol ,level #',log-stmt))))
              (values))
           ;; null args means its being used for checking if level is enabled
           ;; in the (when (log-debug) ... complicated debug ... ) way
-          `(let ((,logger-symbol ,logger))
+          `(let ((,logger-symbol ,logger-form))
              (locally (declare (optimize (safety 0) (debug 0) (speed 3)))
                (is-enabled-for ,logger-symbol ,level)))))))
 
 (defun maybe-auto-logger-name (args env)
-  "Return logger name and rest of the arguments based on arguments for (log-XXX) funcitons "
-  (declare (type list args))
+  "Return logger name and rest of the arguments based on arguments
+for (log-XXX) funcitons "
+  (or (listp args) (setq args (list args)))
   (let ((arg (first args)))
     (cond
       ;; no parameters mean automatically determine logger name and
       ;; return true if logging is enabled for (when (log-debug) ....)
       ((null args)
-       (values (get-package-and-block-name env) nil))
+       (values (get-logger (get-package-and-block-name env)) nil))
       ;; (log-debug "~s" foo) automatically determine logger name from
       ;; context
       ((stringp arg)
-       (values (get-package-and-block-name env) args))
+       (values (get-logger (get-package-and-block-name env)) args))
       ;; (log-debug ::logger whatever) or (log-debug :sublogger whatever)
       ;; take the logger name from the keyword (:: means from root)
       ((keywordp arg)
-       (values (logger-name-from-symbol arg env)
+       (values (get-logger (logger-name-from-symbol arg env))
                (rest args)))
+      ((constantp arg)
+       (values
+        (eval arg)
+        (rest args)))
       (t
-       (error "(maybe-auto-logger-name): Unable to figure out type of log statement")))))
+       (values arg (rest args))))))
 
 (defmacro log-sexp (&rest args) 
   (let ((format 
@@ -549,10 +566,42 @@ the logger name would be just package.
     (log-to-logger-appenders logger logger level log-func)
     (values)))
 
+(defun logger-log-level (logger)
+  "Return the logger own log level or NIL if unset. Please note that
+by default loggers inherit their parent logger log level, see
+EFFECTIVE-LOG-LEVEL"
+  (declare (type logger logger))
+  (logger-app-data-level
+   (current-appdata logger)))
+
+(defun logger-appenders (logger)
+  "Return the list of logger's own appenders. Please note that by
+default loggers inherit their parent logger appenders, see
+EFFECTIVE-APPENDERS"
+  (declare (type logger logger))
+  (logger-app-data-appenders (current-appdata logger)))
+
+(defun effective-appenders (logger)
+  "Return the list of all appenders that logger output could possible go to,
+including inherited one"
+  (loop for tmp = logger then (logger-parent tmp)
+        while tmp
+        append (logger-app-data-appenders (current-appdata tmp))))
+
+(defun (setf logger-log-level) (level logger)
+  "Set logger log level. Returns logger own log level"
+  (declare (type logger logger))
+  (nth-value 1 (set-log-level logger level)))
 
 (defun set-log-level (logger level &optional (adjust-p t))
-  "Set the log level of a logger. Returns T if level was set or NIL if
-level was already set to stpecified value."
+  "Set the log level of a logger. Log level is passed to
+MAKE-LOG-LEVEL to determine canonical log level. ADJUST-P controls if
+logger effective log level needs to be recalculated, the caller should
+NIL doing bulk operations that change the level of many loggers, as to
+avoid overhead.
+
+Returns if log level had changed as the 1st value and new level as the
+second value."
   (declare (type logger logger))
   (let* ((level (make-log-level level))
          (app-data (current-appdata logger))
@@ -565,7 +614,7 @@ level was already set to stpecified value."
       (setf (logger-app-data-level app-data) new-level)
       (when adjust-p
         (adjust-logger logger))
-      t)))
+      (values t new-level))))
 
 (defun add-appender (logger appender)
   (declare (type logger logger) (type appender appender))
@@ -575,19 +624,58 @@ level was already set to stpecified value."
       (adjust-logger logger)))
   (values))
 
-(defun add-app (app-name)
-  (declare (type string app-name))
-  (let ((app-num (gethash app-name *apps*)))
-    (unless app-num
-      (setf app-num *num-apps*)
-      (setf (gethash app-name *apps*) app-num)
-      (incf *num-apps*)
-      (adjust-all-loggers-appdata))
-    app-num))
+(defun %hierarchy-index (name)
+  (when (stringp name)
+    (setq name (intern name)))
+  (let ((index (gethash name *apps*)))
+    (unless index
+      (with-recursive-lock-held (*hierarchy-lock*)
+        (adjust-all-loggers-appdata (1+ *num-apps*))
+        (setf index *num-apps*)
+        (setf (gethash name *apps*) index)
+        (incf *num-apps*)))
+    index))
 
+(defun hierarchy-index (hierarchy)
+  "Return the hierarchy index for the specified hierarchy. Hierarchy
+must be already a number or a unique identifier suitable for comparing
+using EQL. If hierarchy is a string, it will be interned in the current
+package"
+  (if (numberp hierarchy) hierarchy
+      (%hierarchy-index hierarchy)))
 
-(defun adjust-all-loggers-appdata ()
+(defun adjust-all-loggers-appdata (new-len)
+  (labels ((doit (logger)
+             (declare (type logger logger))
+             (let ((tmp (adjust-array (logger-app-data logger)
+                                      new-len
+                                      :element-type 'logger-app-data)))
+               (setf (svref tmp (1- new-len)) (make-logger-app-data)
+                     (logger-app-data logger) tmp)
+               (map-logger-children #'doit logger))))
+    (doit *root-logger*))
   (values))
+
+(defmacro with-log-hierarchy ((hierarchy) &body body)
+  "Binds the *CURRENT-HIERARCHY* to the specified hierarchy for the
+dynamic scope of BODY. HIERARCHY can be hierarchy index or name"
+  `(let ((*log-app-number* (hierarchy-index ,hierarchy)))
+     ,@body))
+
+(defmacro with-package-log-hierarchy (&body body)
+  "Binds the *CURRENT-HIERARCHY* to the unique hierarchy for the current
+package for the dynamic scope of BODY."
+  `(with-log-hierarchy (*package*) ,@body))
+
+(defmacro in-log-hierarchy (&optional hierarchy)
+  "Sets the *CURRENT-HIERARCHY* to specified hierarchy, or the default
+  one when NIL"
+  `(setq *log-app-number* (hierarchy-index (or ,hierarchy :default))))
+
+(defmacro in-package-log-hierarchy ()
+  "Sets the *CURRENT-HIERARCHY* to specified hierarchy, or the default
+  one when NIL"
+  `(in-log-hierarchy *package*))
 
 (defun create-root-logger ()
   (let ((root (create-logger :name "")))
@@ -598,18 +686,26 @@ level was already set to stpecified value."
   (create-root-logger)
   "The root logger")
 
-(defun clear-all-loggers ()
+(defun clear-logging-configuration ()
   "Delete all loggers"
-  (setq *root-logger* (create-root-logger))
+  (labels ((reset (logger)
+             (setf (svref (logger-app-data logger) *log-app-number*)
+                   (make-logger-app-data))
+             (map-logger-children #'reset logger)))
+    (reset *root-logger*))
   (values))
 
+(defun reset-logging-configuration ()
+  "Clear the logging configuration in the current hierarchy, and
+configure root logger with INFO log level and a simple console
+appender"
+  (clear-logging-configuration)
+  (add-appender *root-logger* (make-console-appender))
+  (setf (logger-log-level *root-logger*) +log-level-info+))
+
+
 (defmacro make-logger (&optional arg &environment env)
-  (cond
-    ((null arg)
-     (get-logger (maybe-auto-logger-name (list "") env)))
-    ((keywordp arg)
-     (get-logger (maybe-auto-logger-name (list arg) env)))
-    (t (get-logger arg))))
+  (maybe-auto-logger-name arg env))
 
 
 (defun log-config (&rest args)

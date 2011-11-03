@@ -5,7 +5,7 @@ public class test
     public static void main(String args[])
     {
 	System.out.println("Hello there");
-	PropertyConfigurator.configure("/home/max/cl-log/log4j.properties");
+	PropertyConfigurator.configure("log4j.properties");
 	int limit = 1;
 
         if (args.length > 0)

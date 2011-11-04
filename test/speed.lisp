@@ -1,4 +1,4 @@
-(in-package :cl-log.test)
+(in-package :log4cl.test)
 
 (in-root-suite)
 (defsuite* speed)
@@ -32,7 +32,7 @@
 
 (deftest speed-test-to-file (&key (filespec "/dev/null")
                                   (external-format :default)
-                                  (layout (cl-log::make-simple-layout))
+                                  (layout (log4cl::make-simple-layout))
                                   (iterations 1000000)
                                   (root-logger-level :debug))
   (with-package-log-hierarchy
@@ -40,9 +40,9 @@
                                      :if-exists :supersede
                                      :external-format external-format)
       (clear-logging-configuration)
-      (add-appender *root-logger* (cl-log:make-stream-appender
+      (add-appender *root-logger* (log4cl:make-stream-appender
                                    :layout layout
                                    :stream stream))
       (setf (logger-log-level *root-logger*) root-logger-level)
       (dotimes (cnt iterations)
-        (log-debug :cl-log.test.category "iter=~d" cnt)))))
+        (log-debug :log4cl.test.category "iter=~d" cnt)))))

@@ -1,9 +1,9 @@
-(cl:defpackage :cl-log.test
-  (:use :cl :cl-log :stefil)
+(cl:defpackage :log4cl.test
+  (:use :cl :log4cl :stefil)
   (:export :test :speed)
   (:shadow :speed))
 
-(in-package :cl-log.test)
+(in-package :log4cl.test)
 
 (in-root-suite)
 (defsuite* test)
@@ -11,15 +11,15 @@
 (deftest basics (&optional (logger *root-logger*))
   (with-package-log-hierarchy
     (is (not (null logger)))
-    (is (not (null (cl-log::logger-app-data logger))))
+    (is (not (null (log4cl::logger-app-data logger))))
     (is (not (null (logger-name logger))))
-    (is (eql (length (cl-log::logger-app-data logger)) cl-log::*num-apps*))))
+    (is (eql (length (log4cl::logger-app-data logger)) log4cl::*num-apps*))))
 
 (deftest make-logger-0 ()
   (with-package-log-hierarchy
     (let ((logger (make-logger :one.two.three.four)))
       (basics logger)
-      (is (equal (logger-name logger) "cl-log.test.one.two.three.four")))))
+      (is (equal (logger-name logger) "log4cl.test.one.two.three.four")))))
 
 (deftest reset-configuration-0 ()
   ;; verify clear/reset only does so for current configuration
@@ -119,7 +119,7 @@
     (clear-logging-configuration)
     (add-appender *root-logger* (make-stream-appender
                                  :stream *debug-io*
-                                 :layout (cl-log::make-simple-layout)))
+                                 :layout (log4cl::make-simple-layout)))
     (log-config :info :reset)
     (dotimes (i cnt)
       (log-debug "iter=~d" i))))

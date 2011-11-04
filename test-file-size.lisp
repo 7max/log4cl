@@ -1,8 +1,8 @@
 ;; This test is used to see which approach leads to the smallest
 ;; amount of waste as far as size of the code is concerned
 
-(cl:defpackage :cl-log-test (:use :cl :cl-log))
-(cl:in-package :cl-log-test)
+(cl:defpackage :log4cl-test (:use :cl :log4cl))
+(cl:in-package :log4cl-test)
 
 (defun generate-test-file (path num-functions num-parameters with-logging)
   "Generate a /tmp/temp123.lisp file which contains `num-functions' functions
@@ -15,7 +15,7 @@ together with log-debug function"
                                        :direction :output
                                        :if-exists :supersede
                                        :if-does-not-exist :create)
-      (prin1 `(in-package :cl-log-test))
+      (prin1 `(in-package :log4cl-test))
       (terpri)
       (dotimes (f-num num-functions)
         (prin1 `(defun ,(intern (format nil "FUNCTION-~d" f-num))

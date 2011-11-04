@@ -1,9 +1,9 @@
 ;;
-;; Package declaration for cl-log
+;; Package declaration for log4cl
 ;;
 
 
-(cl:defpackage :cl-log
+(cl:defpackage :log4cl
   (:use :cl
    :bordeaux-threads
    :cl-ppcre

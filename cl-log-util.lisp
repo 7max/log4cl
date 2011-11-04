@@ -1,5 +1,5 @@
 
-(in-package :cl-log)
+(in-package :log4cl)
 
 (defconstant +log-level-unset+  16)
 (defconstant +log-level-user9+  15)
@@ -72,7 +72,7 @@
 (defvar *default-logger-name* nil 
   "Logging macros will use this value for the default logger name
 if logger is not specified. Very useful in combination with
-cl-log-demacs-integration and cl-log-cl-def-integration, allowing
+log4cl-demacs-integration and log4cl-cl-def-integration, allowing
 loggers to be automatically named after the surrounding block
 that they appear in.
 
@@ -183,7 +183,7 @@ to return string.")
    :type (simple-array logger-app-data *)))
 
 (defvar *num-apps* 1
-  "Number of applications registered with the cl-log library")
+  "Number of applications registered with the log4cl library")
 
 (defvar *log-app-number* 0
   "Current appplication number. All logging function use per-app

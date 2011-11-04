@@ -1,5 +1,5 @@
 
-(in-package cl-log)
+(in-package log4cl)
 
 (defstruct (console-appender
 	     (:include appender

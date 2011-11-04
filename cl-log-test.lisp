@@ -14,7 +14,7 @@
 ;;;
 
 
-(in-package :cl-log)
+(in-package :log4cl)
   
 (defun create-loggers-list (levels)
   "Create a list of logger names. Levels must be a list where
@@ -43,7 +43,7 @@ one.one one.two one.three two.one two.two two.three)
     (nth-value 0 (parse-integer (remove #\, num-bytes)))))
 
 (defun test-create-loggers (logger-names)
-  (cl-log::reset-logging-configuration)
+  (log4cl::reset-logging-configuration)
   #+sbcl(sb-ext:gc :full t)
   #+sbcl(sb-ext:gc :full t)
   #+sbcl(sb-ext:gc :full t)
@@ -51,7 +51,7 @@ one.one one.two one.three two.one two.two two.three)
   (let* ((room-before (dynamic-usage))
          (num-loggers (length logger-names)))
     (time (dolist (logger-name logger-names)
-      (cl-log::get-logger logger-name)))
+      (log4cl::get-logger logger-name)))
     #+sbcl(sb-ext:gc :full t)
     #+sbcl(sb-ext:gc :full t)
     #+sbcl(sb-ext:gc :full t)

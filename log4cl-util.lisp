@@ -138,7 +138,7 @@ to return string.")
 	 (type fixnum  *num-apps* *log-app-number*)
 	 (type hash-table *apps*))
 
-(defstruct logger-app-data
+(defstruct logger-state
   "Structure containng logger internal state"
   ;; list of appenders attached to this logger
   (appenders nil :type list)
@@ -155,11 +155,11 @@ to return string.")
   ;; and logger creation functions
   (mask 0 :type fixnum))
 
-(defun make-app-data-array ()
-  (let ((tmp (make-array *num-apps* :element-type 'logger-app-data
-                         :initial-element (make-logger-app-data))))
+(defun make-state-array ()
+  (let ((tmp (make-array *num-apps* :element-type 'logger-state
+                         :initial-element (make-logger-state))))
     (dotimes (i *num-apps* tmp)
-      (setf (svref tmp i) (make-logger-app-data)))))
+      (setf (svref tmp i) (make-logger-state)))))
 
 (defstruct 
     (logger 
@@ -179,8 +179,8 @@ to return string.")
   ;; child loggers
   (children  nil :type (or null hash-table))
   ;; per-app configuration
-  (app-data (make-app-data-array)
-   :type (simple-array logger-app-data *)))
+  (state (make-state-array)
+   :type (simple-array logger-state *)))
 
 (defvar *num-apps* 1
   "Number of applications registered with the log4cl library")
@@ -200,8 +200,8 @@ state indexed by this number")
 had inherited from parent"
   (declare (type (or null logger) logger))
   (if (null logger) +log-level-off+
-      (let* ((appdata (current-appdata logger))
-	     (level (logger-app-data-level appdata)))
+      (let* ((state (current-state logger))
+	     (level (logger-state-level state)))
 	(or level
 	    (effective-log-level (logger-parent logger))))))
 
@@ -213,7 +213,7 @@ reach any appenders"
   ;; cached anyway, don't optimize unless becomes a problem
   (labels ((have-appenders (logger)
 	     (when logger
-	       (or (logger-app-data-appenders (current-appdata logger))
+	       (or (logger-state-appenders (current-state logger))
 		   (have-appenders (logger-parent logger))))))
     (let* ((logger-level (effective-log-level logger)))
       (and (>= logger-level level)
@@ -233,14 +233,14 @@ descedants)"
   "Recalculate LOGGER mask by finding out which log levels have
 reachable appenders. "
   (labels ((doit (logger)
-             (let ((appdata (current-appdata logger))
+             (let ((state (current-state logger))
                    (mask 0))
                (declare (type fixnum mask))
                (loop
                   for level from +min-log-level+ upto +max-log-level+
                   if (have-appenders-for-level logger level)
                   do (setf mask (logior mask (ash 1 level))))
-               (setf (logger-app-data-mask appdata) mask)
+               (setf (logger-state-mask state) mask)
                (map-logger-children #'doit logger))))
     (doit logger))
   (values))
@@ -402,17 +402,17 @@ from a compiled file"
   (declare (ignore env))
   `(get-logger ,(logger-name log)))
 
-(declaim (inline is-enabled-for current-appdata hierarchy-index))
+(declaim (inline is-enabled-for current-state hierarchy-index))
 
-(defun current-appdata (logger)
-  (svref (logger-app-data logger) *log-app-number*))
+(defun current-state (logger)
+  (svref (logger-state logger) *log-app-number*))
 
 (defun is-enabled-for (logger level)
   "Returns t if log level is enabled for the logger in the
 context of the current application."
   (declare (type logger logger) (type fixnum level))
-  (let* ((app-data (current-appdata logger))
-	 (mask (logger-app-data-mask app-data)))
+  (let* ((state (current-state logger))
+	 (mask (logger-state-mask state)))
     (declare (type fixnum mask))
     (not (zerop (logand (the fixnum (ash 1 level)) mask)))))
 
@@ -553,9 +553,9 @@ for (log-XXX) funcitons "
 (defun log-with-logger (logger level log-func)
   "Submit message to logger appenders, and its parent logger"
   (labels ((log-to-logger-appenders (logger orig-logger level log-func)
-	     (let* ((app-data (current-appdata logger))
+	     (let* ((state (current-state logger))
 		    (appenders
-		     (logger-app-data-appenders app-data)))
+		     (logger-state-appenders state)))
 	       (dolist (appender appenders)
 		 (appender-do-append appender level (logger-name orig-logger)
 				     log-func)))
@@ -571,22 +571,22 @@ for (log-XXX) funcitons "
 by default loggers inherit their parent logger log level, see
 EFFECTIVE-LOG-LEVEL"
   (declare (type logger logger))
-  (logger-app-data-level
-   (current-appdata logger)))
+  (logger-state-level
+   (current-state logger)))
 
 (defun logger-appenders (logger)
   "Return the list of logger's own appenders. Please note that by
 default loggers inherit their parent logger appenders, see
 EFFECTIVE-APPENDERS"
   (declare (type logger logger))
-  (logger-app-data-appenders (current-appdata logger)))
+  (logger-state-appenders (current-state logger)))
 
 (defun effective-appenders (logger)
   "Return the list of all appenders that logger output could possible go to,
 including inherited one"
   (loop for tmp = logger then (logger-parent tmp)
         while tmp
-        append (logger-app-data-appenders (current-appdata tmp))))
+        append (logger-state-appenders (current-state tmp))))
 
 (defun (setf logger-log-level) (level logger)
   "Set logger log level. Returns logger own log level"
@@ -604,23 +604,23 @@ Returns if log level had changed as the 1st value and new level as the
 second value."
   (declare (type logger logger))
   (let* ((level (make-log-level level))
-         (app-data (current-appdata logger))
-         (old-level (logger-app-data-level app-data))
+         (state (current-state logger))
+         (old-level (logger-state-level state))
          (new-level (when (/= level +log-level-unset+) level)))
     (declare (type fixnum level)
-             (type logger-app-data app-data)
+             (type logger-state state)
              (type (or null fixnum) old-level new-level))
     (unless (eql old-level new-level)
-      (setf (logger-app-data-level app-data) new-level)
+      (setf (logger-state-level state) new-level)
       (when adjust-p
         (adjust-logger logger))
       (values t new-level))))
 
 (defun add-appender (logger appender)
   (declare (type logger logger) (type appender appender))
-  (let* ((app-data (current-appdata logger)))
-    (unless (member appender (logger-app-data-appenders app-data))
-      (push appender (logger-app-data-appenders app-data))
+  (let* ((state (current-state logger)))
+    (unless (member appender (logger-state-appenders state))
+      (push appender (logger-state-appenders state))
       (adjust-logger logger)))
   (values))
 
@@ -630,7 +630,7 @@ second value."
   (let ((index (gethash name *apps*)))
     (unless index
       (with-recursive-lock-held (*hierarchy-lock*)
-        (adjust-all-loggers-appdata (1+ *num-apps*))
+        (adjust-all-loggers-state (1+ *num-apps*))
         (setf index *num-apps*)
         (setf (gethash name *apps*) index)
         (incf *num-apps*)))
@@ -644,14 +644,14 @@ package"
   (if (numberp hierarchy) hierarchy
       (%hierarchy-index hierarchy)))
 
-(defun adjust-all-loggers-appdata (new-len)
+(defun adjust-all-loggers-state (new-len)
   (labels ((doit (logger)
              (declare (type logger logger))
-             (let ((tmp (adjust-array (logger-app-data logger)
+             (let ((tmp (adjust-array (logger-state logger)
                                       new-len
-                                      :element-type 'logger-app-data)))
-               (setf (svref tmp (1- new-len)) (make-logger-app-data)
-                     (logger-app-data logger) tmp)
+                                      :element-type 'logger-state)))
+               (setf (svref tmp (1- new-len)) (make-logger-state)
+                     (logger-state logger) tmp)
                (map-logger-children #'doit logger))))
     (doit *root-logger*))
   (values))
@@ -689,8 +689,8 @@ package for the dynamic scope of BODY."
 (defun clear-logging-configuration ()
   "Delete all loggers"
   (labels ((reset (logger)
-             (setf (svref (logger-app-data logger) *log-app-number*)
-                   (make-logger-app-data))
+             (setf (svref (logger-state logger) *log-app-number*)
+                   (make-logger-state))
              (map-logger-children #'reset logger)))
     (reset *root-logger*))
   (values))

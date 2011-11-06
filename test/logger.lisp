@@ -11,9 +11,9 @@
 (deftest basics (&optional (logger *root-logger*))
   (with-package-log-hierarchy
     (is (not (null logger)))
-    (is (not (null (log4cl::logger-app-data logger))))
+    (is (not (null (log4cl::logger-state logger))))
     (is (not (null (logger-name logger))))
-    (is (eql (length (log4cl::logger-app-data logger)) log4cl::*num-apps*))))
+    (is (eql (length (log4cl::logger-state logger)) log4cl::*num-apps*))))
 
 (deftest make-logger-0 ()
   (with-package-log-hierarchy

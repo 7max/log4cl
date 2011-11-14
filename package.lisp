@@ -46,7 +46,7 @@
    :reset-logging-configuration
    :clear-logging-configuration
    ;; special variables
-   :*log-app-number* :*root-logger* :*default-logger-name* :*log-indent*
+   :*hierarchy* :*root-logger* :*default-logger-name* :*log-indent*
    ;; hierarchy
    :hierarchy-index
    :with-log-hierarchy

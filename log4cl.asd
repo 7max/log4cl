@@ -12,11 +12,14 @@
                :cl-ppcre
                :demacs)
   :components ((:file "package")
-	       (:file "log4cl-util")
+               (:file "protocol")
+               (:file "logger")
+               (:file "logging-macros")
+               (:file "configurator")
                (:file "log4cl-test")
-               ;; TODO do this dynamically only if demacs
-               ;; package is present
-               (:file "demacs-integration")
+               ;; ;; TODO do this dynamically only if demacs
+               ;; ;; package is present
+               ;; (:file "demacs-integration")
 	       (:file "appender")
 	       (:file "console-appender")))
 

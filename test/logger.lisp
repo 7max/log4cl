@@ -13,7 +13,7 @@
     (is (not (null logger)))
     (is (not (null (log4cl::logger-state logger))))
     (is (not (null (logger-name logger))))
-    (is (eql (length (log4cl::logger-state logger)) log4cl::*num-apps*))))
+    (is (eql (length (log4cl::logger-state logger)) log4cl::*hierarchy-max*))))
 
 (deftest make-logger-0 ()
   (with-package-log-hierarchy

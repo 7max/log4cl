@@ -21,7 +21,8 @@
                ;; ;; package is present
                ;; (:file "demacs-integration")
 	       (:file "layout")
-	       (:file "appender")))
+	       (:file "appender")
+               (:file "naming")))
 
 (defsystem :log4cl.test
   :serial t

@@ -1,46 +1,25 @@
 (in-package #:log4cl)
 
-(defstruct appender
-  (lock (make-lock))
-  (layout (make-default-layout) :type layout))
+(defclass appender ()
+  ((lock :initform (make-lock))
+   (layout :initform (make-instance 'default-layout)
+           :initarg :layout))
+  (:documentation "Appender is the destination of log messages"))
 
-(defun append-to-stream (stream appender level category log-func)
-  "Helper function for appenders. Does all the work for using the
-appender's layout to output to the specified stream"
-  (declare (type stream stream)
-	   (type appender appender)
-	   (type fixnum level)
-	   (type string category)
-	   (type function  log-func))
-  (layout-to-stream (appender-layout appender)
-		    stream level category log-func)
-  (values))
+(defclass stream-appender (appender)
+  ((stream :initarg :stream))
+  (:documentation "Appender that writes message to the specified stream"))
 
-(defstruct (console-appender
-	     (:include appender
-		       (layout (make-default-layout)))))
-
-(defmethod appender-do-append ((this console-appender)
-			       (level integer)
-			       (category string)
-			       (log-func function))
-  (with-lock-held ((appender-lock this))
-    (append-to-stream *debug-io* this level category log-func)
-    #+clisp (finish-output *debug-io*))
-  (values))
-
-
-(defstruct (stream-appender
-            (:include appender
-             (layout (make-default-layout))))
-  (stream *debug-io* :type stream))
+(defclass console-appender (stream-appender)
+  ((stream :initform *debug-io*)))
 
 (defmethod appender-do-append ((this stream-appender)
-			       (level integer)
-			       (category string)
-			       (log-func function))
-  (with-lock-held ((appender-lock this))
-    (append-to-stream (stream-appender-stream this)
-                      this level category log-func)
-    #+clisp (finish-output *debug-io*))
+			       level
+			       category
+			       log-func)
+  (with-slots (lock layout stream)
+      this
+    (with-lock-held (lock)
+      (layout-to-stream layout stream level category log-func)
+      #+clisp (finish-output *debug-io*)))
   (values))

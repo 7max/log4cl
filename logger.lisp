@@ -381,7 +381,7 @@ package"
 configure root logger with INFO log level and a simple console
 appender"
   (clear-logging-configuration)
-  (add-appender *root-logger* (make-console-appender))
+  (add-appender *root-logger* (make-instance 'console-appender))
   (setf (logger-log-level *root-logger*) +log-level-info+))
 
 (defun create-root-logger ()
@@ -392,4 +392,11 @@ appender"
 (defvar *root-logger*
   (create-root-logger)
   "The one and only root logger")
+
+(defmethod make-load-form ((log logger) &optional env)
+  "Creates the logger when a logger constant is being loaded from a
+compiled file"
+  (declare (ignore env))
+  `(get-logger ,(logger-name log)))
+
 

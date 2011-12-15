@@ -32,7 +32,7 @@
 
 (deftest speed-test-to-file (&key (filespec "/dev/null")
                                   (external-format :default)
-                                  (layout (log4cl::make-simple-layout))
+                                  (layout (make-instance 'simple-layout))
                                   (iterations 1000000)
                                   (root-logger-level :debug))
   (with-package-log-hierarchy
@@ -40,7 +40,7 @@
                                      :if-exists :supersede
                                      :external-format external-format)
       (clear-logging-configuration)
-      (add-appender *root-logger* (log4cl:make-stream-appender
+      (add-appender *root-logger* (make-instance 'stream-appender
                                    :layout layout
                                    :stream stream))
       (setf (logger-log-level *root-logger*) root-logger-level)

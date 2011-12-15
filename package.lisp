@@ -35,11 +35,7 @@
    :appender-removed
    :logger-added
    :logger-removed
-   :make-console-appender
-   :console-appender
    :stream-appender
-   :make-stream-appender
-   :stream-appender-stream
    :log-config
    :logger-name
    :logger-category
@@ -58,6 +54,8 @@
    ;; standard layouts
    :default-layout :simple-layout
    ;; standard appenders
+   :appender
+   :stream-appender
    :console-appender))
 
 

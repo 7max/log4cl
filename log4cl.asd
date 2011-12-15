@@ -45,5 +45,5 @@
     (setq *default-init-done-p* t)
     (eval (read-from-string
            "(progn
-             (log4cl:add-appender log4cl:*root-logger* (log4cl:make-console-appender))
+             (log4cl:add-appender log4cl:*root-logger* (make-instance 'log4cl:console-appender))
              (log4cl:log-config :info))"))))

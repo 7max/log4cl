@@ -68,7 +68,7 @@
       (is (null (logger-log-level logger)))
       (is (eql +log-level-off+ (effective-log-level logger)))
       ;; verify appender is added
-      (add-appender *root-logger* (make-console-appender))
+      (add-appender *root-logger* (make-instance 'console-appender))
       (is (null (logger-appenders logger)))
       (is (not (null (effective-appenders logger)))))))
 
@@ -89,7 +89,7 @@
       (is (null (log-debug logger)))
       (is (null (log-info logger)))
       ;; add appender, verify debugging is now on
-      (add-appender *root-logger* (make-console-appender))
+      (add-appender *root-logger* (make-instance 'console-appender))
       (is (log-info logger))
       (is (null (log-debug logger)))
       ;; turn debug on on :one.two.three logger
@@ -117,9 +117,9 @@
 (deftest test-stream-appender (&key (cnt 1))
   (with-package-log-hierarchy
     (clear-logging-configuration)
-    (add-appender *root-logger* (make-stream-appender
+    (add-appender *root-logger* (make-instance 'stream-appender
                                  :stream *debug-io*
-                                 :layout (log4cl::make-simple-layout)))
+                                 :layout (make-instance 'simple-layout)))
     (log-config :info :reset)
     (dotimes (i cnt)
       (log-debug "iter=~d" i))))

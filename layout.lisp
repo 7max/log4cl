@@ -1,8 +1,24 @@
 (in-package #:log4cl)
 
-(defstruct layout)
-(defstruct (simple-layout (:include layout)))
-(defstruct (default-layout (:include layout)))
+(defclass layout () ()
+  (:documentation "Abstract layout class"))
+
+(defclass simple-layout (layout) ()
+  (:documentation
+   "Simple layout that log messages like so: \"<level> - <log message>\\n\"
+
+For example:
+
+INFO - test message
+"))
+
+(defclass default-layout (layout) ()
+  (:documentation "Default layout that prints category, log level and the message.
+
+Example:
+
+ (log4cl.test) DEBUG - test message
+"))
 
 (declaim (inline write-log-level))
 
@@ -25,7 +41,8 @@
     (12 (write-string "USER6" stream))
     (13 (write-string "USER7" stream))
     (14 (write-string "USER8" stream))
-    (15 (write-string "USER9" stream))))
+    (15 (write-string "USER9" stream)))
+  (values))
 
 (defmethod layout-to-stream ((layout default-layout)
 			     stream

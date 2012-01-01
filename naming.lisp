@@ -100,37 +100,34 @@ will be: package.foo.bar.baz
 
 #+sbcl
 (defun sbcl-get-block-name  (env)
-  "Return a string naming SBCL lexical environment. For example when
-compiling local function foo inside a defun foobar, will return
-\"foobar.foo\" "
-  (flet ((ensure-string (atom)
-	   (cond
-             ((keywordp atom) (prin1-to-string atom))
-             ((symbolp atom) (symbol-name atom))
-             ((stringp atom) atom)
-             (t (prin1-to-string atom)))))
-    (let* ((names
-             (loop
-               as lambda = (sb-c::lexenv-lambda env)
-               then (sb-c::lambda-parent lambda)
-               while lambda
-               as debug-name = (include-block-debug-name? (sb-c::leaf-debug-name lambda))
-               if debug-name collect debug-name))
-           ;; I'm sure below can be done in a more perverse way by
-           ;; using (format), but i have no time for it
-           (name (reduce
-                  (lambda (name1 name2)
-                    (concatenate 'string (ensure-string name1)
-                                 "." (ensure-string name2)))
-                  (nreverse names))))
-      (values name))))
+  "Return a list naming SBCL lexical environment. For example when
+compiling local function FOO inside a global function FOOBAR, will
+return \(FOOBAR FOO\)"
+  (let* ((names
+           (loop
+             as lambda = (sb-c::lexenv-lambda env)
+             then (sb-c::lambda-parent lambda)
+             while lambda
+             as debug-name = (include-block-debug-name? (sb-c::leaf-debug-name lambda))
+             if debug-name collect debug-name)))
+    (nreverse names)))
 
 #+sbcl
 (defmethod resolve-default-logger-form (package env args)
   "Returns the logger named after the current lexical environment"
-  (values (get-logger
-           (concatenate 'string (shortest-package-name package)
-                        "."
-                        (sbcl-get-block-name env)))
-          args))
+  (flet ((ensure-string (atom)
+           (cond
+             ((keywordp atom) (prin1-to-string atom))
+             ((symbolp atom) (symbol-name atom))
+             ((stringp atom) atom)
+             (t (prin1-to-string atom)))))
+    (values
+     (get-logger
+      (reduce
+       (lambda (name1 name2)
+         (concatenate 'string (ensure-string name1)
+                      "." (ensure-string name2)))
+       (cons (shortest-package-name package)
+             (sbcl-get-block-name env))))
+     args)))
 

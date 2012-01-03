@@ -12,14 +12,14 @@
   (with-package-log-hierarchy
     (is (not (null logger)))
     (is (not (null (log4cl::logger-state logger))))
-    (is (not (null (logger-name logger))))
+    (is (not (null (logger-category logger))))
     (is (eql (length (log4cl::logger-state logger)) log4cl::*hierarchy-max*))))
 
 (deftest make-logger-0 ()
   (with-package-log-hierarchy
-    (let ((logger (make-logger :one.two.three.four)))
+    (let ((logger (make-logger '(one two three four))))
       (basics logger)
-      (is (equal (logger-name logger) "log4cl.test.one.two.three.four")))))
+      (is (equal (logger-category logger) "ONE:TWO:THREE:FOUR")))))
 
 (deftest reset-configuration-0 ()
   ;; verify clear/reset only does so for current configuration
@@ -44,18 +44,18 @@
 (deftest verify-returns-same-logger ()
   (with-package-log-hierarchy
     (clear-logging-configuration)
-    (let* ((logger (make-logger :one.two.three)))
-      (is (eq logger (make-logger :one.two.three)))
+    (let* ((logger (make-logger '(one two three))))
+      (is (eq logger (make-logger '(one two three))))
       (is (eq logger (make-logger logger)))
       (is (not (eq logger *root-logger*)))
       (clear-logging-configuration)
-      (is (eq logger (make-logger :one.two.three))))))
+      (is (eq logger (make-logger '(one two three)))))))
 
 (deftest logger-by-variable ()
   "Test that we can refer to the logger as variable"
   (with-package-log-hierarchy
     (reset-logging-configuration)
-    (let ((logger (make-logger :foo.bar)))
+    (let ((logger (make-logger :foobar)))
       (is (log-info logger)))))
 
 (deftest inheritance-0 ()

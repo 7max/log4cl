@@ -93,7 +93,7 @@
 
 #-sbcl
 (defmethod expand-definer :around ((definer definer))
-  (let ((logger-name (create-logger-name definer)))
+  (let ((logger-category (create-logger-name definer)))
     (let ((forms
            (call-next-method)))
       (wrap-with-logger-name definer forms logger-name))))

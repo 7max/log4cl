@@ -12,6 +12,20 @@ level names. Default implementation converts object to string and
 parses \"fatal\" \"debug\" and so on. Called by MAKE-LOG-LEVEL
 function"))
 
+(defgeneric naming-option (package option)
+  (:documentation "Return the automatic logger naming option
+for the specified package. Valid options are:
+
+   :CATEGORY-SEPARATOR - character or string that separates category names
+                         default method returns colon
+   :CATEGORY-CASE      - When determining automatic logger name from a symbol
+                         how to handle case. Valid values are:
+
+                         :READTABLE  use current readtable
+                         :UPCASE     convert to upper case
+                         :DOWNCASE   convert to lower case
+                         :INVERT     invert, as inverted readtables do"))
+
 (defgeneric resolve-logger-form (package env args)
   (:documentation "Is called by all logging macros such as to figure
 out the logger to log into. PACKAGE and ENV are the current value of

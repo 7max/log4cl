@@ -84,7 +84,7 @@
   (let ((regexp (create-scanner regexp :case-insensitive-mode t))
         loggers)
     (labels ((doit (logger)
-               (when (scan regexp (logger-name logger))
+               (when (scan regexp (logger-category logger))
                  (push logger loggers))
                (map-logger-children #'doit logger)))
       (doit *root-logger*))

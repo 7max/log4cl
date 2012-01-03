@@ -54,10 +54,13 @@ indexed by this variable. Can be assigned directly or ")
                       (let ((*print-circle* nil))
                         (print-unreadable-object (logger stream)
                           (princ "LOGGER " stream)
-                          (princ (if (zerop (length (logger-name logger))) "+ROOT+"
-                                     (logger-name logger)) stream))))))
-  ;; logger name in root.parent-logger.logger format
-  (name      nil :type string)
+                          (princ (if (zerop (length (logger-category logger))) "+ROOT+"
+                                     (logger-category logger)) stream))))))
+  ;; Full category name as in parent.sub-parent.thislogger
+  (category  nil :type string)
+  ;; position of the 1st character of this logger name in full
+  ;; category name
+  (name-start-pos 0 :type fixnum)
   ;; parent logger, only nil for the root logger
   (parent    nil :type (or null logger))
   ;; child loggers
@@ -111,6 +114,17 @@ level constants, by calling LOG-LEVEL-FROM-OBJECT on ARG and current
 value of *PACKAGE* "
   (log-level-from-object arg *package*))
 
+
+(defmethod naming-option (package option)
+  "Return default values for naming options which are:
+    :CATEGORY-SEPARATOR  #\\Colon
+    :CATEGORY-CASE       :READTABLE
+     "
+  (declare (ignore package))
+  (case option
+    (:category-separator #\Colon)
+    (:category-case :readtable)))
+
 (defmethod resolve-logger-form (package env args)
   "- When first element of args is NIL or a constant string, calls
   RESOLVE-DEFAULT-LOGGER-FORM that will try to obtain logger name from
@@ -131,9 +145,12 @@ value of *PACKAGE* "
              (rest args)))
     ((constantp (first args))
      (let ((value (eval (first args))))
-       (if (symbolp value)
-           (get-logger (logger-name-from-symbol value env))
-           (values (first args) (rest args)))))
+       (cond ((symbolp value)
+              (get-logger (logger-name-from-symbol value env)))
+             ((listp value)
+              (join-categories
+               (naming-option package :category-separator) value))
+             (t (values (first args) (rest args))))))
     (t
      (values (first args) (rest args)))))
 
@@ -187,24 +204,28 @@ reachable appenders. "
     (doit logger))
   (values))
 
-(defun get-logger (name)
+(defun get-logger (category)
   "Get the logger with a given category name. Logger is created
 if it does not exist"
-  (declare (type (or string null) name))
-  (cond ((or (null name)
-             (zerop (length name))) *root-logger*)
-        (t (setq name (string-downcase name))
-           (let* ((dot-pos (position #\. name :from-end t))
-                  (parent (if (null dot-pos) *root-logger*
-                              (get-logger (subseq name 0 dot-pos))))
+  (declare (type (or string null) category))
+  (cond ((or (null category)
+             (zerop (length category))) *root-logger*)
+        (t (let* ((separator (naming-option *package* :category-separator))
+                  (pos (position separator category :from-end t))
+                  (parent (if (null pos) *root-logger*
+                              (get-logger (subseq category 0 pos))))
                   (logger (let ((child-hash (logger-children parent)))
                             (when child-hash
-                              (gethash name child-hash)))))
+                              (gethash category child-hash)))))
              (unless logger
-               (setq logger (create-logger :name name :parent parent))
+               (setq logger (create-logger :category category
+                                           :parent parent
+                                           :name-start-pos
+                                           (1+ (or pos 0))))
                (unless (logger-children parent)
-                 (setf (logger-children parent) (make-hash-table :test #'equal)))
-               (setf (gethash name (logger-children parent)) logger)
+                 (setf (logger-children parent)
+                       (make-hash-table :test #'equal)))
+               (setf (gethash category (logger-children parent)) logger)
                (dotimes (*hierarchy* *hierarchy-max*)
                  (adjust-logger logger)))
              logger))))
@@ -257,7 +278,9 @@ context of the current application."
 (defun logger-name-from-symbol (symbol env)
   "Return a logger name from a symbol."
   (declare (type keyword symbol) (ignore env))
-  (format nil "~(~a.~a~)" (shortest-package-name *package*)
+  (format nil "~(~a~a~a~)"
+          (shortest-package-name *package*)
+          (naming-option *package* :category-separator)
           (symbol-name symbol)))
 
 (defun log-with-logger (logger level log-func)
@@ -267,7 +290,7 @@ context of the current application."
 		    (appenders
 		     (logger-state-appenders state)))
 	       (dolist (appender appenders)
-		 (appender-do-append appender level (logger-name orig-logger)
+		 (appender-do-append appender level (logger-category orig-logger)
 				     log-func)))
 	     (let ((parent (logger-parent logger)))
 	       (when  parent
@@ -385,7 +408,7 @@ appender"
   (setf (logger-log-level *root-logger*) +log-level-info+))
 
 (defun create-root-logger ()
-  (let ((root (create-logger :name "")))
+  (let ((root (create-logger :category "")))
     (adjust-logger root)
     root))
 
@@ -397,6 +420,6 @@ appender"
   "Creates the logger when a logger constant is being loaded from a
 compiled file"
   (declare (ignore env))
-  `(get-logger ,(logger-name log)))
+  `(get-logger ,(logger-category log)))
 
 

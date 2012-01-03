@@ -112,22 +112,25 @@ return \(FOOBAR FOO\)"
              if debug-name collect debug-name)))
     (nreverse names)))
 
+(defun join-categories (separator list)
+  "Return a string with each element of LIST printed separated by
+SEPARATOR"
+  (let ((*print-pretty* nil)
+        (*print-circle* nil))
+    (with-output-to-string (s) 
+      (princ (pop list) s)
+      (dolist (elem list)
+        (princ separator s)
+        (princ elem s)))))
+
 #+sbcl
 (defmethod resolve-default-logger-form (package env args)
   "Returns the logger named after the current lexical environment"
-  (flet ((ensure-string (atom)
-           (cond
-             ((keywordp atom) (prin1-to-string atom))
-             ((symbolp atom) (symbol-name atom))
-             ((stringp atom) atom)
-             (t (prin1-to-string atom)))))
-    (values
-     (get-logger
-      (reduce
-       (lambda (name1 name2)
-         (concatenate 'string (ensure-string name1)
-                      "." (ensure-string name2)))
-       (cons (shortest-package-name package)
-             (sbcl-get-block-name env))))
-     args)))
+  (values
+   (get-logger
+    (join-categories
+     (naming-option package :category-separator)
+     (cons (shortest-package-name package)
+           (sbcl-get-block-name env))))
+   args))
 

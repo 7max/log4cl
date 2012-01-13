@@ -148,8 +148,9 @@ value of *PACKAGE* "
        (cond ((symbolp value)
               (get-logger (logger-name-from-symbol value env)))
              ((listp value)
-              (join-categories
-               (naming-option package :category-separator) value))
+              (get-logger
+               (join-categories
+                (naming-option package :category-separator) value)))
              (t (values (first args) (rest args))))))
     (t
      (values (first args) (rest args)))))

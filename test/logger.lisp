@@ -3,7 +3,15 @@
   (:export :test :speed)
   (:shadow :speed))
 
+(cl:defpackage :log4cl.test.dots
+  (:use :cl :log4cl :stefil))
+
 (in-package :log4cl.test)
+
+(eval-when (:load-toplevel :compile-toplevel :execute)
+  (defmethod naming-option ((pkg (eql (find-package :log4cl.test.dots)))
+                            (option (eql :category-separator)))
+    #\.))
 
 (in-root-suite)
 (defsuite* test)
@@ -58,38 +66,44 @@
     (let ((logger (make-logger :foobar)))
       (is (log-info logger)))))
 
+(in-package :log4cl.test.dots)
+(in-root-suite)
+(defsuite* test)
+
 (deftest inheritance-0 ()
   (with-package-log-hierarchy
     (clear-logging-configuration)
     (is (null (logger-appenders *root-logger*)))
     (is (null (logger-log-level *root-logger*)))
     (is (eql +log-level-off+ (effective-log-level *root-logger*)))
-    (let* ((logger (make-logger :one.two.three)))
+    (let* ((logger (make-logger :one.two.three))
+           (parent (make-logger :one)))
       (is (null (logger-log-level logger)))
       (is (eql +log-level-off+ (effective-log-level logger)))
       ;; verify appender is added
-      (add-appender *root-logger* (make-instance 'console-appender))
+      (add-appender parent (make-instance 'console-appender))
       (is (null (logger-appenders logger)))
       (is (not (null (effective-appenders logger)))))))
 
 (deftest inherit-log-levels ()
   (with-package-log-hierarchy
     (clear-logging-configuration)
-    (let ((logger (make-logger :one.two.three)))
+    (let ((logger (make-logger :one.two.three))
+          (parent (make-logger :one)))
       ;; verify no logging
       (is (eql +log-level-off+ (effective-log-level logger)))
       (is (null (log-info)))
       (is (null (log-info logger)))
       ;; now set root log level to info, and verify that
       ;; the levels are right
-      (setf (logger-log-level *root-logger*) :info)
+      (setf (logger-log-level parent) :info)
       (is (null (logger-log-level logger)))
       (is (eql +log-level-info+ (effective-log-level logger)))
       ;; debugging is still off because of no appenders
       (is (null (log-debug logger)))
       (is (null (log-info logger)))
       ;; add appender, verify debugging is now on
-      (add-appender *root-logger* (make-instance 'console-appender))
+      (add-appender parent (make-instance 'console-appender))
       (is (log-info logger))
       (is (null (log-debug logger)))
       ;; turn debug on on :one.two.three logger
@@ -101,18 +115,21 @@
       (is (log-debug logger))
       (is (log-info logger))
       ;; verify only info is on for root logger
-      (is (null (log-debug)))
-      (is (log-info))
+      (is (null (log-debug :one)))
+      (is (log-info :one))
       ;; and same for logger parent
       (is (null (log-debug :one.two)))
       (is (log-info :one.two))
       ;; set root logger off, verify that explicit setting on logger
       ;; is still in effect
-      (setf (logger-log-level *root-logger*) :off)
+      (setf (logger-log-level parent) :off)
       (is (null (log-debug)))
       (is (null (log-info)))
       (is (log-debug logger))
       (is (log-info logger)))))
+
+(in-package :log4cl.test)
+(in-suite test)
 
 (deftest test-stream-appender (&key (cnt 1))
   (with-package-log-hierarchy
@@ -123,3 +140,17 @@
     (log-config :info :reset)
     (dotimes (i cnt)
       (log-debug "iter=~d" i))))
+
+(in-package :log4cl.test.dots)
+(in-suite test)
+
+(deftest make-logger-0 ()
+  (with-package-log-hierarchy
+    (let ((logger (make-logger :one.two.three.four)))
+      (log4cl.test::basics logger)
+      (is (equal (logger-category logger) "log4cl.test.dots.one.two.three.four")))))
+
+(in-package :log4cl.test)
+(in-suite test)
+(deftest dots ()
+  (log4cl.test.dots::test))

@@ -39,6 +39,7 @@
    :log-config
    :logger-name
    :logger-category
+   :naming-option
    :reset-logging-configuration
    :clear-logging-configuration
    ;; special variables

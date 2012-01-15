@@ -28,7 +28,8 @@ indexed by this variable. Can be assigned directly or ")
          (type logger *root-logger*)
 	 (type fixnum  *hierarchy-max* *hierarchy* *log-indent*)
 	 (type hash-table *name-to-hierarchy*)
-         (inline is-enabled-for current-state hierarchy-index))
+         (inline is-enabled-for current-state hierarchy-index
+                 log-level-to-string))
 
 (defstruct logger-state
   "Structure containng logger internal state"
@@ -110,12 +111,21 @@ indexed by this variable. Can be assigned directly or ")
     "DEBUG" "USER1" "USER2" "USER3" "USER4" "TRACE"
     "USER5" "USER6" "USER7" "USER8" "USER9" "UNSET"))
 
+(defparameter +log-level-to-string+
+  (coerce '("OFF" "FATAL" "ERROR" "WARN" "INFO" "DEBUG" "TRACE"
+            "USER1" "USER2" "USER3" "USER4" "USER5" "USER6"
+            "USER7" "USER8" "USER9")
+          'simple-vector))
+
+(defun log-level-to-string (level)
+  "Return log-level string for the level"
+  (aref +log-level-to-string+ level))
+
 (defun make-log-level (arg)
   "Translate a more human readable log level into one of the log
 level constants, by calling LOG-LEVEL-FROM-OBJECT on ARG and current
 value of *PACKAGE* "
   (log-level-from-object arg *package*))
-
 
 (defun effective-log-level (logger)
   "Return logger's own log level (if set) or the one it

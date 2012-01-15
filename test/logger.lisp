@@ -62,6 +62,15 @@ configuration"
     (is (not (log-debug)))
     (is (not (null (logger-appenders *root-logger*))))))
 
+(deftest produces-output ()
+  "Test that default logging configuration produces correct output"
+  (with-package-log-hierarchy
+    (reset-logging-configuration)
+    (is (equal (with-output-to-string (*debug-io*)
+                 (log-info "Hello World!"))
+               "INFO: Hello World!
+"))))
+
 (deftest verify-returns-same-logger ()
   "Test that MAKE-LOGGER returns singleton logger object every time"
   (with-package-log-hierarchy

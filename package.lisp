@@ -59,7 +59,10 @@
    ;; standard appenders
    :appender
    :stream-appender
-   :console-appender))
+   :console-appender
+   :serialized-appender
+   :fixed-stream-appender
+   :appender-stream))
 
 
 

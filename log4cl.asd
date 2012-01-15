@@ -20,7 +20,8 @@
                ;; ;; TODO do this dynamically only if demacs
                ;; ;; package is present
                ;; (:file "demacs-integration")
-	       (:file "layout")
+	       (:file "simple-layout")
+	       (:file "pattern-layout")
 	       (:file "appender")
                (:file "naming")))
 

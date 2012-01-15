@@ -63,6 +63,8 @@ indexed by this variable. Can be assigned directly or ")
   (name-start-pos 0 :type fixnum)
   ;; parent logger, only nil for the root logger
   (parent    nil :type (or null logger))
+  ;; How many parents up and including the root logger this logger has
+  (depth     0   :type fixnum)
   ;; child loggers
   (children  nil :type (or null hash-table))
   ;; per-hierarchy configuration
@@ -114,46 +116,6 @@ level constants, by calling LOG-LEVEL-FROM-OBJECT on ARG and current
 value of *PACKAGE* "
   (log-level-from-object arg *package*))
 
-
-(defmethod naming-option (package option)
-  "Return default values for naming options which are:
-    :CATEGORY-SEPARATOR  #\\Colon
-    :CATEGORY-CASE       :READTABLE
-     "
-  (declare (ignore package))
-  (case option
-    (:category-separator #\Colon)
-    (:category-case :readtable)))
-
-(defmethod resolve-logger-form (package env args)
-  "- When first element of args is NIL or a constant string, calls
-  RESOLVE-DEFAULT-LOGGER-FORM that will try to obtain logger name from
-  the environment
-
-- When first argument is a :KEYWORD, returns logger named <keyword>
-
-- When first argument is a quoted symbol, returns logger named
-  <current-package>.<symbol>
-
-- Otherwise returns the form `(GET-LOGGER ,(FIRST ARGS) ,@(REST ARGS))'"
-  (cond
-    ((or (null args)
-         (stringp (first args)))
-     (resolve-default-logger-form package env args))
-    ((keywordp (first args))
-     (values (get-logger (logger-name-from-symbol (first args) env))
-             (rest args)))
-    ((constantp (first args))
-     (let ((value (eval (first args))))
-       (cond ((symbolp value)
-              (get-logger (logger-name-from-symbol value env)))
-             ((listp value)
-              (get-logger
-               (join-categories
-                (naming-option package :category-separator) value)))
-             (t (values (first args) (rest args))))))
-    (t
-     (values (first args) (rest args)))))
 
 (defun effective-log-level (logger)
   "Return logger's own log level (if set) or the one it
@@ -222,7 +184,8 @@ if it does not exist"
                (setq logger (create-logger :category category
                                            :parent parent
                                            :name-start-pos
-                                           (1+ (or pos 0))))
+                                           (1+ (or pos 0))
+                                           :depth (1+ (logger-depth parent))))
                (unless (logger-children parent)
                  (setf (logger-children parent)
                        (make-hash-table :test #'equal)))
@@ -276,23 +239,14 @@ context of the current application."
   (make-array (- to from) :element-type (array-element-type seq)
                           :displaced-to seq :displaced-index-offset from))
 
-(defun logger-name-from-symbol (symbol env)
-  "Return a logger name from a symbol."
-  (declare (type keyword symbol) (ignore env))
-  (format nil "~(~a~a~a~)"
-          (shortest-package-name *package*)
-          (naming-option *package* :category-separator)
-          (symbol-name symbol)))
-
 (defun log-with-logger (logger level log-func)
   "Submit message to logger appenders, and its parent logger"
   (labels ((log-to-logger-appenders (logger orig-logger level log-func)
 	     (let* ((state (current-state logger))
 		    (appenders
-		     (logger-state-appenders state)))
+                      (logger-state-appenders state)))
 	       (dolist (appender appenders)
-		 (appender-do-append appender level (logger-category orig-logger)
-				     log-func)))
+		 (appender-do-append appender logger level log-func)))
 	     (let ((parent (logger-parent logger)))
 	       (when  parent
 		 (log-to-logger-appenders parent orig-logger level log-func)))
@@ -357,6 +311,11 @@ second value."
       (push appender (logger-state-appenders state))
       (adjust-logger logger)))
   (values))
+
+(defun logger-name (logger)
+  "Return the name of the logger category itself (without parent loggers)"
+  (substr (logger-category logger)
+          (logger-name-start-pos logger)))
 
 (defun %hierarchy-index (name)
   (when (stringp name)

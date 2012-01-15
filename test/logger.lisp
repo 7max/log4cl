@@ -16,29 +16,42 @@
 (in-root-suite)
 (defsuite* test)
 
-(deftest basics (&optional (logger *root-logger*))
+(deftest basics (logger)
+  "Test some basic facts about the logger structure"
   (with-package-log-hierarchy
     (is (not (null logger)))
     (is (not (null (log4cl::logger-state logger))))
     (is (not (null (logger-category logger))))
     (is (eql (length (log4cl::logger-state logger)) log4cl::*hierarchy-max*))))
 
-(deftest make-logger-0 ()
+(deftest make-logger-by-list-of-categories ()
+  "Test MAKE-LOGGER macro with static list of categories"
   (with-package-log-hierarchy
     (let ((logger (make-logger '(one two three four))))
       (basics logger)
-      (is (equal (logger-category logger) "ONE:TWO:THREE:FOUR")))))
+      (is (equal (logger-category logger) "ONE:TWO:THREE:FOUR"))
+      (is (equal (logger-name logger) "FOUR"))
+      (is (eql (logger-depth logger) 4)))))
 
 (deftest reset-configuration-0 ()
-  ;; verify clear/reset only does so for current configuration
+  "Test that CLEAR-LOGGING-CONFIGURATION works and that
+RESET-LOGGING-CONFIGURATION reset the logging system to a sane
+state. Also tests that different hierarchies do not affect each other
+configuration"
+  ;; verify clear/reset only does so for current configuration (current-indentation)
   (with-log-hierarchy ('dummy)
+    ;; clear deletes everything
+    (clear-logging-configuration)
+    (is (not (log-info)))
+    (is (null (logger-appenders *root-logger*)))
+    ;; reset provides sane defaults
     (reset-logging-configuration)
     (is (log-info))
     (is (not (log-debug)))
     (is (not (null (logger-appenders *root-logger*))))
     ;; do reset and clear in the different hierarchy
     (with-package-log-hierarchy
-      (reset-logging-configuration)
+        (reset-logging-configuration)
       (is (log-info))
       (is (not (log-debug)))
       (clear-logging-configuration)
@@ -50,6 +63,7 @@
     (is (not (null (logger-appenders *root-logger*))))))
 
 (deftest verify-returns-same-logger ()
+  "Test that MAKE-LOGGER returns singleton logger object every time"
   (with-package-log-hierarchy
     (clear-logging-configuration)
     (let* ((logger (make-logger '(one two three))))
@@ -60,32 +74,69 @@
       (is (eq logger (make-logger '(one two three)))))))
 
 (deftest logger-by-variable ()
-  "Test that we can refer to the logger as variable"
+  "Test logging macros to verify that we can bind logger into a
+variable, and that logging macros are correctly handling this
+situation"
   (with-package-log-hierarchy
     (reset-logging-configuration)
     (let ((logger (make-logger :foobar)))
       (is (log-info logger)))))
 
+(deftest logger-by-expression ()
+  "Test logging macros to verify that we can make a function returning
+a logger, and that logging macros are correctly handling this
+situation"
+  (with-package-log-hierarchy
+    (reset-logging-configuration)
+    (flet ((get-my-logger ()
+             (make-logger :foobar)))
+      (let ((logger (get-my-logger)))
+        (is (eq logger (get-my-logger)))
+        (is (log-info (get-my-logger)))
+        (is (not (log-debug (get-my-logger))))
+        (setf (logger-log-level logger) :debug)
+        (is (log-debug (get-my-logger)))))))
+
+;;
+;; Test in a different package, where logger category separator is dot
+;; instead of new line
+
 (in-package :log4cl.test.dots)
 (in-root-suite)
 (defsuite* test)
 
-(deftest inheritance-0 ()
+(deftest make-logger-by-list-of-categories ()
+  "Test MAKE-LOGGER macro with static list of categories"
+  (with-package-log-hierarchy
+    (let ((logger (make-logger '(one two three four))))
+      (log4cl.test::basics logger)
+      (is (equal (logger-category logger) "ONE.TWO.THREE.FOUR"))
+      (is (equal (logger-name logger) "FOUR"))
+      (is (eql (logger-depth logger) 4)))))
+
+(deftest logger-name-via-dotted-keyword ()
+  "Test that specifying logger name by a keyword containing dots is
+correctly parsed into multiple loggers"
   (with-package-log-hierarchy
     (clear-logging-configuration)
     (is (null (logger-appenders *root-logger*)))
     (is (null (logger-log-level *root-logger*)))
     (is (eql +log-level-off+ (effective-log-level *root-logger*)))
     (let* ((logger (make-logger :one.two.three))
-           (parent (make-logger :one)))
+           (logger-one (make-logger :one))
+           (logger-two (make-logger :one.two)))
+      (is (eq (logger-parent logger) logger-two))
+      (is (eq (logger-parent logger-two) logger-one))
       (is (null (logger-log-level logger)))
       (is (eql +log-level-off+ (effective-log-level logger)))
-      ;; verify appender is added
-      (add-appender parent (make-instance 'console-appender))
+      ;; Add appender to the parent
+      (add-appender logger-one (make-instance 'console-appender))
+      ;; see that it got inherited
       (is (null (logger-appenders logger)))
       (is (not (null (effective-appenders logger)))))))
 
 (deftest inherit-log-levels ()
+  "Test log level inheritance"
   (with-package-log-hierarchy
     (clear-logging-configuration)
     (let ((logger (make-logger :one.two.three))
@@ -128,29 +179,16 @@
       (is (log-debug logger))
       (is (log-info logger)))))
 
-(in-package :log4cl.test)
-(in-suite test)
-
-(deftest test-stream-appender (&key (cnt 1))
-  (with-package-log-hierarchy
-    (clear-logging-configuration)
-    (add-appender *root-logger* (make-instance 'stream-appender
-                                 :stream *debug-io*
-                                 :layout (make-instance 'simple-layout)))
-    (log-config :info :reset)
-    (dotimes (i cnt)
-      (log-debug "iter=~d" i))))
-
-(in-package :log4cl.test.dots)
-(in-suite test)
-
 (deftest make-logger-0 ()
   (with-package-log-hierarchy
     (let ((logger (make-logger :one.two.three.four)))
       (log4cl.test::basics logger)
       (is (equal (logger-category logger) "log4cl.test.dots.one.two.three.four")))))
 
+
+;; Include the "dots" package test suite into main one
 (in-package :log4cl.test)
 (in-suite test)
+
 (deftest dots ()
   (log4cl.test.dots::test))

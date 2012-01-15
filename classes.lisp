@@ -49,23 +49,58 @@ arguments do not specify the logger to log into. See
 RESOLVE-LOGGER-FORM for return values"))
 
 
-(defgeneric layout-to-stream (layout stream level category
-                              log-func)
+(defgeneric layout-to-stream (layout stream logger level log-func)
   (:documentation
-   "Prints the log message to the specified stream. The user-format
-and user-args arguments are suitable for using in ~? (indirect format)
-directive of the `format' function."))
+   "Prints the log message to the specified stream. log message can is
+specified indirectly by LOG-FUNC argument, which is a callable object
+that accepts a stream and writes log message to it"))
 
-(defgeneric appender-do-append (appender level category log-func)
+(defgeneric appender-do-append (appender logger level log-func)
   (:documentation
-   "Writes the log message into the appender. To simplify writing new
-appenders all the work on dealing with layouts had been abstracted
-into `appender-append-to-stream' function. So when writing new
-appender the recommended form for this method is:
+   "Writes the log message into the appender. Text of the log message
+is specified indirectly via LOG-FUNC argument, which will be a
+function that accepts a stream, and writes the text of log message to
+it. To simplify writing new appenders all the work on dealing with
+layouts had been abstracted into `appender-append-to-stream'
+function. So when writing new appender the recommended form for this
+method is:
 
  (defmethod appender-do-append ((this custom-appender) ...)
     (appender-append-to-stream ((some-custom-stream) ... rest of args ...))
     (values))
 
 Return value of this function is ignored"))
+
+(defclass layout () ()
+  (:documentation "Abstract layout class"))
+
+(defclass simple-layout (layout) ()
+  (:documentation
+   "Simple layout that log messages like so: \"<level> - <log message>\\n\"
+
+For example:
+
+INFO - test message
+"))
+
+(defclass default-layout (layout) ()
+  (:documentation "Default layout that prints category, log level and the message.
+
+Example:
+
+ (log4cl.test) DEBUG - test message"))
+
+
+(defclass appender ()
+  ((lock :initform (make-lock))
+   (layout :initform (make-instance 'default-layout)
+           :initarg :layout))
+  (:documentation "Appender is the destination of log messages"))
+
+(defclass stream-appender (appender)
+  ((stream :initarg :stream))
+  (:documentation "Appender that writes message to the specified stream"))
+
+(defclass console-appender (stream-appender)
+  ((stream :initform *debug-io*)))
 

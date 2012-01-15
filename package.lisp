@@ -26,6 +26,7 @@
    ;; logger access functions
    :make-log-level :make-logger
    :set-log-level
+   :logger-parent
    :logger-log-level
    :logger-appenders 
    :effective-log-level
@@ -39,6 +40,7 @@
    :log-config
    :logger-name
    :logger-category
+   :logger-depth
    :naming-option
    :reset-logging-configuration
    :clear-logging-configuration

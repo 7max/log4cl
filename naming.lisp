@@ -141,13 +141,13 @@ SEPARATOR"
      "
   (declare (ignore package))
   (case option
-    (:category-separator #\Colon)
+    (:category-separator ":")
     (:category-case :readtable)))
 
 (defun logger-name-from-symbol (symbol env)
   "Return a logger name from a symbol."
   (declare (type keyword symbol) (ignore env))
-  (format nil "~(~a~a~a~)"
+  (format nil "~a~a~a"
           (shortest-package-name *package*)
           (naming-option *package* :category-separator)
           (symbol-name symbol)))

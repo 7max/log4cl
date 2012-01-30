@@ -1,0 +1,455 @@
+(in-package :log4cl.test)
+
+(in-suite test)
+
+(deftest test-pattern-layout (pattern expected-result
+                                      &key
+                                      (level +log-level-info+)
+                                      (logger (make-logger '(one two three)))
+                                      (message "message"))
+  "Output a log message into an appender with a pattern layout with
+specified PATTERN and compare its output to EXPECTED-RESULT"
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (let ((output
+            (with-output-to-string (s)
+              (add-appender *root-logger*
+                            (make-instance 'fixed-stream-appender
+                             :stream s
+                             :layout (make-instance 'pattern-layout
+                                      :pattern pattern)))
+              (setf (logger-log-level *root-logger*) level)
+              ;; TODO need a macro that logs with specified level
+              (cond 
+                ((eql level +log-level-fatal+) (log-fatal logger "~a" message))
+                ((eql level +log-level-error+) (log-error logger "~a" message))
+                ((eql level +log-level-warn+) (log-warn logger "~a" message))
+                ((eql level +log-level-info+) (log-info logger "~a" message))
+                ((eql level +log-level-debug+) (log-debug logger "~a" message))
+                ((eql level +log-level-user1+) (log-user1 logger "~a" message))
+                ((eql level +log-level-user2+) (log-user2 logger "~a" message))
+                ((eql level +log-level-user3+) (log-user3 logger "~a" message))
+                ((eql level +log-level-user4+) (log-user4 logger "~a" message))
+                ((eql level +log-level-trace+) (log-trace logger "~a" message))
+                ((eql level +log-level-user5+) (log-user5 logger "~a" message))
+                ((eql level +log-level-user6+) (log-user6 logger "~a" message))
+                ((eql level +log-level-user7+) (log-user7 logger "~a" message))
+                ((eql level +log-level-user8+) (log-user8 logger "~a" message))
+                ((eql level +log-level-user9+) (log-user9 logger "~a" message))))))
+      (is (equal output expected-result))))
+  (values))
+
+
+(deftest test-pattern-parsing ()
+  "Test parsing of pattern layout patters and that it signals
+pattern-layout-error when parsing errors occur"
+  (signals pattern-layout-error
+    (make-instance 'pattern-layout :pattern "%"))
+  (signals pattern-layout-error
+    (make-instance 'pattern-layout :pattern "%-"))
+  (signals pattern-layout-error
+    (make-instance 'pattern-layout :pattern "\\"))
+  (signals pattern-layout-error
+    (make-instance 'pattern-layout :pattern "%-3"))
+  (signals pattern-layout-error
+    (make-instance 'pattern-layout :pattern "%-3."))
+  (signals pattern-layout-error
+    (make-instance 'pattern-layout :pattern "%-3.p"))
+  (signals pattern-layout-error
+    (make-instance 'pattern-layout :pattern "%.p"))
+  (signals pattern-layout-error
+    (make-instance 'pattern-layout :pattern "%.p"))
+  (finishes 
+    (make-instance 'pattern-layout :pattern "%.10p"))
+  (signals pattern-layout-error
+    (make-instance 'pattern-layout :pattern "%c{3"))
+  (finishes 
+    (make-instance 'pattern-layout :pattern "%c{3}"))
+  (finishes 
+    (make-instance 'pattern-layout :pattern "%c{3\\3}{}"))
+  (finishes 
+    (make-instance 'pattern-layout :pattern "%c{3\\3}{}{:invert}"))
+  (signals pattern-layout-error
+    (make-instance 'pattern-layout :pattern "%c{3\\3}{}{:blah}"))
+  (signals pattern-layout-error
+    (make-instance 'pattern-layout :pattern "%c{3\\}"))
+  (signals pattern-layout-error
+    (make-instance 'pattern-layout :pattern "%c{foo\\}bar}"))
+  (finishes 
+    (make-instance 'pattern-layout :pattern "lala%%lala"))
+  (finishes 
+    (make-instance 'pattern-layout :pattern "|%p %c %%|"))
+  (finishes 
+    (make-instance 'pattern-layout :pattern "\\\\"))
+  (finishes 
+    (make-instance 'pattern-layout :pattern "\\t"))
+  (finishes 
+    (make-instance 'pattern-layout :pattern "\\n")))
+
+(deftest test-basic-patterns ()
+  "Test basic pattern-layout patterns"
+  (test-pattern-layout "%m" "message")
+  (test-pattern-layout "|%m|" "|message|")
+  (test-pattern-layout "%p - %m" "INFO - message")
+  (test-pattern-layout "%-5p - %m"  " INFO - message")
+  (test-pattern-layout "%5.2p - %m" "FO    - message")
+  (test-pattern-layout "%.2p - %m" "FO - message"))
+
+(deftest test-pattern-backslash ()
+  "Test that backslash is handled correctly in the patterns"
+  (test-pattern-layout "%p\\t%m" "INFO	message")
+  (test-pattern-layout "%p\\n%m" "INFO
+message")
+  (test-pattern-layout "%p \\- %m" "INFO - message")
+  (test-pattern-layout "%p \\\\-\\\\ %m" "INFO \\-\\ message"))
+
+(deftest test-pattern-log-level ()
+  "Test %p pattern"
+  (loop for level from +log-level-fatal+ to +log-level-user9+
+        do (test-pattern-layout "%p"
+                                (log-level-to-string level)
+                                :level level)))
+
+(defun make-expected  (list separator)
+  (with-output-to-string (*standard-output*)
+    (let (sep)
+      (dolist (s list)
+        (if sep (princ sep)
+            (setq sep separator))
+        (princ (symbol-name s))))))
+
+(deftest test-make-expected ()
+  "Test function for making expected results"
+  ;; test the utility-function for making expected logger name
+  (is (make-expected '(|ONE| |TWO| |THREE|) ":")
+      "ONE:TWO:THREE")
+  (is (make-expected '(|one| |two| |three|) ":")
+      "one:two:three")
+  (is (make-expected '(|One| |Two| |Three|) ":")
+      "One:Two:Three"))
+
+(deftest test-pattern-category-1 ()
+  "Test %c pattern with regards to precision, category separator and
+case conversion"
+  (let ((categories '(one two three))
+        (logger (make-logger '(one two three))))
+    (labels
+        ((test-category (pattern &key
+                                 (separator ":")
+                                 (categories categories)
+                                 (logger logger))
+           (let ((expected
+                   (make-expected categories separator)))
+             (test-pattern-layout pattern
+                                  expected
+                                  :logger logger))))
+      ;; test using system native case
+      (test-category "%c{4}")
+      (test-category "%c{3}")
+      (test-category "%c{2}" :separator ":" :categories '(two three))
+      (test-category "%c{1}" :separator ":" :categories '(three))
+      (test-category "%c{4}{.}" :separator ".")
+      (test-category "%c{3}{.}" :separator ".")
+      (test-category "%c{2}{.}" :separator "." :categories '(two three))
+      (test-category "%c{1}{.}" :separator "." :categories '(three))
+      ;; create loggers named with upper, lower and mixed cases
+      ;; and test various combination of case conversion on them
+      (let ((logger-mixed (make-logger '(|One| |Two| |Three|)))
+            (cats-mixed '(|One| |Two| |Three|))
+            (logger-upcase (make-logger '(|ONE| |TWO| |THREE|)))
+            (cats-upcase '(|ONE| |TWO| |THREE|))
+            (logger-downcase (make-logger '(|one| |two| |three|)))
+            (cats-downcase '(|one| |two| |three|)))
+        ;; test unchanged mixed case
+        (test-category "%c{4}" :logger logger-mixed :categories cats-mixed)
+        (test-category "%c{3}" :logger logger-mixed :categories cats-mixed)
+        (test-category "%c{2}" :separator ":" :logger logger-mixed
+                               :categories (last cats-mixed 2))
+        (test-category "%c{1}" :separator ":" :logger logger-mixed
+                               :categories (last cats-mixed 1))
+        (test-category "%c{4}{.}" :separator "."
+                                  :logger logger-mixed :categories cats-mixed)
+        (test-category "%c{}{.}" :separator "."
+                                  :logger logger-mixed :categories cats-mixed)
+        (test-category "%c{2}{.}" :separator "."
+                                  :logger logger-mixed :categories
+                                  (last cats-mixed 2))
+        (test-category "%c{1}{.}" :separator "."
+                                  :logger logger-mixed :categories
+                                  (last cats-mixed 1))
+        ;; test invert does not change the case
+        (test-category "%c{4}{}{:invert}" :logger logger-mixed :categories cats-mixed)
+        (test-category "%c{3}{}{:invert}" :logger logger-mixed :categories cats-mixed)
+        (test-category "%c{2}{}{:invert}" :separator ":" :logger logger-mixed
+                                          :categories (last cats-mixed 2))
+        (test-category "%c{1}{}{:invert}" :separator ":" :logger logger-mixed
+                                          :categories (last cats-mixed 1))
+        (test-category "%c{4}{.}{:invert}" :separator "."
+                                           :logger logger-mixed
+                                           :categories cats-mixed)
+        (test-category "%c{}{.}{:invert}" :separator "."
+                                          :logger logger-mixed
+                                          :categories cats-mixed)
+        (test-category "%c{2}{.}{:invert}" :separator "."
+                                           :logger logger-mixed :categories
+                                           (last cats-mixed 2))
+        (test-category "%c{1}{.}{:invert}" :separator "."
+                                           :logger logger-mixed :categories
+                                           (last cats-mixed 1))
+        ;; test forced upper case
+        (test-category "%c{4}{:}{:upcase}"
+                       :logger logger-mixed
+                       :categories cats-upcase)
+        (test-category "%c{}{}{:upcase}"
+                       :logger logger-mixed
+                       :categories cats-upcase)
+        (test-category "%c{2}{}{:upcase}"
+                       :separator ":"
+                       :logger logger-mixed
+                       :categories (last cats-upcase 2))
+        (test-category "%c{1}{}{:upcase}"
+                       :separator ":"
+                       :logger logger-mixed
+                       :categories (last cats-upcase 1))
+        (test-category "%c{4}{.}{:upcase}"
+                       :separator "."
+                       :logger logger-mixed
+                       :categories cats-upcase)
+        (test-category "%c{}{.}{:upcase}"
+                       :separator "."
+                       :logger logger-mixed :categories cats-upcase)
+        (test-category "%c{2}{.}{:upcase}"
+                       :separator "."
+                       :logger logger-mixed :categories
+                       (last cats-upcase 2))
+        (test-category "%c{1}{.}{:upcase}"
+                       :separator "."
+                       :logger logger-mixed :categories
+                       (last cats-upcase 1))
+        ;; test forced lower case
+        (test-category "%c{4}{:}{:downcase}"
+                       :logger logger-mixed
+                       :categories cats-downcase)
+        (test-category "%c{}{}{:downcase}"
+                       :logger logger-mixed
+                       :categories cats-downcase)
+        (test-category "%c{2}{}{:downcase}"
+                       :separator ":"
+                       :logger logger-mixed
+                       :categories (last cats-downcase 2))
+        (test-category "%c{1}{}{:downcase}"
+                       :separator ":"
+                       :logger logger-mixed
+                       :categories (last cats-downcase 1))
+        (test-category "%c{4}{.}{:downcase}"
+                       :separator "."
+                       :logger logger-mixed
+                       :categories cats-downcase)
+        (test-category "%c{}{.}{:downcase}"
+                       :separator "."
+                       :logger logger-mixed :categories cats-downcase)
+        (test-category "%c{2}{.}{:downcase}"
+                       :separator "."
+                       :logger logger-mixed :categories
+                       (last cats-downcase 2))
+        (test-category "%c{1}{.}{:downcase}"
+                       :separator "."
+                       :logger logger-mixed :categories
+                       (last cats-downcase 1))
+        ;; test that invert works on lower-case named logger
+        (test-category "%c{4}{:}{:invert}"
+                       :logger logger-downcase
+                       :categories cats-upcase)
+        (test-category "%c{}{}{:invert}"
+                       :logger logger-downcase
+                       :categories cats-upcase)
+        (test-category "%c{2}{}{:invert}"
+                       :separator ":"
+                       :logger logger-downcase
+                       :categories (last cats-upcase 2))
+        (test-category "%c{1}{}{:invert}"
+                       :separator ":"
+                       :logger logger-downcase
+                       :categories (last cats-upcase 1))
+        (test-category "%c{4}{.}{:invert}"
+                       :separator "."
+                       :logger logger-downcase
+                       :categories cats-upcase)
+        (test-category "%c{}{.}{:invert}"
+                       :separator "."
+                       :logger logger-downcase :categories cats-upcase)
+        (test-category "%c{2}{.}{:invert}"
+                       :separator "."
+                       :logger logger-downcase :categories
+                       (last cats-upcase 2))
+        (test-category "%c{1}{.}{:invert}"
+                       :separator "."
+                       :logger logger-downcase :categories
+                       (last cats-upcase 1))
+        ;; test that invert works on upper-case named logger
+        (test-category "%c{4}{:}{:invert}"
+                       :logger logger-upcase
+                       :categories cats-downcase)
+        (test-category "%c{}{}{:invert}"
+                       :logger logger-upcase
+                       :categories cats-downcase)
+        (test-category "%c{2}{}{:invert}"
+                       :separator ":"
+                       :logger logger-upcase
+                       :categories (last cats-downcase 2))
+        (test-category "%c{1}{}{:invert}"
+                       :separator ":"
+                       :logger logger-upcase
+                       :categories (last cats-downcase 1))
+        (test-category "%c{4}{.}{:invert}"
+                       :separator "."
+                       :logger logger-upcase
+                       :categories cats-downcase)
+        (test-category "%c{}{.}{:invert}"
+                       :separator "."
+                       :logger logger-upcase :categories cats-downcase)
+        (test-category "%c{2}{.}{:invert}"
+                       :separator "."
+                       :logger logger-upcase :categories
+                       (last cats-downcase 2))
+        (test-category "%c{1}{.}{:invert}"
+                       :separator "."
+                       :logger logger-upcase :categories
+                       (last cats-downcase 1))))))
+
+
+(deftest test-pattern-category-2 ()
+  "Test alternate category separator, and that field min/max width
+works correctly with it"
+  (let ((logger (make-logger '(one two three))))
+    (test-pattern-layout "%c{}{---}"
+                         (make-expected '(one two three) "---")
+                         :logger logger)
+    (test-pattern-layout "%c{2}{---}"
+                         (make-expected '(two three) "---")
+                         :logger logger)
+    (test-pattern-layout "%c{1}{---}"
+                         (make-expected '(three) "---")
+                         :logger logger)
+    ;; 0134567890123456789
+    ;; one---two---three
+    (let ((expected (make-expected '(one two three) "---")))
+      (loop for i from (length expected)
+            downto 1
+            do (test-pattern-layout
+                (format nil "%.~dc{}{---}" i)
+                (subseq expected
+                        (- (length expected) i))
+                :logger logger)
+            do (test-pattern-layout
+                (format nil "%~d.~dc{}{---}" (+ i 5) i)
+                (concatenate 'string
+                             (subseq expected
+                                     (- (length expected) i))
+                             "     ")
+                :logger logger)
+            do (test-pattern-layout
+                (format nil "%-~d.~dc{}{---}" (+ i 5) i)
+                (concatenate 'string
+                             "     "
+                             (subseq expected
+                                     (- (length expected) i)))
+                :logger logger)))))
+
+(deftest test-pattern-date-1 ()
+  "Test %d pattern. This test may fail if second changes doing the 1st
+two asserts "
+  (let* ((ut-utc (encode-universal-time 1 2 3 21 02 2012 0))
+         (ut-loc (encode-universal-time 1 2 3 21 02 2012))
+         (tz (nth-value 8 (decode-universal-time ut-loc))))
+    ;; default one
+    (test-pattern-layout
+     (format nil "%d{}{~d}" ut-utc)
+     "2012-02-21 03:02:01")
+    (test-pattern-layout
+     (format nil "-- %d{[%m/%d/%Y %H:%M:%S]}{~d} --" ut-utc)
+     "-- [02/21/2012 03:02:01] --")
+    (test-pattern-layout
+     (format nil "-%%- %d{[%m/%d/%Y %H:%M:%S]}{~d} -%%-" ut-utc)
+     "-%- [02/21/2012 03:02:01] -%-");;
+    ;; Test extended formatting flags
+    ;; 
+    ;; _(underscore) pad with spaces
+    ;; -(dash) don't pad
+    ;; ^ convert to upper case
+    ;;
+    ;; followed by width, which pads field from the left if its
+    ;; smaller
+    ;; 
+    (loop for d-str in '("d" "D")
+          for ut in (list ut-utc ut-loc)
+          do (progn
+               (test-pattern-layout (format nil "%~A{%Y}{~d}" d-str ut) "2012")
+               (test-pattern-layout (format nil "%~A{%y}{~d}" d-str ut) "12")
+               (test-pattern-layout (format nil "%~A{%m}{~d}" d-str ut) "02")
+               (test-pattern-layout (format nil "%~A{%_m}{~d}" d-str ut) " 2")
+               (test-pattern-layout (format nil "%~A{%-m}{~d}" d-str ut) "2")
+               (test-pattern-layout (format nil "%~A{%_d}{~d}" d-str ut) "21")
+               (test-pattern-layout (format nil "%~A{%-d}{~d}" d-str ut) "21")
+               (test-pattern-layout (format nil "%~A{%a}{~d}" d-str ut) "Tue")
+               (test-pattern-layout (format nil "%~A{%^a}{~d}" d-str ut) "TUE")
+               (test-pattern-layout (format nil "%~A{%A}{~d}" d-str ut) "Tuesday")
+               (test-pattern-layout (format nil "%~A{%^A}{~d}" d-str ut) "TUESDAY")
+               (test-pattern-layout (format nil "%~A{%b}{~d}" d-str ut) "Feb")
+               (test-pattern-layout (format nil "%~A{%^b}{~d}" d-str ut) "FEB")
+               (test-pattern-layout (format nil "%~A{%B}{~d}" d-str ut) "February")
+               ;; Now test the width
+               (test-pattern-layout (format nil "%~A{%4Y}{~d}" d-str ut) "2012")
+               (test-pattern-layout (format nil "%~A{%6Y}{~d}" d-str ut) "  2012")
+               (test-pattern-layout (format nil "%~A{%4y}{~d}" d-str ut) "  12")
+               (test-pattern-layout (format nil "%~A{%6y}{~d}" d-str ut) "    12")
+               (test-pattern-layout (format nil "%~A{%2m}{~d}" d-str ut) "02")
+               (test-pattern-layout (format nil "%~A{%4m}{~d}" d-str ut) "  02")
+               (test-pattern-layout (format nil "%~A{%_3m}{~d}" d-str ut) "  2")
+               (test-pattern-layout (format nil "%~A{%-2m}{~d}" d-str ut) " 2")
+               (test-pattern-layout (format nil "%~A{%-3m}{~d}" d-str ut) "  2")
+               (test-pattern-layout (format nil "%~A{%_3d}{~d}" d-str ut) " 21")
+               (test-pattern-layout (format nil "%~A{%5a}{~d}" d-str ut) "  Tue")
+               (test-pattern-layout (format nil "%~A{%^5a}{~d}" d-str ut) "  TUE")
+               (test-pattern-layout (format nil "|%~A{%10A}{~d}|" d-str ut) "|   Tuesday|")
+               (test-pattern-layout (format nil "%~A{%^9A}{~d}" d-str ut) "  TUESDAY")))
+    ;; test am-pm
+    (test-pattern-layout (format nil "%d{%I %p}{~d}"
+                                 (encode-universal-time 0 0 12 21 02 2012 0))
+                         "12 PM")
+    (test-pattern-layout (format nil "%d{%I %P}{~d}"
+                                 (encode-universal-time 0 0 12 21 02 2012 0))
+                         "12 pm")
+    (test-pattern-layout (format nil "%d{%I %p}{~d}"
+                                 (encode-universal-time 0 0 0 21 02 2012 0))
+                         "12 AM")
+    (test-pattern-layout (format nil "%d{%I:%M:%S %p}{~d}"
+                                 (encode-universal-time 1 59 11 21 02 2012 0))
+                         "11:59:01 AM")
+    (test-pattern-layout (format nil "%d{%I:%M:%S %p}{~d}"
+                                 (encode-universal-time 1 59 22 21 02 2012 0))
+                         "10:59:01 PM")
+    (test-pattern-layout
+     (format nil "%d{%c}{~d}" ut-utc) "Tue 21 Feb 2012 03:02:01 +0000")
+    ;; same in local
+    (let ((expected-default-format-output
+            ;; Below screwing around is needed because CL returns
+            ;; timezone offset as rational number, so timezone offset
+            ;; of +5:30 will be represented as 11/2 which we need to
+            ;; format as +0530
+            (multiple-value-bind (tz-hours tz-mins)
+                (floor tz)
+              (format nil "Tue 21 Feb 2012 03:02:01 ~:[+~;-~]~2,'0d~2,'0d"
+                      (minusp tz-hours) (abs tz-hours) 
+                      (round (* 60 (coerce tz-mins 'float)))))))
+      (test-pattern-layout
+       (format nil "%D{%c}{~d}" ut-loc)
+       expected-default-format-output))))
+
+
+(deftest test-pattern-hostname ()
+  #+(and sbcl unix) (test-pattern-layout "%h" (sb-unix:unix-gethostname))
+  #+(and sbcl win32) (test-pattern-layout "%h" (sb-win32::get-computer-name)))
+
+(deftest test-pattern-newline ()
+  (test-pattern-layout "%m%n" (format nil "message~%")))

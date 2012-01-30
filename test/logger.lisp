@@ -11,7 +11,7 @@
 (eval-when (:load-toplevel :compile-toplevel :execute)
   (defmethod naming-option ((pkg (eql (find-package :log4cl.test.dots)))
                             (option (eql :category-separator)))
-    #\.))
+    "."))
 
 (in-root-suite)
 (defsuite* test)
@@ -29,9 +29,22 @@
   (with-package-log-hierarchy
     (let ((logger (make-logger '(one two three four))))
       (basics logger)
-      (is (equal (logger-category logger) "ONE:TWO:THREE:FOUR"))
-      (is (equal (logger-name logger) "FOUR"))
+      (is (equal (logger-category logger)
+                 (concatenate 'string
+                              (symbol-name 'one) ":"
+                              (symbol-name 'two) ":"
+                              (symbol-name 'three) ":"
+                              (symbol-name 'four))))
+      (is (equal (logger-name logger) (symbol-name 'four)))
       (is (eql (logger-depth logger) 4)))))
+
+
+(deftest single-name ()
+  "Test the logger name being correct when no separators are found in
+  the name"
+  (let ((logger (make-logger '(foobar))))
+    (is (equal (logger-category logger) (symbol-name 'foobar)))
+    (is (equal (logger-name logger) (symbol-name 'foobar)))))
 
 (deftest reset-configuration-0 ()
   "Test that CLEAR-LOGGING-CONFIGURATION works and that
@@ -68,7 +81,7 @@ configuration"
     (reset-logging-configuration)
     (is (equal (with-output-to-string (*debug-io*)
                  (log-info "Hello World!"))
-               "INFO: Hello World!
+               "INFO - Hello World!
 "))))
 
 (deftest verify-returns-same-logger ()
@@ -119,8 +132,13 @@ situation"
   (with-package-log-hierarchy
     (let ((logger (make-logger '(one two three four))))
       (log4cl.test::basics logger)
-      (is (equal (logger-category logger) "ONE.TWO.THREE.FOUR"))
-      (is (equal (logger-name logger) "FOUR"))
+      (is (equal (logger-category logger)
+                 (concatenate 'string
+                              (symbol-name 'one) "."
+                              (symbol-name 'two) "."
+                              (symbol-name 'three) "."
+                              (symbol-name 'four))))
+      (is (equal (logger-name logger) (symbol-name 'four)))
       (is (eql (logger-depth logger) 4)))))
 
 (deftest logger-name-via-dotted-keyword ()
@@ -188,11 +206,15 @@ correctly parsed into multiple loggers"
       (is (log-debug logger))
       (is (log-info logger)))))
 
-(deftest make-logger-0 ()
+(deftest make-logger-with-dotted-symbol-name ()
   (with-package-log-hierarchy
-    (let ((logger (make-logger :one.two.three.four)))
+    (let ((logger (make-logger :one.two.three)))
       (log4cl.test::basics logger)
-      (is (equal (logger-category logger) "log4cl.test.dots.one.two.three.four")))))
+      (is (equal (logger-category logger)
+                 (concatenate 'string
+                              (package-name #.*package*)
+                              "."
+                              (symbol-name :one.two.three)))))))
 
 
 ;; Include the "dots" package test suite into main one

@@ -30,12 +30,13 @@
   :version "1.0"
   :depends-on (:log4cl :stefil)
   :components ((:file "test/logger")
+               (:file "test/test-layouts")
                (:file "test/speed")))
 
 (defmethod perform ((op test-op) (system (eql (find-system :log4cl))))
   (operate 'load-op :log4cl.test)
   (in-package :log4cl.test)
-  (eval (read-from-string "(stefil:funcall-test-with-feedback-message 'log4cl.test:test)"))
+  (eval (read-from-string "(stefil:funcall-test-with-feedback-message 'log4cl.test::test)"))
   (values))
 
 (defvar *default-init-done-p* nil)

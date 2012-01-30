@@ -59,6 +59,8 @@ indexed by this variable. Can be assigned directly or ")
                                      (logger-category logger)) stream))))))
   ;; Full category name as in parent.sub-parent.thislogger
   (category  nil :type string)
+  ;; Logger's native category separator string
+  (category-separator nil :type string)
   ;; position of the 1st character of this logger name in full
   ;; category name
   (name-start-pos 0 :type fixnum)
@@ -184,7 +186,7 @@ if it does not exist"
   (cond ((or (null category)
              (zerop (length category))) *root-logger*)
         (t (let* ((separator (naming-option *package* :category-separator))
-                  (pos (position separator category :from-end t))
+                  (pos (search separator category :from-end t))
                   (parent (if (null pos) *root-logger*
                               (get-logger (subseq category 0 pos))))
                   (logger (let ((child-hash (logger-children parent)))
@@ -192,9 +194,9 @@ if it does not exist"
                               (gethash category child-hash)))))
              (unless logger
                (setq logger (create-logger :category category
+                                           :category-separator separator
                                            :parent parent
-                                           :name-start-pos
-                                           (1+ (or pos 0))
+                                           :name-start-pos (if pos (1+ pos) 0)
                                            :depth (1+ (logger-depth parent))))
                (unless (logger-children parent)
                  (setf (logger-children parent)
@@ -256,7 +258,7 @@ context of the current application."
 		    (appenders
                       (logger-state-appenders state)))
 	       (dolist (appender appenders)
-		 (appender-do-append appender logger level log-func)))
+		 (appender-do-append appender orig-logger level log-func)))
 	     (let ((parent (logger-parent logger)))
 	       (when  parent
 		 (log-to-logger-appenders parent orig-logger level log-func)))
@@ -327,6 +329,11 @@ second value."
   (substr (logger-category logger)
           (logger-name-start-pos logger)))
 
+(defun logger-name-length (logger)
+  "Return length of logger itself (without parent loggers)"
+  (- (length (logger-category logger))
+     (logger-name-start-pos logger)))
+
 (defun %hierarchy-index (name)
   (when (stringp name)
     (setq name (intern name)))
@@ -378,7 +385,7 @@ appender"
   (setf (logger-log-level *root-logger*) +log-level-info+))
 
 (defun create-root-logger ()
-  (let ((root (create-logger :category "")))
+  (let ((root (create-logger :category "" :category-separator "")))
     (adjust-logger root)
     root))
 

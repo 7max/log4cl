@@ -16,15 +16,20 @@ function"))
   (:documentation "Return the automatic logger naming option
 for the specified package. Valid options are:
 
-   :CATEGORY-SEPARATOR - character or string that separates category names
-                         default method returns colon
-   :CATEGORY-CASE      - When determining automatic logger name from a symbol
-                         how to handle case. Valid values are:
+  :CATEGORY-SEPARATOR - String that separates category names, default
+  method returns \":\"
 
-                         :READTABLE  use current readtable
-                         :UPCASE     convert to upper case
-                         :DOWNCASE   convert to lower case
-                         :INVERT     invert, as inverted readtables do"))
+  :CATEGORY-CASE - Determining how automatic symbols are converted to
+  the logger category name.
+
+  Valid values are: 
+    NIL        -  readtable-case of active readtable
+    :UPCASE    -  convert to upper case
+    :DOWNCASE  -  convert to lower case
+    :INVERT    -  invert, as inverted readtables do
+
+  Note that pattern layout offers similar facility that changes how
+  logger category is printed on the output side."))
 
 (defgeneric resolve-logger-form (package env args)
   (:documentation "Is called by all logging macros such as to figure
@@ -67,15 +72,8 @@ For example:
 INFO - test message
 "))
 
-(defclass default-layout (layout) ()
-  (:documentation "Default layout that prints category, log level and the message.
-
-Example:
-
- (log4cl.test) DEBUG - test message"))
-
 (defclass appender ()
-  ((layout :initform (make-instance 'default-layout)
+  ((layout :initform (make-instance 'simple-layout)
            :initarg :layout))
   (:documentation "Appender is log message sink, and is responsible
 for physically delivering the log message, somewhere. The formatting

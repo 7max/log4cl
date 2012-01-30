@@ -62,7 +62,12 @@
    :console-appender
    :serialized-appender
    :fixed-stream-appender
-   :appender-stream))
+   :appender-stream
+   :pattern-layout
+   :pattern-layout-error
+   :+min-log-level+
+   :+max-log-level+
+   :log-level-to-string))
 
 
 

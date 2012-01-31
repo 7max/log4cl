@@ -68,7 +68,10 @@
    :pattern-layout-error
    :+min-log-level+
    :+max-log-level+
-   :log-level-to-string))
+   :log-level-to-string
+   :with-ndc-context
+   :with-log-indent
+   :logger-additivity))
 
 
 

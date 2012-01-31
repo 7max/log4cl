@@ -288,14 +288,27 @@ EFFECTIVE-APPENDERS"
 (defun effective-appenders (logger)
   "Return the list of all appenders that logger output could possible go to,
 including inherited one"
-  (loop for tmp = logger then (logger-parent tmp)
-        while tmp
-        append (logger-state-appenders (current-state tmp))))
+  (declare (type logger logger))
+  (loop for tmp = logger then parent
+        as state = (current-state tmp)
+        as parent = (logger-parent tmp)
+        append (logger-state-appenders state)
+        while (and parent (logger-state-additivity state))))
 
 (defun (setf logger-log-level) (level logger)
   "Set logger log level. Returns logger own log level"
   (declare (type logger logger))
   (nth-value 1 (set-log-level logger level)))
+
+(defun logger-additivity (logger)
+  "Return logger additivity"
+  (declare (type logger logger))
+  (logger-state-additivity (current-state logger)))
+
+(defun (setf logger-additivity) (additivity logger)
+  "Set logger appender additivity. Returns new additivity"
+  (declare (type logger logger))
+  (nth-value 1 (set-additivity logger additivity)))
 
 (defun set-log-level (logger level &optional (adjust-p t))
   "Set the log level of a logger. Log level is passed to
@@ -319,6 +332,16 @@ second value."
       (when adjust-p
         (adjust-logger logger))
       (values t new-level))))
+
+(defun set-additivity (logger additivity &optional (adjust-p t))
+  "Set logger additivity."
+  (declare (type logger logger))
+  (let* ((state (current-state logger))
+         (old-additivity (logger-state-additivity state)))
+    (unless (eql old-additivity additivity)
+      (setf (logger-state-additivity state) additivity)
+      (when adjust-p (adjust-logger logger))
+      (values additivity))))
 
 (defun add-appender (logger appender)
   (declare (type logger logger) (type appender appender))

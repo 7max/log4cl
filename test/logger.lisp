@@ -162,6 +162,36 @@ correctly parsed into multiple loggers"
       (is (null (logger-appenders logger)))
       (is (not (null (effective-appenders logger)))))))
 
+(deftest appender-additivity ()
+  "Test appender additivity works"
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (let* ((one (make-logger :one))
+           (one-two (make-logger :one.two))
+           (one-two-three (make-logger :one.two.three)))
+      ;; Add appender to the root, and one-two
+      (add-appender *root-logger* (make-instance 'console-appender))
+      (add-appender one (make-instance 'console-appender))
+      ;; see that it got inherited
+      (is (null (logger-appenders one-two-three)))
+      (is (not (null (effective-appenders one-two-three))))
+      (is (equal 2 (length (effective-appenders one-two-three))))
+      (is (equal 2 (length (effective-appenders one-two))))
+      (is (equal 2 (length (effective-appenders one))))
+      ;; now make  :one.two non-additive
+      (setf (logger-additivity one-two) nil)
+      (is (equal 0 (length (effective-appenders one-two-three))))
+      (is (equal 0 (length (effective-appenders one-two))))
+      (is (equal 2 (length (effective-appenders one))))
+      ;; add logger to one-two
+      (add-appender one-two (make-instance 'console-appender))
+      (is (equal 1 (length (effective-appenders one-two-three))))
+      (is (equal 1 (length (effective-appenders one-two))))
+      (add-appender one-two (make-instance 'console-appender))
+      (is (equal 2 (length (effective-appenders one-two-three))))
+      (setf (logger-additivity one-two) t)
+      (is (equal 4 (length (effective-appenders one-two-three)))))))
+
 (deftest inherit-log-levels ()
   "Test log level inheritance"
   (with-package-log-hierarchy

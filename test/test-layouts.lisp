@@ -453,3 +453,34 @@ two asserts "
 
 (deftest test-pattern-newline ()
   (test-pattern-layout "%m%n" (format nil "message~%")))
+
+(deftest test-pattern-thread-name ()
+  (test-pattern-layout
+   "thread is %t"
+   (concatenate 'string "thread is "
+                (bordeaux-threads:thread-name
+                 (bordeaux-threads:current-thread)))))
+
+(deftest test-pattern-ndc-context ()
+  (test-pattern-layout "%x" "")
+  (with-ndc-context ("blah")
+    (test-pattern-layout "%x" "blah"))
+  (with-ndc-context (:foo)
+    (test-pattern-layout "[%-5x]" (format nil "[ ~s]" :foo))))
+
+(deftest test-pattern-process-id ()
+  (flet ((pid ()
+           (or #+sbcl (sb-posix:getpid)
+               #+clisp (process-id)
+               0)))
+    (test-pattern-layout "%i" (format nil "~d" (pid)))
+    (test-pattern-layout "%20i" (format nil "~20<~d~;~>" (pid)))
+    (test-pattern-layout "%-20i" (format nil "~20<~d~>" (pid)))))
+
+
+(deftest test-pattern-log-indent ()
+  (with-log-indent (0)
+    (with-log-indent ()
+      (test-pattern-layout "%I%p - %m" "  INFO - message")
+      (with-log-indent ()
+        (test-pattern-layout "%I{>}%p - %m" ">>INFO - message")))))

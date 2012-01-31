@@ -13,7 +13,11 @@ appenders")
 indexed by this variable. Can be assigned directly or ")
 
 (defvar *log-indent* 0
-  "Indent level can be used to indent logging info")
+  "Indent level can be used to indent logging info, is printed by %I
+pattern format")
+
+(defvar *ndc-context* nil
+  "Value that is printed by %x pattern format")
 
 (defvar *name-to-hierarchy* (let ((table (make-hash-table)))
                               (setf (gethash :default table) 0)

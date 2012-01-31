@@ -34,6 +34,8 @@ be known, (with-output-to-string) is used.
 Following pattern characters are recognized:
 
 --------------------------------------------------------------------
+   %p Log level string, for example DEBUG, INFO, TRACE
+
    %c Full category name of the logger for example CL-USER:FOO:BAR.
 
    There can be up to three extra flags in curly braces. Extra flag
@@ -58,7 +60,7 @@ Following pattern characters are recognized:
    with conversion pattern of %c{}{--}{:invert} will result print it
    as cl-user--foo--bar
 --------------------------------------------------------------------
-   %d Prints the date/time of the log message in UTC, extra argument
+   %d The date/time of the log message in UTC, extra argument
       can be a date pattern. Default date pattern is
       %d{%Y-%m-%d %H:%M:%S}
 
@@ -94,16 +96,17 @@ Following pattern characters are recognized:
 --------------------------------------------------------------------
    %D date-time in local time, extra arguments can contain a strftime pattern
 
-   %h hostname of the system (implementation dependent, obtained once then cached)
+   %h hostname of the system (implementation dependent, obtained once
+      when pattern is parsed, and cached
 
-   %t current thread name
+   %t Current thread name
 
    %x Value of *ndc-context* variable from (with-ndc-context (context)) macro
 
-   %p Process id of the lisp process
+   %i Process id of the lisp process, implementation dependent.
 
-   %I Two spaces repeated *log-indent* times. Different padding string can be
-      specified in an extra argument
+   %I Two spaces repeated *log-indent* times. Different padding string
+      can be specified in an extra argument.
 
    %n OS-dependent newline sequence.
 
@@ -234,7 +237,7 @@ Example: For the string {one}{}{three} will return the list (14
   (values)) 
 
 (define-pattern-formatter (#\p) 
-  "Info the log level"
+  "Output the %p (log level) pattern"
   (declare (ignore logger log-func))
   (format-string (log-level-to-string log-level) stream fmt-info)
   (values))
@@ -746,7 +749,76 @@ the log message to the stream with the specified format."
                           :continue continue))))
 
 (define-pattern-formatter (#\n)
-  "Output the %h pattern"
+  "Output the %n (newline) pattern"
   (declare (ignore fmt-info logger log-level log-func))
   (terpri stream)
   (values))
+
+(define-pattern-formatter (#\t)
+  "Output %t (thread name) pattern"
+  (declare (ignore logger log-level log-func))
+  (format-string (thread-name (current-thread)) stream fmt-info))
+
+(define-pattern-formatter (#\x)
+  (declare (ignore logger log-level log-func))
+  (let ((ndc (if (boundp '*ndc-context*)
+                 (or *ndc-context* "") "")))
+    (cond 
+      ((stringp ndc) (format-string ndc stream fmt-info))
+      ((and (zerop (slot-value fmt-info 'minlen))
+            (null (slot-value fmt-info 'maxlen)))
+       (prin1 ndc stream))
+      (t (format-string (with-output-to-string (s)
+                          (prin1 ndc s))
+                        stream fmt-info))))
+  (values))
+
+
+(defclass process-id-fmt-info (format-info)
+  ((process-id :initarg :process-id))
+  (:documentation "Caches process-id"))
+
+(defmethod parse-extra-args (fmt-info (char (eql #\i)) pattern start)
+  (values start (change-class
+                 fmt-info 'process-id-fmt-info
+                 :process-id (or
+                              #+sbcl (sb-posix:getpid)
+                              #+clisp (process-id)
+                              0))))
+
+(define-pattern-formatter (#\i)
+  "Output %i (process id) pattern"
+  (declare (ignore logger log-level log-func))
+  (if (and (zerop (slot-value fmt-info 'minlen))
+           (null (slot-value fmt-info 'maxlen)))
+      (princ (slot-value fmt-info 'process-id) stream)
+      (format-string (with-output-to-string (s)
+                       (princ (slot-value fmt-info 'process-id) s))
+                     stream fmt-info))
+  (values))
+
+(defclass pattern-log-indent-fmt-info (format-info)
+  ((indent-string :initarg :indent-string))
+  (:documentation "Extra formatting flags for %I (log indent) pattern"))
+
+(defmethod parse-extra-args (fmt-info (char (eql #\I))
+                             pattern start)
+  (destructuring-bind (next-pos &optional indent-string)
+      (parse-extra-args-in-curly-braces pattern start)
+    (values next-pos
+            (change-class
+             fmt-info 'pattern-log-indent-fmt-info
+             :indent-string (or indent-string "  ")))))
+
+(define-pattern-formatter (#\I)
+  "Output %i (process id) pattern"
+  (declare (ignore logger log-level log-func))
+  (let ((str (slot-value fmt-info 'indent-string)))
+    (if (and (zerop (slot-value fmt-info 'minlen))
+             (null (slot-value fmt-info 'maxlen)))
+        (loop repeat *log-indent* do (write-string str stream))
+        (format-string (with-output-to-string (s)
+                         (loop repeat *log-indent* do (write-string str s)))
+                       stream fmt-info)))
+  (values))
+

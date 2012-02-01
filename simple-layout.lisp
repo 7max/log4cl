@@ -1,9 +1,14 @@
 (in-package #:log4cl)
 
+(defclass simple-layout (layout) ()
+  (:documentation
+   "Simple layout outputs log level and user message separated by
+dash. For example: INFO - user log message"))
+
 (declaim (inline write-log-level))
 
 (defun write-log-level (level stream)
-  "Write the log level name to the stream"
+  "Print the log LEVEL's name to the STREAM"
   (write-string (log-level-to-string level) stream)
   (values))
 
@@ -12,7 +17,7 @@
                              logger
 			     level
                              log-func)
-  "Format the user log statement with the simple layout"
+  "Format the log message with the simple layout"
   (declare (type stream stream)
            (type fixnum level)
            (type function log-func))

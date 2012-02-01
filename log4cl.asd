@@ -12,7 +12,8 @@
                :cl-ppcre
                :demacs)
   :components ((:file "package")
-               (:file "classes")
+               (:file "defs")
+               (:file "naming")
                (:file "logger")
                (:file "logging-macros")
                (:file "configurator")
@@ -20,10 +21,10 @@
                ;; ;; TODO do this dynamically only if demacs
                ;; ;; package is present
                ;; (:file "demacs-integration")
+	       (:file "layout")
 	       (:file "simple-layout")
 	       (:file "pattern-layout")
-	       (:file "appender")
-               (:file "naming")))
+	       (:file "appender")))
 
 (defsystem :log4cl.test
   :serial t

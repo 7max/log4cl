@@ -547,7 +547,7 @@ the log message to the stream with the specified format."
   "Output the %d or %D pattern"
   (declare (type pattern-date-format-info fmt-info))
   (with-slots (minlen maxlen date-format universal-time) fmt-info
-    (let* ((ut (or universal-time (get-universal-time))))
+    (let* ((ut (or universal-time (log-event-time))))
       (if (or (plusp minlen) maxlen)
           ;; need to know length of message produced by log-func
           (format-string (with-output-to-string (s)

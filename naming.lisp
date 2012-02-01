@@ -1,5 +1,55 @@
 (in-package :log4cl)
 
+(defgeneric log-level-from-object (obj package)
+  (:documentation "Should return numeric log level from the user
+representation, can be specialized per-package to have custom log
+level names. Default implementation converts object to string and
+parses \"fatal\" \"debug\" and so on. Called by MAKE-LOG-LEVEL
+function"))
+
+(defgeneric naming-option (package option)
+  (:documentation "Return the automatic logger naming option
+for the specified package. Valid options are:
+
+  :CATEGORY-SEPARATOR - String that separates category names, default
+  method returns \":\"
+
+  :CATEGORY-CASE - Determining how automatic symbols are converted to
+  the logger category name.
+
+  Valid values are: 
+    NIL        -  readtable-case of active readtable
+    :UPCASE    -  convert to upper case
+    :DOWNCASE  -  convert to lower case
+    :INVERT    -  invert, as inverted readtables do
+
+  Note that pattern layout offers similar facility that changes how
+  logger category is printed on the output side."))
+
+(defgeneric resolve-logger-form (package env args)
+  (:documentation "Is called by all logging macros such as to figure
+out the logger to log into. PACKAGE and ENV are the current value of
+*PACKAGE* and the macro environment of the logging macro, and ARG and
+MORE-ARGS are its arguments.
+
+Returns two values, first being either a logger, or a form that when
+evaluated will return a logger, and second value being list of
+arguments to be passed to the format statement that will log the
+message.
+
+When second value returned is NIL, then logging macro will not log any
+message but will rather expand into a non-nil value if logger is
+active and has appenders.
+
+"))
+
+(defgeneric resolve-default-logger-form (package env args)
+  (:documentation "Is called by RESOLVE-LOGGER-FORM when logging macro
+arguments do not specify the logger to log into. See
+RESOLVE-LOGGER-FORM for return values"))
+
+
+
 (defmethod log-level-from-object (arg package)
   "Converts human readable log level description in ARG into numeric log level.
 
@@ -181,4 +231,5 @@ SEPARATOR"
              (t (values (first args) (rest args))))))
     (t
      (values (first args) (rest args)))))
+
 

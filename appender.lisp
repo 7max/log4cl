@@ -18,7 +18,7 @@ serializing access to any resources."))
   ((immediate-flush  :initform NIL :initarg :immediate-flush
                      :type boolean)
    (flush-interval   :initform 1 :initarg :immediate-flush
-                     :type fixnum)
+                     :type (or null fixnum))
    (last-flush-time  :initform 0 :type unsigned-byte))
   (:documentation "Appender that writes message to stream returned by
   APPENDER-STREAM generic function.
@@ -71,14 +71,32 @@ Example:
 
 Return value of this function is ignored"))
 
+
+(defun maybe-flush-appender-stream (appender stream)
+  "Flush the APPENDER's stream if needed"
+  (declare (type stream-appender appender)
+           (type stream stream))
+  (with-slots (immediate-flush flush-interval last-flush-time)
+      appender
+    (cond (immediate-flush
+           (setf last-flush-time (log-event-time))
+           (finish-output stream))
+          (flush-interval
+           (let ((time (log-event-time)))
+             (when (>= (- time last-flush-time) flush-interval)
+               (setf last-flush-time time)
+               (finish-output stream)))))))
+
 (defmethod appender-do-append :around
     ((this serialized-appender) logger level log-func)
   (with-lock-held ((slot-value this 'lock))
     (call-next-method)))
 
 (defmethod appender-do-append ((this stream-appender) logger level log-func)
-  (layout-to-stream (slot-value this 'layout) (appender-stream this)
-                    logger level log-func)
+  (let ((stream (appender-stream this)))
+    (layout-to-stream (slot-value this 'layout) stream
+                      logger level log-func)
+    (maybe-flush-appender-stream this stream))
   (values))
 
 ;; Save one generic function dispatch by accessing STREAM slot directly
@@ -86,10 +104,11 @@ Return value of this function is ignored"))
                                logger
 			       level
                                log-func)
-  (layout-to-stream (slot-value this 'layout)
-                    (slot-value this 'stream)
-                    logger level log-func)
-  (values))
+  (let ((stream (slot-value this 'stream)))
+    (layout-to-stream (slot-value this 'layout)
+                      (slot-value this 'stream)
+                      logger level log-func)
+    (maybe-flush-appender-stream this stream)))
 
 (defmethod appender-stream ((this console-appender))
   "Returns *DEBUG-IO*"

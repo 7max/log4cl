@@ -195,19 +195,19 @@ context of the current application."
 
 (defun log-with-logger (logger level log-func)
   "Submit message to logger appenders, and its parent logger"
-  (let ((*log-event-time* nil)))
-  (labels ((log-to-logger-appenders (logger orig-logger level log-func)
-	     (let* ((state (current-state logger))
-		    (appenders
-                      (logger-state-appenders state)))
-	       (dolist (appender appenders)
-		 (appender-do-append appender orig-logger level log-func)))
-	     (let ((parent (logger-parent logger)))
-	       (when  parent
-		 (log-to-logger-appenders parent orig-logger level log-func)))
-	     (values)))
-    (log-to-logger-appenders logger logger level log-func)
-    (values)))
+  (let ((*log-event-time* nil))
+    (labels ((log-to-logger-appenders (logger orig-logger level log-func)
+               (let* ((state (current-state logger))
+                      (appenders
+                        (logger-state-appenders state)))
+                 (dolist (appender appenders)
+                   (appender-do-append appender orig-logger level log-func)))
+               (let ((parent (logger-parent logger)))
+                 (when  parent
+                   (log-to-logger-appenders parent orig-logger level log-func)))
+               (values)))
+      (log-to-logger-appenders logger logger level log-func)
+      (values))))
 
 (defun logger-log-level (logger)
   "Return the logger own log level or NIL if unset. Please note that

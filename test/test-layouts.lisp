@@ -477,7 +477,6 @@ two asserts "
     (test-pattern-layout "%20i" (format nil "~20<~d~;~>" (pid)))
     (test-pattern-layout "%-20i" (format nil "~20<~d~>" (pid)))))
 
-
 (deftest test-pattern-log-indent ()
   (with-log-indent (0)
     (with-log-indent ()

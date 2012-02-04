@@ -71,7 +71,10 @@
    :log-level-to-string
    :with-ndc-context
    :with-log-indent
-   :logger-additivity))
+   :logger-additivity
+   :appender-error
+   :handle-appender-error
+   :counting-appender))
 
 
 

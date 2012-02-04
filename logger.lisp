@@ -193,6 +193,12 @@ context of the current application."
   (make-array (- to from) :element-type (array-element-type seq)
                           :displaced-to seq :displaced-index-offset from))
 
+(defun log-appender-error (appender condition)
+  (log-error "Appender ~s disabled because of ~s" appender condition))
+
+(defmethod handle-appender-error (appender condition)
+  (log-appender-error appender condition))
+
 (defun log-with-logger (logger level log-func)
   "Submit message to logger appenders, and its parent logger"
   (let ((*log-event-time* nil))
@@ -201,10 +207,22 @@ context of the current application."
                       (appenders
                         (logger-state-appenders state)))
                  (dolist (appender appenders)
-                   (appender-do-append appender orig-logger level log-func)))
-               (let ((parent (logger-parent logger)))
-                 (when  parent
-                   (log-to-logger-appenders parent orig-logger level log-func)))
+                   (with-slots (error) appender
+                     (unless error
+                       (loop for done = t
+                             for error-cnt fixnum from 0
+                             do (handler-case
+                                    (appender-do-append appender orig-logger level log-func)
+                                  (error (err)
+                                    (setf error err)
+                                    (if (< error-cnt 3)
+                                        (handle-appender-error appender err)
+                                        (log-appender-error appender err))
+                                    (setq done error)))
+                             until done))))
+                 (let ((parent (logger-parent logger)))
+                   (when (and parent (logger-state-additivity state))
+                     (log-to-logger-appenders parent orig-logger level log-func))))
                (values)))
       (log-to-logger-appenders logger logger level log-func)
       (values))))
@@ -348,7 +366,8 @@ configure root logger with INFO log level and a simple console
 appender"
   (clear-logging-configuration)
   (add-appender *root-logger* (make-instance 'console-appender))
-  (setf (logger-log-level *root-logger*) +log-level-info+))
+  (setf (logger-log-level *root-logger*) +log-level-warn+)
+  (log-info "Logging configuration was reset to sane defaults"))
 
 (defun create-root-logger ()
   (let ((root (create-logger :category "" :category-separator "")))

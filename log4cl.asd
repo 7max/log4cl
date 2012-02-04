@@ -14,6 +14,7 @@
   :components ((:file "package")
                (:file "defs")
                (:file "naming")
+               (:file "appender-base")
                (:file "logger")
                (:file "logging-macros")
                (:file "configurator")

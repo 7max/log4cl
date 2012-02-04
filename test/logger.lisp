@@ -1,6 +1,7 @@
 (cl:defpackage :log4cl.test
   (:use :cl :log4cl :stefil)
-  (:export :test :speed)
+  (:export :test :speed
+           :handle-appender-error)
   (:shadow :speed))
 
 (cl:defpackage :log4cl.test.dots
@@ -55,23 +56,23 @@ configuration"
   (with-log-hierarchy ('dummy)
     ;; clear deletes everything
     (clear-logging-configuration)
-    (is (not (log-info)))
+    (is (not (log-warn)))
     (is (null (logger-appenders *root-logger*)))
     ;; reset provides sane defaults
     (reset-logging-configuration)
-    (is (log-info))
+    (is (log-warn))
     (is (not (log-debug)))
     (is (not (null (logger-appenders *root-logger*))))
     ;; do reset and clear in the different hierarchy
     (with-package-log-hierarchy
         (reset-logging-configuration)
-      (is (log-info))
+      (is (log-warn))
       (is (not (log-debug)))
       (clear-logging-configuration)
-      (is (not (log-info)))
+      (is (not (log-warn)))
       (is (null (logger-appenders *root-logger*))))
     ;; see that original one is unchanged
-    (is (log-info))
+    (is (log-warn))
     (is (not (log-debug)))
     (is (not (null (logger-appenders *root-logger*))))))
 
@@ -80,8 +81,8 @@ configuration"
   (with-package-log-hierarchy
     (reset-logging-configuration)
     (is (equal (with-output-to-string (*debug-io*)
-                 (log-info "Hello World!"))
-               "INFO - Hello World!
+                 (log-warn "Hello World!"))
+               "WARN - Hello World!
 "))))
 
 (deftest verify-returns-same-logger ()
@@ -102,7 +103,7 @@ situation"
   (with-package-log-hierarchy
     (reset-logging-configuration)
     (let ((logger (make-logger :foobar)))
-      (is (log-info logger)))))
+      (is (log-warn logger)))))
 
 (deftest logger-by-expression ()
   "Test logging macros to verify that we can make a function returning
@@ -114,10 +115,23 @@ situation"
              (make-logger :foobar)))
       (let ((logger (get-my-logger)))
         (is (eq logger (get-my-logger)))
-        (is (log-info (get-my-logger)))
+        (is (log-warn (get-my-logger)))
         (is (not (log-debug (get-my-logger))))
         (setf (logger-log-level logger) :debug)
         (is (log-debug (get-my-logger)))))))
+
+(deftest test-counting-appender ()
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (let ((a (make-instance 'counting-appender)))
+      (add-appender *root-logger* a)
+      (log-config :i)
+      (log-info "hey")
+      (is (equal 1 (slot-value a 'count)))
+      (log-debug "moo")
+      (is (equal 1 (slot-value a 'count)))
+      (log-info "hey again")
+      (is (equal 2 (slot-value a 'count))))))
 
 ;;
 ;; Test in a different package, where logger category separator is dot
@@ -162,7 +176,37 @@ correctly parsed into multiple loggers"
       (is (null (logger-appenders logger)))
       (is (not (null (effective-appenders logger)))))))
 
-(deftest appender-additivity ()
+(deftest appender-additivity-1 ()
+  "Test appender additivity works"
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (let* ((one (make-logger :one))
+           (one-two (make-logger :one.two))
+           (one-two-three (make-logger :one.two.three))
+           (a1 (make-instance 'counting-appender))
+           (a2 (make-instance 'counting-appender))
+           (a3 (make-instance 'counting-appender)))
+      (log-config :i)
+      (add-appender one a1)
+      (add-appender one-two a2)
+      (add-appender one-two-three a3)
+      (setf (logger-additivity one-two) nil)
+      (log-info one "hey")
+      (log-info one-two "hey")
+      (is (equal 1 (slot-value a1 'count)))
+      (is (equal 1 (slot-value a2 'count)))
+      (is (equal 0 (slot-value a3 'count)))
+      (log-info one-two-three "hey")
+      (is (equal 1 (slot-value a1 'count)))
+      (is (equal 2 (slot-value a2 'count)))
+      (is (equal 1 (slot-value a3 'count)))
+      (setf (logger-additivity one-two) t)
+      (log-info one-two-three "hey")
+      (is (equal 2 (slot-value a1 'count)))
+      (is (equal 3 (slot-value a2 'count)))
+      (is (equal 2 (slot-value a3 'count))))))
+
+(deftest appender-additivity-2 ()
   "Test appender additivity works"
   (with-package-log-hierarchy
     (clear-logging-configuration)
@@ -200,8 +244,8 @@ correctly parsed into multiple loggers"
           (parent (make-logger :one)))
       ;; verify no logging
       (is (eql +log-level-off+ (effective-log-level logger)))
-      (is (null (log-info)))
-      (is (null (log-info logger)))
+      (is (null (log-warn)))
+      (is (null (log-warn logger)))
       ;; now set root log level to info, and verify that
       ;; the levels are right
       (setf (logger-log-level parent) :info)
@@ -209,10 +253,10 @@ correctly parsed into multiple loggers"
       (is (eql +log-level-info+ (effective-log-level logger)))
       ;; debugging is still off because of no appenders
       (is (null (log-debug logger)))
-      (is (null (log-info logger)))
+      (is (null (log-warn logger)))
       ;; add appender, verify debugging is now on
       (add-appender parent (make-instance 'console-appender))
-      (is (log-info logger))
+      (is (log-warn logger))
       (is (null (log-debug logger)))
       ;; turn debug on on :one.two.three logger
       (setf (logger-log-level logger) :debug)
@@ -221,20 +265,20 @@ correctly parsed into multiple loggers"
       (is (eql +log-level-debug+ (effective-log-level logger)))
       ;; verify both debug and info are on for logger
       (is (log-debug logger))
-      (is (log-info logger))
+      (is (log-warn logger))
       ;; verify only info is on for root logger
       (is (null (log-debug :one)))
-      (is (log-info :one))
+      (is (log-warn :one))
       ;; and same for logger parent
       (is (null (log-debug :one.two)))
-      (is (log-info :one.two))
+      (is (log-warn :one.two))
       ;; set root logger off, verify that explicit setting on logger
       ;; is still in effect
       (setf (logger-log-level parent) :off)
       (is (null (log-debug)))
-      (is (null (log-info)))
+      (is (null (log-warn)))
       (is (log-debug logger))
-      (is (log-info logger)))))
+      (is (log-warn logger)))))
 
 (deftest make-logger-with-dotted-symbol-name ()
   (with-package-log-hierarchy

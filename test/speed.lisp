@@ -3,30 +3,36 @@
 (in-root-suite)
 (defsuite* speed)
 
-;; Logging case
+;; Logging case, with default optimizations
 ;;
-;; (time (speed-test-to-file :iterations 10000000))
+;; (time (log4cl.test::speed-test-to-file :iterations 10000000))
 ;;
 ;; Evaluation took:
-;;   26.854 seconds of real time
-;;   26.711938 seconds of total run time (26.596956 user, 0.114982 system)
-;;   99.47% CPU
-;;   64,327,060,507 processor cycles
-;;   945,488 bytes consed
+;;   27.621 seconds of real time
+;;   27.632799 seconds of total run time (27.606803 user, 0.025996 system)
+;;   100.04% CPU
+;;   37 lambdas converted
+;;   66,169,657,401 processor cycles
+;;   1,981,984 bytes consed
 ;;
 ;; java test 10000000  8.74s user 15.62s system 101% cpu 24.002 total
 ;;
+;; Times with other configurations:
+;;   - *print-pretty* NIL (speed 3) (safety 1), 25.5 secs, 1 slower then java
+;;
 ;; No logging case (note 10x iterations the logging case)
 ;;
-;; (time (speed-test-to-file :iterations 100000000 :root-logger-level :info))
+;; (time (log4cl.test::speed-test-to-file :iterations 100000000
+;;   :root-logger-level :info))
 ;;
 ;; Evaluation took:
-;;   1.187 seconds of real time
-;;   1.178821 seconds of total run time (1.171822 user, 0.006999 system)
-;;   99.33% CPU
-;;   2,737,915,158 processor cycles
-;;   32,736 bytes consed
-;; 
+;;   1.099 seconds of real time
+;;   1.097834 seconds of total run time (1.091835 user, 0.005999 system)
+;;   99.91% CPU
+;;   37 lambdas converted
+;;   2,567,753,657 processor cycles
+;;   1,079,664 bytes consed
+;;
 ;; java -Droot.level=INFO test 100000000  15.07s user 0.85s system 101% cpu 15.757 total
 ;;
 
@@ -40,9 +46,11 @@
                                      :if-exists :supersede
                                      :external-format external-format)
       (clear-logging-configuration)
-      (add-appender *root-logger* (make-instance 'stream-appender
+      (add-appender *root-logger* (make-instance 'fixed-stream-appender
                                    :layout layout
-                                   :stream stream))
+                                   :stream stream
+                                   :immediate-flush nil
+                                   :flush-interval nil))
       (setf (logger-log-level *root-logger*) root-logger-level)
       (dotimes (cnt iterations)
         (log-debug :log4cl.test.category "iter=~d" cnt)))))

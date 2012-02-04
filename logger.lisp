@@ -193,12 +193,6 @@ context of the current application."
   (make-array (- to from) :element-type (array-element-type seq)
                           :displaced-to seq :displaced-index-offset from))
 
-(defun log-appender-error (appender condition)
-  (log-error "Appender ~s disabled because of ~s" appender condition))
-
-(defmethod handle-appender-error (appender condition)
-  (log-appender-error appender condition))
-
 (defun log-with-logger (logger level log-func)
   "Submit message to logger appenders, and its parent logger"
   (let ((*log-event-time* nil))
@@ -349,25 +343,6 @@ package"
                (map-logger-children #'doit logger))))
     (doit *root-logger*))
   (values))
-
-
-(defun clear-logging-configuration ()
-  "Delete all loggers"
-  (labels ((reset (logger)
-             (setf (svref (logger-state logger) *hierarchy*)
-                   (make-logger-state))
-             (map-logger-children #'reset logger)))
-    (reset *root-logger*))
-  (values))
-
-(defun reset-logging-configuration ()
-  "Clear the logging configuration in the current hierarchy, and
-configure root logger with INFO log level and a simple console
-appender"
-  (clear-logging-configuration)
-  (add-appender *root-logger* (make-instance 'console-appender))
-  (setf (logger-log-level *root-logger*) +log-level-warn+)
-  (log-info "Logging configuration was reset to sane defaults"))
 
 (defun create-root-logger ()
   (let ((root (create-logger :category "" :category-separator "")))

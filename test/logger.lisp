@@ -111,14 +111,7 @@ a logger, and that logging macros are correctly handling this
 situation"
   (with-package-log-hierarchy
     (reset-logging-configuration)
-    (flet ((get-my-logger ()
-             (make-logger :foobar)))
-      (let ((logger (get-my-logger)))
-        (is (eq logger (get-my-logger)))
-        (is (log-warn (get-my-logger)))
-        (is (not (log-debug (get-my-logger))))
-        (setf (logger-log-level logger) :debug)
-        (is (log-debug (get-my-logger)))))))
+    (log-info "Here1")))
 
 (deftest test-counting-appender ()
   (with-package-log-hierarchy

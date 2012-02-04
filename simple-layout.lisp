@@ -18,9 +18,7 @@ dash. For example: INFO - user log message"))
 			     level
                              log-func)
   "Format the log message with the simple layout"
-  (declare (type stream stream)
-           (type fixnum level)
-           (type function log-func))
+  (declare (ignore logger))
   (write-log-level level stream)
   (write-string " - " stream)
   (funcall log-func stream)

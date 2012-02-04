@@ -63,6 +63,7 @@ Supported values for ARG are:
   character: (o)ff (f)atal (e)rror (w)arn (i)nfo (d)ebug (t)race (u)nset,
 
 - 1 character digit 1 through 9 identifying user1 through user9 levels." 
+  (declare (ignore package))
   (cond ((symbolp arg)
          (make-log-level (symbol-name arg)))
         ((stringp arg)
@@ -93,6 +94,7 @@ Supported values for ARG are:
 #-sbcl
 (defmethod resolve-default-logger-form (package env args)
   "Returns the logger named after the package by default"
+  (declare (ignore env))
   (values (get-logger (shortest-package-name package)) args))
 
 (defun shortest-package-name (package)

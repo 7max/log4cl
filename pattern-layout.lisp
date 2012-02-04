@@ -186,26 +186,30 @@ being extra arguments collected
 
 Example: For the string {one}{}{three} will return the list (14
 \"one\" NIL \"three\")"
-  (loop with len fixnum = (length pattern)
-        while (and (< start len)
+  (loop with brace-pos
+        with closedp
+        with arg
+        while (and (< start (length pattern))
                    (char= (aref pattern start) #\{))
-        as brace-pos = start
-        as closedp = nil
-        as arg = (with-output-to-string (s)
-                   (incf start)
-                   (loop while (< start len)
-                         as c character = (aref pattern start)
-                         do (incf start)
-                         do (cond ((char= c #\}) (setq closedp t) (return))
-                                  ((char= c #\\)
-                                   (when (< start len)
-                                     (write-char (aref pattern start) s)
-                                     (incf start)))
-                                  (t (write-char c s))))
-                   (unless closedp
-                     (pattern-layout-error
-                      "Unmatched brace at position ~d of conversion pattern ~s"
-                      brace-pos pattern)))
+        do (setq
+            brace-pos start
+            closedp nil
+            arg (with-output-to-string (s)
+                  (incf start)
+                  (loop with c
+                        while (< start (length pattern))
+                        do (setq c (char pattern start))
+                        do (incf start)
+                        do (cond ((char= c #\}) (setq closedp t) (return))
+                                 ((char= c #\\)
+                                  (when (< start (length pattern))
+                                    (write-char (aref pattern start) s)
+                                    (incf start)))
+                                 (t (write-char c s))))
+                  (unless closedp
+                    (pattern-layout-error
+                     "Unmatched brace at position ~d of conversion pattern ~s"
+                     brace-pos pattern))))
         collect (when (plusp (length arg))
                   (coerce arg 'simple-string))
         into extra-args
@@ -719,6 +723,7 @@ the log message to the stream with the specified format."
   (:documentation "Extra formatting flags for %h pattern"))
 
 (defmethod parse-extra-args (fmt-info (char (eql #\h)) pattern start)
+  (declare (ignore pattern))
   (values start (change-class fmt-info 'pattern-hostname-format-info
                               :hostname
                               #+ (and sbcl unix) (sb-unix::unix-gethostname)
@@ -779,11 +784,12 @@ the log message to the stream with the specified format."
   (:documentation "Caches process-id"))
 
 (defmethod parse-extra-args (fmt-info (char (eql #\i)) pattern start)
+  (declare (ignore pattern))
   (values start (change-class
                  fmt-info 'process-id-fmt-info
                  :process-id (or
                               #+sbcl (sb-posix:getpid)
-                              #+clisp (process-id)
+                              #+clisp (system::process-id)
                               0))))
 
 (define-pattern-formatter (#\i)

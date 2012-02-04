@@ -471,7 +471,7 @@ two asserts "
 (deftest test-pattern-process-id ()
   (flet ((pid ()
            (or #+sbcl (sb-posix:getpid)
-               #+clisp (process-id)
+               #+clisp (system::process-id)
                0)))
     (test-pattern-layout "%i" (format nil "~d" (pid)))
     (test-pattern-layout "%20i" (format nil "~20<~d~;~>" (pid)))

@@ -1,5 +1,24 @@
 (in-package :log4cl)
 
+
+(defun clear-logging-configuration ()
+  "Delete all loggers"
+  (labels ((reset (logger)
+             (setf (svref (logger-state logger) *hierarchy*)
+                   (make-logger-state))
+             (map-logger-children #'reset logger)))
+    (reset *root-logger*))
+  (values))
+
+(defun reset-logging-configuration ()
+  "Clear the logging configuration in the current hierarchy, and
+configure root logger with INFO log level and a simple console
+appender"
+  (clear-logging-configuration)
+  (add-appender *root-logger* (make-instance 'console-appender))
+  (setf (logger-log-level *root-logger*) +log-level-warn+)
+  (log-info "Logging configuration was reset to sane defaults"))
+
 (defun log-config (&rest args)
   "User friendly way of configuring logger hierachy. 
 

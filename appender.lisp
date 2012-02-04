@@ -1,5 +1,11 @@
 (in-package #:log4cl)
 
+(defun log-appender-error (appender condition)
+  (log-error "Appender ~s disabled because of ~s" appender condition))
+
+(defmethod handle-appender-error (appender condition)
+  (log-appender-error appender condition))
+
 (defclass counting-appender (appender)
   ((count :initform 0))
   (:documentation "Count the number of times APPENDER-DO-APPEND was called"))
@@ -60,6 +66,7 @@ use FIXED-STREAM-APPENDER class"))
 
 (defmethod appender-do-append :around
     ((this serialized-appender) logger level log-func)
+  (declare (ignore logger level log-func))
   (with-lock-held ((slot-value this 'lock))
     (call-next-method)))
 

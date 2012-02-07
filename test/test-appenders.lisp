@@ -125,3 +125,31 @@ is entered"
                 (is (equal 1 (slot-value a2 'count)))))))
       (is (plusp (length output)))
       (is (search "error" (string-downcase output))))))
+
+(defvar unbound-var)
+
+(defun function-with-error ()
+  (1+ unbound-var))
+
+(deftest test-appender-error-in-user-log-statement-is-rethrown ()
+  "Test that when there is an condition raised from inside the user
+log statement, that this error is not handled"
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (let ((a1 (make-instance 'bad-appender)))
+      (with-slots (error-count error count)
+          a1
+        (add-appender *root-logger* a1)
+        (log-config :d)
+        (log-info "hey")
+        (is (equal 0 error-count))
+        (is (equal 1 count))
+        (finishes (log-warn "hey"))
+        (is (equal 1 error-count))
+        (is (equal 1 count))
+        (setf error nil)
+        (log-info "hey")
+        (is (equal 1 error-count))
+        (is (equal 2 count))
+        (signals error (log-info "~s" (function-with-error)))
+        (is (equal 3 count))))))

@@ -8,7 +8,8 @@
                  *ndc-context* *log-event-time*
                  *hierarchy-lock*
                  *name-to-hierarchy*
-                 *hierarchy-max*))
+                 *hierarchy-max*
+                 *inside-user-log-function*))
 
 (declaim (special *root-logger*)
          (type logger *root-logger*)
@@ -203,17 +204,22 @@ context of the current application."
                  (dolist (appender appenders)
                    (with-slots (error) appender
                      (unless error
-                       (loop for done = t
-                             for error-cnt fixnum from 0
-                             do (handler-case
-                                    (appender-do-append appender orig-logger level log-func)
-                                  (error (err)
-                                    (setf error err)
-                                    (if (< error-cnt 3)
-                                        (handle-appender-error appender err)
-                                        (log-appender-error appender err))
-                                    (setq done error)))
-                             until done))))
+                       (loop
+                         for done = t
+                         for error-cnt fixnum from 0
+                         do (block nil
+                              (handler-bind
+                                  ((error 
+                                     #'(lambda (e)
+                                         (unless *inside-user-log-function*
+                                           (setf error e)
+                                           (if (< error-cnt 3)
+                                               (handle-appender-error appender e)
+                                               (log-appender-error appender e))
+                                           (setq done error)
+                                           (return)))))
+                                (appender-do-append appender orig-logger level log-func)))
+                         until done))))
                  (let ((parent (logger-parent logger)))
                    (when (and parent (logger-state-additivity state))
                      (log-to-logger-appenders parent orig-logger level log-func))))
@@ -363,3 +369,13 @@ compiled file"
   "Returns the universal time of the current log event"
   (locally (declare (optimize (safety 0) (debug 0) (speed 3)))
     (or *log-event-time* (setq *log-event-time* (get-universal-time)))))
+
+(declaim (inline call-user-log-message))
+
+(defun call-user-log-message (log-func stream)
+  "Calls the user log function, binding *INSIDE-USER-LOG-FUNCTION* for
+the duration to indicate that any errors must be re-thrown, rather
+then disable the appender"
+  (let ((*inside-user-log-function* t))
+    (funcall log-func stream)
+    (values)))

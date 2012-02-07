@@ -21,7 +21,7 @@ dash. For example: INFO - user log message"))
   (declare (ignore logger))
   (write-log-level level stream)
   (write-string " - " stream)
-  (funcall log-func stream)
+  (call-user-log-message log-func stream)
   (terpri stream)
   (values))
 

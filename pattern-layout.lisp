@@ -443,9 +443,9 @@ Example: For the string {one}{}{three} will return the list (14
           (slot-value fmt-info 'maxlen))
       ;; need to know length of message produced by log-func
       (format-string (with-output-to-string (s)
-                       (funcall log-func s))
+                       (call-user-log-message log-func s))
                      stream fmt-info)
-      (funcall log-func stream))
+      (call-user-log-message log-func stream))
   (values))
 
 

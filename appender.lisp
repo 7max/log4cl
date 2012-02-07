@@ -11,10 +11,15 @@
   (:documentation "Count the number of times APPENDER-DO-APPEND was called"))
 
 (defmethod appender-do-append ((appender counting-appender) logger level log-func)
-  (declare (ignore logger level log-func))
-  (incf (slot-value appender 'count))
-  (when (next-method-p)
-    (call-next-method)))
+  (with-slots (layout count)
+      appender
+    (incf count)
+    ;; we need to actually format the log message, to invoke any side effects
+    ;; that formatting it may produce, this is used in testing error handling
+    (with-output-to-string (s)
+      (layout-to-stream layout s logger level log-func))
+    (when (next-method-p)
+      (call-next-method))))
 
 (defclass serialized-appender (appender)
   ((lock :initform (make-lock)))

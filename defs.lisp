@@ -71,3 +71,6 @@ pattern format")
   (make-recursive-lock "hierarchy-lock")
   "Global lock for changing logging configuration")
 
+
+(defvar *inside-user-log-function* nil
+  "True when we are inside of user log function")

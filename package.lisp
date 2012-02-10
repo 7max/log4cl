@@ -74,7 +74,17 @@
    :logger-additivity
    :appender-error
    :handle-appender-error
-   :counting-appender))
+   :counting-appender
+   :file-appender-base
+   :file-appender
+   :rolling-file-appender-base
+   :time-rolling-file-appender
+   :maybe-roll-file
+   :backup-log-file
+   :appender-logger-count
+   :close-appender
+   :remove-appender
+   :remove-all-appenders))
 
 
 

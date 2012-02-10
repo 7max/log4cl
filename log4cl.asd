@@ -33,6 +33,7 @@
   :depends-on (:log4cl :stefil)
   :components ((:file "test/logger")
                (:file "test/test-layouts")
+               (:file "test/test-appenders")
                (:file "test/speed")))
 
 (defmethod perform ((op test-op) (system (eql (find-system :log4cl))))

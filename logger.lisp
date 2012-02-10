@@ -210,14 +210,14 @@ context of the current application."
                          do (block nil
                               (handler-bind
                                   ((error 
-                                     #'(lambda (e)
-                                         (unless *inside-user-log-function*
-                                           (setf error e)
-                                           (if (< error-cnt 3)
-                                               (handle-appender-error appender e)
-                                               (log-appender-error appender e))
-                                           (setq done error)
-                                           (return)))))
+                                     (lambda (e)
+                                       (unless *inside-user-log-function*
+                                         (setf error e)
+                                         (if (< error-cnt 3)
+                                             (handle-appender-error appender e)
+                                             (log-appender-error appender e))
+                                         (setq done error)
+                                         (return)))))
                                 (appender-do-append appender orig-logger level log-func)))
                          until done))))
                  (let ((parent (logger-parent logger)))
@@ -305,8 +305,36 @@ second value."
   (let* ((state (current-state logger)))
     (unless (member appender (logger-state-appenders state))
       (push appender (logger-state-appenders state))
-      (adjust-logger logger)))
+      (adjust-logger logger)
+      (appender-added logger appender)))
   (values))
+
+(defmethod appender-added (logger appender)
+  (declare (ignore logger))
+  (incf (slot-value appender 'logger-count)))
+
+(defmethod appender-removed (logger appender)
+  "Decrement logger count and call CLOSE-APPENDER if it reaches zero"
+  (when (zerop (decf (slot-value appender 'logger-count)))
+    (close-appender appender)))
+
+(defun remove-appender (logger appender)
+  (let* ((state (current-state logger))
+         (list (logger-state-appenders state)))
+    (when (member appender list)
+      (setf (logger-state-appenders state) (remove appender list))
+      (adjust-logger logger)
+      (appender-removed logger appender))))
+
+(defun remove-all-appenders (logger)
+  (let* ((state (current-state logger))
+         (list (logger-state-appenders state)))
+    (setf (logger-state-appenders state) nil)
+    (mapc (lambda (a) (appender-removed logger a))
+          list)))
+
+(defmethod close-appender (appender)
+  (declare (ignore appender)))
 
 (defun logger-name (logger)
   "Return the name of the logger category itself (without parent loggers)"

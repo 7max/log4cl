@@ -6,7 +6,9 @@
 (defclass appender ()
   ((layout :initform (make-instance 'simple-layout)
            :initarg :layout)
-   (error :initform nil :accessor appender-error))
+   (error :initform nil :accessor appender-error)
+   (logger-count :initform 0 :accessor appender-logger-count
+                 :type (integer 0 most-positive-fixnum)))
   (:documentation "Appender is log message sink, and is responsible
 for physically delivering the log message, somewhere. The formatting
 of message is done by layout.
@@ -19,6 +21,21 @@ Appender will not be appended into if its ERROR slot is non-nil.
 ERROR slot will be automatically set to the condition object, if a
 condition was raised while writing to the appender"))
 
+(defgeneric appender-added (logger appender)
+  (:documentation "Called when appender is added to a logger. Default
+method is used to keep logger count, and if re-implemented
+the (CALL-NEXT-METHOD) needs to be called."))
+
+(defgeneric appender-removed (logger appender)
+  (:documentation "Called when appender is removed from a logger
+logger. Default method is used to keep logger refcount, and calls
+CLOSE-APPENDER when it reaches zero. If re-implemented
+the (CALL-NEXT-METHOD) needs to be called"))
+
+(defgeneric close-appender (appender)
+  (:documentation "Called when appender refcount reaches zero after
+being positive. Should close any streams or files that appender had
+opened."))
 
 (defgeneric appender-do-append (appender logger level log-func)
   (:documentation

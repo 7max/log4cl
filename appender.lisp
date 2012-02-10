@@ -97,13 +97,22 @@ use FIXED-STREAM-APPENDER class"))
   "Returns *DEBUG-IO*"
   *debug-io*)
 
+(defun maybe-close-file (appender)
+  (when (and (slot-boundp appender 'stream))
+    (close (slot-value appender 'stream))
+    (slot-makunbound appender 'stream)))
+
 (defclass file-appender-base (fixed-stream-appender) () 
-  (:documentation "Appender that writes to a file"))
+  (:documentation "Appender that writes to a file and closes it when
+its no longer attached to loggers"))
+
+(defmethod close-appender ((appender file-appender-base))
+  (maybe-close-file appender))
 
 (defclass file-appender (file-appender-base)
-  ((filename :initarg :filename)) 
+  ((filename :initarg :filename :reader appender-filename)) 
   (:documentation "Appender that writes to a file with a fixed file
-  name"))
+name"))
 
 (defclass rolling-file-appender-base (file-appender-base)
   ((period :initform 1 :initarg :period)
@@ -183,16 +192,10 @@ day.
 (defgeneric maybe-roll-file (appender)
   (:documentation "Should roll APPENDERs file if needed"))
 
-
 (defmethod slot-unbound (class (appender file-appender-base)
                          (slot-name (eql 'stream)))
   (declare (ignore class slot-name))
   (create-appender-file appender))
-
-(defun maybe-close-file (appender)
-  (when (and (slot-boundp appender 'stream))
-    (close (slot-value appender 'stream))
-    (slot-makunbound appender 'stream)))
 
 (defun create-appender-file (appender)
   (let ((filename (appender-filename appender)))

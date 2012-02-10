@@ -1,9 +1,9 @@
 (in-package :log4cl)
 
-
 (defun clear-logging-configuration ()
   "Delete all loggers"
   (labels ((reset (logger)
+             (remove-all-appenders logger)
              (setf (svref (logger-state logger) *hierarchy*)
                    (make-logger-state))
              (map-logger-children #'reset logger)))

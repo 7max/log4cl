@@ -224,15 +224,95 @@ user log statement, its raised and does not disable the appender"
   (with-package-log-hierarchy
     (clear-logging-configuration)
     (let* ((fname (merge-pathnames (rand-filename) *tests-dir*))
-           (a (make-instance 'file-appender :filename fname)))
-      (add-appender *root-logger* a)
+           (a (make-instance 'file-appender :filename fname))
+           (logger (make-logger '(one two three))))
+      (setf (logger-additivity logger) nil)
+      (add-appender logger a)
       (log-config :i)
-      (log-info "Hello World")
+      (log-info logger "Hello World")
       (is (appender-stream a))
       (is (probe-file fname))
-      (remove-appender *root-logger* a)
+      (remove-appender logger a)
       ;; verify it got closed
       (is (not (slot-boundp a 'stream)))
       (with-open-file (s fname)
         (is (equal (read-line s) "INFO - Hello World")))
       (delete-file fname))))
+
+(deftest test-daily-file-appender-1 ()
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (let* ((fname-base (merge-pathnames (rand-filename) *tests-dir*))
+           (a (make-instance 'daily-file-appender :filename
+               (format nil "~a-%H-%M-%S.log" fname-base)
+               :period 1))
+           (logger (make-logger '(one two three))))
+      (add-appender logger a)
+      ;; (add-appender *root-logger* (make-instance 'console-appender))
+      (log-config :d)
+      (log-info logger "Hey")
+      (let ((fname1 (appender-filename a)))
+        (log-sexp fname1)
+        (sleep 1.2)
+        (log-info logger "Hey again")
+        (let ((fname2 (appender-filename a)))
+          (log-sexp fname2)
+          (unwind-protect
+               (progn
+                 (is (not (equal fname1 fname2)))
+                 (with-open-file (s fname1)
+                   (is (equal (read-line s) "INFO - Hey")))
+                 (remove-appender logger a)
+                 ;; verify it got closed
+                 (is (not (slot-boundp a 'stream)))
+                 (with-open-file (s fname2)
+                   (is (equal (read-line s) "INFO - Hey again"))))
+            (delete-file fname1)
+            (delete-file fname2)))))))
+
+(deftest test-daily-file-appender-2 ()
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (let* ((fname-base1 (merge-pathnames (rand-filename) *tests-dir*))
+           (name2 (rand-filename))
+           (fname-base2 (merge-pathnames name2 *tests-dir*))
+           ;; a1 is used only to figure out what the dynamic part
+           ;; of backup filename will be, as we don't have public interface
+           ;; for accessing backup file name
+           (a1 (make-instance 'daily-file-appender :filename
+                (format nil "~a-%H-%M-%S.log" fname-base1)
+                :period 1))
+           ;; fixed name, and formatted backup
+           (a2 (make-instance 'daily-file-appender :backup
+                (format nil "~a-%H-%M-%S.log" fname-base2)
+                :filename fname-base2
+                :period 1))
+           (logger (make-logger '(one two three))))
+      (add-appender logger a1)
+      (add-appender logger a2)
+      ;; (add-appender *root-logger* (make-instance 'console-appender))
+      (log-config :d)
+      (log-info logger "Hey")
+      (let ((fname-bak
+              (merge-pathnames
+               (concatenate 'string name2
+                            (subseq (appender-filename a1)
+                                    (- (length (appender-filename a1))
+                                       (length "-xx-xx-xx.log"))))
+               *tests-dir*)))
+        (log-sexp fname-bak)
+        (sleep 1.2)
+        (log-info logger "Hey again")
+        (unwind-protect
+             (progn
+               (is (not (equal fname-bak fname-base2)))
+               (with-open-file (s fname-bak)
+                 (is (equal (read-line s) "INFO - Hey")))
+               (remove-appender logger a1)
+               (remove-appender logger a2)
+               ;; verify it got closed
+               (is (not (slot-boundp a2 'stream)))
+               (with-open-file (s fname-base2)
+                 (is (equal (read-line s) "INFO - Hey again"))))
+          (ignore-errors (delete-file fname-bak))
+          (ignore-errors (delete-file fname-base2)))))))

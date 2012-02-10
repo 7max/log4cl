@@ -97,6 +97,10 @@ use FIXED-STREAM-APPENDER class"))
   "Returns *DEBUG-IO*"
   *debug-io*)
 
+
+(defgeneric appender-filename (appender)
+  (:documentation "Returns the appenders file name"))
+
 (defun maybe-close-file (appender)
   (when (and (slot-boundp appender 'stream))
     (close (slot-value appender 'stream))
@@ -115,7 +119,7 @@ its no longer attached to loggers"))
 name"))
 
 (defclass rolling-file-appender-base (file-appender-base)
-  ((period :initform 1 :initarg :period)
+  ((period :initform 60 :initarg :period)
    (next-roll-time :initform 0))
   (:documentation "File appender that periodically checks
 if it needs to roll the log file.
@@ -123,9 +127,9 @@ if it needs to roll the log file.
 Calls to MAYBE-ROLL-FILE will be made when log event univeral time
 advances past the boundary that is evenly divisible by PERIOD.
 
-PERIOD is specified in minutes"))
+PERIOD is specified in seconds"))
 
-(defclass time-rolling-file-appender (rolling-file-appender-base)
+(defclass daily-file-appender (rolling-file-appender-base)
   ((backup  :initform nil :initarg :backup)
    (filename :initarg :filename)
    (utc-p :initform nil :initarg :utc-p)
@@ -174,16 +178,16 @@ day.
      one if it exists)"))
 
 (defun next-time-boundary (time period)
-  "Return next universal time evenly divisible by PERIOD minutes "
+  "Return next universal time evenly divisible by PERIOD seconds "
   (declare (type unsigned-byte time period))
-  (setq period (* period 60))
+  (setq period period)
   (* period (truncate (+ time period) period)))
 
 (defmethod appender-do-append :before ((this rolling-file-appender-base)
                                        logger level log-func)
   (declare (ignore logger level log-func))
   (let ((et (log-event-time)))
-    (with-slots (this next-roll-time period) this
+    (with-slots (next-roll-time period) this
       (when (>= et next-roll-time)
         (setf next-roll-time (next-time-boundary et period))
         (maybe-roll-file this))))
@@ -224,7 +228,7 @@ day.
     (declare (ignore appender))
     (rename-file log-filename backup-filename)))
 
-(defmethod maybe-roll-file ((appender time-rolling-file-appender)) 
+(defmethod maybe-roll-file ((appender daily-file-appender)) 
   "Expands FILENAME and BACKUP patterns, and if one of them changed,
 switches to the new log file"
   (with-slots (filename backup current-filename current-backup utc-p)
@@ -233,6 +237,7 @@ switches to the new log file"
            (new-file (expand-filename filename time utc-p))
            (new-bak (expand-filename
                      (or backup filename) time utc-p)))
+      (log-sexp new-file new-bak)
       (unless (and (equal new-file current-filename)
                    (equal new-bak current-backup))
         (when current-filename

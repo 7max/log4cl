@@ -1,6 +1,11 @@
 ;;;
-;;; Global variables, logger and logger-state structures, and utility functions
+;;; Most of the logger internals.
 ;;;
+;;; Note this file can not use any of the logging functions, as
+;;; logging-macros.lisp had not yet complied.
+;;;
+;;; So any code that uses self-logging to log4cl:self logger, needs to be
+;;; in the files that are later in the .asd 
 (in-package :log4cl)
 
 #+sbcl (declaim (sb-ext:always-bound
@@ -122,32 +127,48 @@ reachable appenders. "
     (doit logger))
   (values))
 
-(defun get-logger (category)
+
+
+(defun split-into-categories (category package)
+  "Splits the category name into a list of categories from parent to
+child. Uses NAMING-OPTION to determine category separator"
+  (loop with separator = (naming-option package :category-separator)
+        for start = 0 then (1+ pos)
+        as pos = (search separator category :start2 start)
+        collect (substr category start pos)
+        while pos))
+
+(defun get-logger (categories)
   "Get the logger with a given category name. Logger is created
 if it does not exist"
-  (declare (type (or string null) category))
-  (cond ((or (null category)
-             (zerop (length category))) *root-logger*)
-        (t (let* ((separator (naming-option *package* :category-separator))
-                  (pos (search separator category :from-end t))
-                  (parent (if (null pos) *root-logger*
-                              (get-logger (subseq category 0 pos))))
-                  (logger (let ((child-hash (logger-children parent)))
-                            (when child-hash
-                              (gethash category child-hash)))))
-             (unless logger
-               (setq logger (create-logger :category category
-                                           :category-separator separator
-                                           :parent parent
-                                           :name-start-pos (if pos (1+ pos) 0)
-                                           :depth (1+ (logger-depth parent))))
-               (unless (logger-children parent)
-                 (setf (logger-children parent)
-                       (make-hash-table :test #'equal)))
-               (setf (gethash category (logger-children parent)) logger)
-               (dotimes (*hierarchy* *hierarchy-max*)
-                 (adjust-logger logger)))
-             logger))))
+  (do ((logger *root-logger*)
+       (first t nil)
+       (cat-sep (naming-option *package* :category-separator))
+       (cat-case (naming-option *package* :category-case)))
+      ((null categories) logger)
+    (let* ((cat (pop categories))
+           (name (if (stringp cat) cat
+                     (with-output-to-string (s)
+                       (if cat-case
+                           (write-string-modify-case (string cat) s cat-case)
+                           (princ cat s)))))
+           (hash (logger-children logger)))
+      (setq logger
+            (or
+             (and hash (gethash name hash))
+             (setf (gethash name (or hash
+                                     (setf (logger-children logger)
+                                           (make-hash-table :test #'equal))))
+                   (create-logger :category
+                                  (if first name
+                                      (concatenate 'string (logger-category logger)
+                                                   cat-sep name))
+                                  :category-separator cat-sep
+                                  :parent logger
+                                  :name-start-pos
+                                  (if first 0 (+ (length (logger-category logger))
+                                                 (length cat-sep)))
+                                  :depth (1+ (logger-depth logger)))))))))
 
 (defun current-state (logger)
   (svref (logger-state logger) *hierarchy*))
@@ -188,11 +209,13 @@ context of the current application."
              (locally (declare (optimize (safety 0) (debug 0) (speed 3)))
                (is-enabled-for ,logger-symbol ,level)))))))
 
-(defun substr (seq from &optional (to (length seq)))
-  (declare (fixnum from to)
+(defun substr (seq start &optional end)
+  (declare (fixnum start)
+           (type (or fixnum null) end)
            (vector seq))
-  (make-array (- to from) :element-type (array-element-type seq)
-                          :displaced-to seq :displaced-index-offset from))
+  (unless end (setq end (length seq)))
+  (make-array (- end start) :element-type (array-element-type seq)
+                          :displaced-to seq :displaced-index-offset start))
 
 (defun log-with-logger (logger level log-func)
   "Submit message to logger appenders, and its parent logger"
@@ -315,6 +338,7 @@ second value."
 
 (defmethod appender-removed (logger appender)
   "Decrement logger count and call CLOSE-APPENDER if it reaches zero"
+  (declare (ignore logger))
   (when (zerop (decf (slot-value appender 'logger-count)))
     (close-appender appender)))
 
@@ -391,7 +415,7 @@ package"
   "Creates the logger when a logger constant is being loaded from a
 compiled file"
   (declare (ignore env))
-  `(get-logger ,(logger-category log)))
+  `(get-logger (split-into-categories ,(logger-category log) *package*)))
 
 (defun log-event-time ()
   "Returns the universal time of the current log event"

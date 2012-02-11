@@ -213,7 +213,8 @@ day.
 (defun expand-filename (pattern time utc-p)
   (let ((*print-pretty* nil))
     (with-output-to-string (s)
-      (format-time s pattern time utc-p))))
+      (format-time s (if (pathnamep pattern) (format nil "~a" pattern)
+                         pattern) time utc-p))))
 
 (defgeneric backup-log-file (appender log-filename backup-filename)
   (:documentation "Should move or rename LOG-FILENAME into the
@@ -237,7 +238,6 @@ switches to the new log file"
            (new-file (expand-filename filename time utc-p))
            (new-bak (expand-filename
                      (or backup filename) time utc-p)))
-      (log-sexp new-file new-bak)
       (unless (and (equal new-file current-filename)
                    (equal new-bak current-backup))
         (when current-filename

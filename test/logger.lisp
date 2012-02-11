@@ -137,16 +137,15 @@ situation"
 (deftest make-logger-by-list-of-categories ()
   "Test MAKE-LOGGER macro with static list of categories"
   (with-package-log-hierarchy
-    (let ((logger (make-logger '(one two three four))))
+    (let ((logger (make-logger '(two three four))))
       (log4cl.test::basics logger)
       (is (equal (logger-category logger)
                  (concatenate 'string
-                              (symbol-name 'one) "."
                               (symbol-name 'two) "."
                               (symbol-name 'three) "."
                               (symbol-name 'four))))
       (is (equal (logger-name logger) (symbol-name 'four)))
-      (is (eql (logger-depth logger) 4)))))
+      (is (eql (logger-depth logger) 3)))))
 
 (deftest logger-name-via-dotted-keyword ()
   "Test that specifying logger name by a keyword containing dots is

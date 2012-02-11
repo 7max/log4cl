@@ -84,7 +84,9 @@
    :appender-logger-count
    :close-appender
    :remove-appender
-   :remove-all-appenders))
+   :remove-all-appenders
+   :appender-filename
+   :daily-file-appender))
 
 
 

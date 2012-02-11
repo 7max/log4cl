@@ -14,23 +14,44 @@ for the specified package. Valid options are:
   :CATEGORY-SEPARATOR - String that separates category names, default
   method returns \":\"
 
-  :CATEGORY-CASE - Determining how automatic symbols are converted to
-  the logger category name.
+  :CATEGORY-CASE - Determining how logger naming converts symbols to
+  in the category name.
 
   Valid values are: 
-    NIL        -  readtable-case of active readtable
-    :UPCASE    -  convert to upper case
-    :DOWNCASE  -  convert to lower case
-    :INVERT    -  invert, as inverted readtables do
+    - NIL        :  as printed by princ (ie affected by active read-table case)
+    - :UPCASE    :  convert to upper case
+    - :DOWNCASE  :  convert to lower case
+    - :INVERT    :  invert, as inverted readtables do
 
-  Note that pattern layout offers similar facility that changes how
-  logger category is printed on the output side."))
+Note that pattern layout offers similar facility that changes how
+logger category is printed on the output side."))
+
+
+(defgeneric package-log-category (package categories explicit-p)
+  (:documentation
+   "Allows packages to optionally massage logger names in their
+namespace. CATEGORIES will be a list of of category names from parent
+to child, and EXPLICIT-P will be non-NIL if that list was specified as
+an explicit list constant in a logging macro.
+
+Default method will prefix the passed category list with the current
+package shortest nickname. 
+
+Example:
+
+    ;; Some package wishes to always wrap their logger names in weird prefix and suffix
+    (DEFMETHOD package-log-category ((PKG (EQL *PACKAGE*)) CATEGORIES EXPLICIT-P)
+      (IF EXPLICIT-P CATEGORIES
+        (APPEND '(FOO BAR) CATEGORIES '(BAZ))))
+
+Will result in the macro (MAKE-LOGGER :NAME) returning logger named
+FOO:BAR:NAME:BAZ"))
 
 (defgeneric resolve-logger-form (package env args)
-  (:documentation "Is called by all logging macros such as to figure
-out the logger to log into. PACKAGE and ENV are the current value of
-*PACKAGE* and the macro environment of the logging macro, and ARG and
-MORE-ARGS are its arguments.
+  (:documentation "Is called by all logging macros to figure out the
+logger to log into. PACKAGE and ENV are the current value of *PACKAGE*
+and the macro environment of the logging macro, and ARGS
+are its arguments.
 
 Returns two values, first being either a logger, or a form that when
 evaluated will return a logger, and second value being list of
@@ -38,17 +59,12 @@ arguments to be passed to the format statement that will log the
 message.
 
 When second value returned is NIL, then logging macro will not log any
-message but will rather expand into a non-nil value if logger is
-active and has appenders.
-
-"))
+message but will rather expand into a non-nil value if logger is"))
 
 (defgeneric resolve-default-logger-form (package env args)
   (:documentation "Is called by RESOLVE-LOGGER-FORM when logging macro
 arguments do not specify the logger to log into. See
 RESOLVE-LOGGER-FORM for return values"))
-
-
 
 (defmethod log-level-from-object (arg package)
   "Converts human readable log level description in ARG into numeric log level.
@@ -95,7 +111,16 @@ Supported values for ARG are:
 (defmethod resolve-default-logger-form (package env args)
   "Returns the logger named after the package by default"
   (declare (ignore env))
-  (values (get-logger (shortest-package-name package)) args))
+  (values (get-logger (package-log-category package nil nil))
+          args))
+
+(defmethod package-log-category (package categories explicit-p)
+  "Find the PACKAGES shortest name or nickname, and prefix category
+list with it and prefix CATEGORIES list with it"
+  (if explicit-p categories
+      (append (split-into-categories (shortest-package-name package)
+                                     package)
+              categories)))
 
 (defun shortest-package-name (package)
   "Return the shortest name or nickname of the package"
@@ -180,36 +205,22 @@ SEPARATOR"
   "Returns the logger named after the current lexical environment"
   (values
    (get-logger
-    (join-categories
-     (naming-option package :category-separator)
-     (cons (shortest-package-name package)
-           (sbcl-get-block-name env))))
+    (package-log-category package (sbcl-get-block-name env) nil))
    args))
 
 (defmethod naming-option (package option)
   "Return default values for naming options which are:
-    :CATEGORY-SEPARATOR  #\\Colon
-    :CATEGORY-CASE       :READTABLE
-     "
+    :CATEGORY-SEPARATOR \":\""
   (declare (ignore package))
   (case option
-    (:category-separator ":")
-    (:category-case :readtable)))
-
-(defun logger-name-from-symbol (symbol env)
-  "Return a logger name from a symbol."
-  (declare (type keyword symbol) (ignore env))
-  (format nil "~a~a~a"
-          (shortest-package-name *package*)
-          (naming-option *package* :category-separator)
-          (symbol-name symbol)))
+    (:category-separator ":")))
 
 (defmethod resolve-logger-form (package env args)
   "- When first element of args is NIL or a constant string, calls
-  RESOLVE-DEFAULT-LOGGER-FORM that will try to obtain logger name from
-  the environment
+ RESOLVE-DEFAULT-LOGGER-FORM that will try to obtain logger name from
+ the environment
 
-- When first argument is a :KEYWORD, returns logger named <keyword>
+- When first argument is a :KEYWORD, returns logger named <KEYWORD>
 
 - When first argument is a quoted symbol, returns logger named
   <current-package>.<symbol>
@@ -220,18 +231,58 @@ SEPARATOR"
          (stringp (first args)))
      (resolve-default-logger-form package env args))
     ((keywordp (first args))
-     (values (get-logger (logger-name-from-symbol (first args) env))
+     (values (get-logger
+              (package-log-category package
+               (split-into-categories (symbol-name (first args)) package)
+               nil))
              (rest args)))
     ((constantp (first args))
      (let ((value (eval (first args))))
        (cond ((symbolp value)
-              (get-logger (logger-name-from-symbol value env)))
+              (get-logger (package-log-category package
+                           (split-into-categories (symbol-name value) package)
+                           nil)))
              ((listp value)
-              (get-logger
-               (join-categories
-                (naming-option package :category-separator) value)))
+              (get-logger (package-log-category package value t)))
              (t (values (first args) (rest args))))))
     (t
      (values (first args) (rest args)))))
 
+(defun write-string-modify-case (string stream
+                                 &optional
+                                 case
+                                 (start 0)
+                                 (end (length string)))
+  "Helper function that writes STRING to STREAM, optionally doing case
+conversion."
+  (declare (type simple-string string)
+           (type stream stream)
+           (type fixnum start end))
+  (cond ((eq case :upcase)
+         (loop for i fixnum from start below end
+               do (write-char (char-upcase (schar string i))
+                              stream)))
+        ((eq case :downcase)
+         (loop for i fixnum from start below end
+               do (write-char (char-downcase (schar string i))
+                              stream)))
+        ((eq case :invert)
+         (let ((all-up t)
+               (all-down t))
+           (loop for i fixnum from start below end
+                 as c = (schar string i)
+                 if (upper-case-p c)
+                 do (setq all-down nil)
+                 if (lower-case-p c)
+                 do (setq all-up nil))
+           (cond
+             (all-down (write-string-modify-case
+                        string stream :upcase start end))
+             (all-up (write-string-modify-case
+                      string stream :downcase start end))
+             (t (write-string string stream :start start
+                                            :end end)))))
+        (t (write-string string stream :start start
+                                       :end end)))
+  (values))
 

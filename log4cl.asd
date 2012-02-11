@@ -17,6 +17,7 @@
                (:file "appender-base")
                (:file "logger")
                (:file "logging-macros")
+               (:file "self-logger")
                (:file "configurator")
                (:file "log4cl-test")
                ;; ;; TODO do this dynamically only if demacs

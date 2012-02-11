@@ -317,43 +317,6 @@ Example: For the string {one}{}{three} will return the list (14
 (defmethod parse-extra-args (fmt-info (char (eql #\D)) pattern start)
   (parse-date-format-extra-args fmt-info nil pattern start))
 
-(defun write-string-with-case-conversion (string stream
-                                          &optional
-                                          case (start 0)
-                                          (end (length string)))
-  "Helper function that writes STRING to STREAM, optionally doing case
-                                                             conversion."
-  (declare (type simple-string string)
-           (type stream stream)
-           (type fixnum start end))
-  (cond ((eq case :upcase)
-         (loop for i fixnum from start below end
-               do (write-char (char-upcase (schar string i))
-                              stream)))
-        ((eq case :downcase)
-         (loop for i fixnum from start below end
-               do (write-char (char-downcase (schar string i))
-                              stream)))
-        ((eq case :invert)
-         (let ((all-up t)
-               (all-down t))
-           (loop for i fixnum from start below end
-                 as c = (schar string i)
-                 if (upper-case-p c)
-                 do (setq all-down nil)
-                 if (lower-case-p c)
-                 do (setq all-up nil))
-           (cond
-             (all-down (write-string-with-case-conversion
-                        string stream :upcase start end))
-             (all-up (write-string-with-case-conversion
-                      string stream :downcase start end))
-             (t (write-string string stream :start start
-                                            :end end)))))
-        (t (write-string string stream :start start
-                                       :end end)))
-  (values))
-
 (define-pattern-formatter (#\c)
   "Format the %c (log category) pattern"
   (declare (ignore log-level log-func)
@@ -405,7 +368,7 @@ Example: For the string {one}{}{three} will return the list (14
                           (skip (min len skip-at-start)))
                      (decf skip-at-start skip)
                      (when (< (incf start skip) end)
-                       (write-string-with-case-conversion
+                       (write-string-modify-case
                         string stream case start end))))
                  (doit ()
                    (dotimes (cnt num-loggers)

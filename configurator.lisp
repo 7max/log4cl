@@ -108,3 +108,4 @@ appender"
                (map-logger-children #'doit logger)))
       (doit *root-logger*))
     (nreverse loggers)))
+

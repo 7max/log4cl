@@ -89,7 +89,8 @@
    :daily-file-appender
    :+self-logger+
    :package-log-category
-   :*self-log-level*))
+   :*self-log-level*
+   :logger-categories))
 
 
 

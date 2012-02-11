@@ -127,27 +127,54 @@ reachable appenders. "
     (doit logger))
   (values))
 
-
+(defun split-string (string separator)
+  "Split the STRING into a list of strings."
+  (loop for start = 0 then (+ pos (length separator))
+        as pos = (search separator string :start2 start)
+        collect (substr string start pos)
+        while pos))
 
 (defun split-into-categories (category package)
   "Splits the category name into a list of categories from parent to
 child. Uses NAMING-OPTION to determine category separator"
-  (loop with separator = (naming-option package :category-separator)
-        for start = 0 then (1+ pos)
-        as pos = (search separator category :start2 start)
-        collect (substr category start pos)
-        while pos))
+  (split-string category (naming-option package :category-separator)))
 
-(defun get-logger (categories)
-  "Get the logger with a given category name. Logger is created
-if it does not exist"
+(defun get-logger-internal (categories cat-sep cat-case
+                            &optional force-string-case)
+  "Retrieve or create a logger.
+
+  - CATEGORIES : List of category names.
+  - SEPARATOR  : Category separator. Will only be used if logger did not exist before.
+  - CAT-CASE   : How each category case is treated. See NAMING-OPTION
+                 generic function for description
+
+  - FORCE-STRING-CASE : Whenever elements of category which are
+                        strings, should also undergo case conversion
+                        according to CAT-CASE
+
+Note that its possible to receive a logger with different \"official\"
+category name then expected. For example if logger ONE:TWO:THREE was
+originally instantiated in a package which had custom category
+separator of \"--\", then LOGGER-CATEGORY of the returned logger will
+be ONE--TWO--THREE. But if a logger ONE:TWO:THREE:FOUR then the newly
+created logger FOUR will have official category name as
+\"ONE--TWO--THREE:FOUR\"
+
+FORCE-STRING-CASE should be used only when trying to create/find a logger,
+with its category name represented by a string entered by a user, since
+user would expect that any logger name he types, would get same treatment
+as symbol names he types.
+
+For example PROPERTY-CONFIGURATOR uses this to retrieve loggers based
+on the strings in configuration file:
+
+"
   (do ((logger *root-logger*)
-       (first t nil)
-       (cat-sep (naming-option *package* :category-separator))
-       (cat-case (naming-option *package* :category-case)))
+       (first t nil))
       ((null categories) logger)
     (let* ((cat (pop categories))
-           (name (if (stringp cat) cat
+           (name (if (and (stringp cat)
+                          (not force-string-case)) cat
                      (with-output-to-string (s)
                        (if cat-case
                            (write-string-modify-case (string cat) s cat-case)
@@ -159,16 +186,22 @@ if it does not exist"
              (setf (gethash name (or hash
                                      (setf (logger-children logger)
                                            (make-hash-table :test #'equal))))
-                   (create-logger :category
-                                  (if first name
-                                      (concatenate 'string (logger-category logger)
-                                                   cat-sep name))
-                                  :category-separator cat-sep
-                                  :parent logger
-                                  :name-start-pos
-                                  (if first 0 (+ (length (logger-category logger))
-                                                 (length cat-sep)))
-                                  :depth (1+ (logger-depth logger)))))))))
+                   (let ((logger
+                           (create-logger
+                            :category
+                            (coerce (if first name
+                                        (concatenate 'string (logger-category logger)
+                                                     cat-sep name))
+                                    'simple-string)
+                            :category-separator cat-sep
+                            :parent logger
+                            :name-start-pos
+                            (if first 0 (+ (length (logger-category logger))
+                                           (length cat-sep)))
+                            :depth (1+ (logger-depth logger)))))
+                     (dotimes (*hierarchy* *hierarchy-max*)
+                       (adjust-logger logger))
+                     logger)))))))
 
 (defun current-state (logger)
   (svref (logger-state logger) *hierarchy*))
@@ -370,6 +403,19 @@ second value."
   (- (length (logger-category logger))
      (logger-name-start-pos logger)))
 
+(defun logger-categories (logger)
+  "Return LOGGER categories starting from parent logger as a newly
+consed list of strings"
+  (let ((categories '()))
+    (loop
+      for l = logger then parent
+      as parent = (logger-parent l)
+      while parent
+      do (push (coerce (logger-name l)
+                       'simple-string)
+               categories))
+    categories))
+
 (defun %hierarchy-index (name)
   (when (stringp name)
     (setq name (intern name)))
@@ -415,7 +461,9 @@ package"
   "Creates the logger when a logger constant is being loaded from a
 compiled file"
   (declare (ignore env))
-  `(get-logger (split-into-categories ,(logger-category log) *package*)))
+  `(get-logger-internal ',(logger-categories log)
+                        ,(naming-option *package* :category-separator)
+                        ,(naming-option *package* :category-case)))
 
 (defun log-event-time ()
   "Returns the universal time of the current log event"

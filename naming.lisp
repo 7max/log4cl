@@ -18,10 +18,11 @@ for the specified package. Valid options are:
   in the category name.
 
   Valid values are: 
-    - NIL        :  as printed by princ (ie affected by active read-table case)
-    - :UPCASE    :  convert to upper case
-    - :DOWNCASE  :  convert to lower case
-    - :INVERT    :  invert, as inverted readtables do
+    - NIL        :  As printed by PRINC (ie affected by active *READTABLE*)
+    - :UPCASE    :  Convert to upper case
+    - :DOWNCASE  :  Convert to lower case
+    - :INVERT    :  Invert in the same way inverted READTABLE-CASE does it
+    - :PRESERVE  :  Do not change
 
 Note that pattern layout offers similar facility that changes how
 logger category is printed on the output side."))
@@ -111,7 +112,9 @@ Supported values for ARG are:
 (defmethod resolve-default-logger-form (package env args)
   "Returns the logger named after the package by default"
   (declare (ignore env))
-  (values (get-logger (package-log-category package nil nil))
+  (values (get-logger-internal (package-log-category package nil nil)
+                               (naming-option package :category-separator)
+                               (naming-option package :category-case))
           args))
 
 (defmethod package-log-category (package categories explicit-p)
@@ -204,8 +207,10 @@ SEPARATOR"
 (defmethod resolve-default-logger-form (package env args)
   "Returns the logger named after the current lexical environment"
   (values
-   (get-logger
-    (package-log-category package (sbcl-get-block-name env) nil))
+   (get-logger-internal
+    (package-log-category package (sbcl-get-block-name env) nil)
+    (naming-option package :category-separator)
+    (naming-option package :category-case))
    args))
 
 (defmethod naming-option (package option)
@@ -231,19 +236,29 @@ SEPARATOR"
          (stringp (first args)))
      (resolve-default-logger-form package env args))
     ((keywordp (first args))
-     (values (get-logger
-              (package-log-category package
-               (split-into-categories (symbol-name (first args)) package)
-               nil))
+     (values (get-logger-internal
+              (package-log-category
+               package
+               (split-into-categories (symbol-name (first args))
+                                      package)
+               nil)
+              (naming-option package :category-separator)
+              (naming-option package :category-case))
              (rest args)))
     ((constantp (first args))
      (let ((value (eval (first args))))
        (cond ((symbolp value)
-              (get-logger (package-log-category package
-                           (split-into-categories (symbol-name value) package)
-                           nil)))
+              (get-logger-internal
+               (package-log-category
+                package
+                (split-into-categories (symbol-name value) package)
+                nil)
+               (naming-option package :category-separator)
+               (naming-option package :category-case)))
              ((listp value)
-              (get-logger (package-log-category package value t)))
+              (get-logger-internal (package-log-category package value t)
+                                   (naming-option package :category-separator)
+                                   (naming-option package :category-case)))
              (t (values (first args) (rest args))))))
     (t
      (values (first args) (rest args)))))

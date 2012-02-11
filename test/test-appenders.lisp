@@ -51,6 +51,7 @@ HANDLE-APPENDER-ERROR method"))
 appended to it"
   (with-package-log-hierarchy
     (clear-logging-configuration)
+    (remove-all-appenders +self-logger+)
     (let ((a1 (make-instance 'counting-appender))
           (a2 (make-instance 'bad-appender))
           (logger (make-logger '(one two three))))
@@ -76,15 +77,16 @@ appended to it"
       (is (equal 3 (slot-value a2 'count))))))
 
 (deftest test-appender-error-log ()
-  "Verify that after appender suffers an error, it's logged"
+  "Verify that after appender suffers an error, it's logged to self logger"
   (with-package-log-hierarchy
     (clear-logging-configuration)
+    (remove-all-appenders +self-logger+)
     (let ((output
             (with-output-to-string (s)
               (let ((a1 (make-instance 'fixed-stream-appender :stream s))
                     (a2 (make-instance 'bad-appender))
                     (logger (make-logger '(one two three))))
-                (add-appender *root-logger* a1)
+                (add-appender +self-logger+ a1)
                 (add-appender logger a2)
                 (log-config :i)
                 (log-info logger "hey")
@@ -102,6 +104,7 @@ appended to it"
 log operation is retried"
   (with-package-log-hierarchy
     (clear-logging-configuration)
+    (remove-all-appenders +self-logger+)
     (let ((output
             (with-output-to-string (s)
               (let ((a1 (make-instance 'fixed-stream-appender :stream s))
@@ -126,13 +129,13 @@ log operation is retried and if it errors out again, no forever loop
 is entered"
   (with-package-log-hierarchy
     (clear-logging-configuration)
+    (remove-all-appenders +self-logger+)
     (let ((output
             (with-output-to-string (s)
               (let ((a1 (make-instance 'fixed-stream-appender :stream s))
                     (a2 (make-instance 'bad-appender-ignore-errors :once-only nil))
                     (logger (make-logger '(one two three))))
-                (add-appender *root-logger* a1)
-                ;; (add-appender *root-logger* (make-instance 'console-appender))
+                (add-appender +self-logger+ a1)
                 (add-appender logger a2)
                 (log-config :i)
                 (setf (logger-additivity logger) nil)
@@ -155,6 +158,7 @@ is entered"
 user log statement, its raised and does not disable the appender"
   (with-package-log-hierarchy
     (clear-logging-configuration)
+    (remove-all-appenders +self-logger+)
     (let ((a1 (make-instance 'bad-appender)))
       (with-slots (error-count error count)
           a1

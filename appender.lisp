@@ -246,3 +246,6 @@ switches to the new log file"
             (backup-log-file appender current-filename current-backup)))
         (setq current-filename new-file
               current-backup new-bak)))))
+
+(unless (logger-appenders +self-logger+)
+  (add-appender +self-logger+ (make-instance 'console-appender)))

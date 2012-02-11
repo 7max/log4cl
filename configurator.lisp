@@ -1,13 +1,16 @@
 (in-package :log4cl)
 
 (defun clear-logging-configuration ()
-  "Delete all loggers"
+  "Delete all loggers configuration, leaving only LOG4CL.SELF"
   (labels ((reset (logger)
              (remove-all-appenders logger)
              (setf (svref (logger-state logger) *hierarchy*)
                    (make-logger-state))
              (map-logger-children #'reset logger)))
-    (reset *root-logger*))
+    (reset *root-logger*)
+    (set-additivity +self-logger+ nil)
+    (add-appender +self-logger+ (make-instance 'console-appender))
+    (setf (logger-log-level +self-logger+) *self-log-level*))
   (values))
 
 (defun reset-logging-configuration ()

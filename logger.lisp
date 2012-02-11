@@ -431,3 +431,4 @@ then disable the appender"
   (let ((*inside-user-log-function* t))
     (funcall log-func stream)
     (values)))
+

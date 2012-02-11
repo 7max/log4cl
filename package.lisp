@@ -86,7 +86,10 @@
    :remove-appender
    :remove-all-appenders
    :appender-filename
-   :daily-file-appender))
+   :daily-file-appender
+   :+self-logger+
+   :package-log-category
+   :*self-log-level*))
 
 
 

@@ -71,6 +71,10 @@
   "Return log-level string for the level"
   (aref +log-level-to-string+ level))
 
+(defun log-level-to-lc-string (level)
+  "Return lower case log-level string for the level"
+  (aref +log-level-to-lc-string+ level))
+
 (defun make-log-level (arg)
   "Translate a more human readable log level into one of the log
 level constants, by calling LOG-LEVEL-FROM-OBJECT on ARG and current
@@ -127,12 +131,23 @@ reachable appenders. "
     (doit logger))
   (values))
 
-(defun split-string (string separator)
+
+(defun strip-whitespace (string)
+  (declare (type string string))
+  (remove-if (lambda (c)
+               (or (char= c #\Space)
+                   (char= c #\Tab)))
+             string))
+
+(defun split-string (string separator &optional skip-whitespace-p)
   "Split the STRING into a list of strings."
-  (loop for start = 0 then (+ pos (length separator))
-        as pos = (search separator string :start2 start)
-        collect (substr string start pos)
-        while pos))
+  (declare (type string string separator))
+  (if (not skip-whitespace-p)
+      (loop for start = 0 then (+ pos (length separator))
+            as pos = (search separator string :start2 start)
+            collect (substr string start pos)
+            while pos)
+      (split-string (strip-whitespace string) separator)))
 
 (defun split-into-categories (category package)
   "Splits the category name into a list of categories from parent to
@@ -356,14 +371,19 @@ second value."
       (when adjust-p (adjust-logger logger))
       (values additivity))))
 
-(defun add-appender (logger appender)
+(defun add-appender-internal (logger appender &optional (adjust-p t))
   (declare (type logger logger) (type appender appender))
   (let* ((state (current-state logger)))
     (unless (member appender (logger-state-appenders state))
       (push appender (logger-state-appenders state))
-      (adjust-logger logger)
+      (when adjust-p
+        (adjust-logger logger))
       (appender-added logger appender)))
   (values))
+
+(defun add-appender (logger appender)
+  "Adds appender to the logger"
+  (add-appender-internal logger appender))
 
 (defmethod appender-added (logger appender)
   (declare (ignore logger))
@@ -375,20 +395,32 @@ second value."
   (when (zerop (decf (slot-value appender 'logger-count)))
     (close-appender appender)))
 
-(defun remove-appender (logger appender)
+(defun remove-appender-internal (logger appender &optional (adjust-p t))
   (let* ((state (current-state logger))
          (list (logger-state-appenders state)))
     (when (member appender list)
       (setf (logger-state-appenders state) (remove appender list))
-      (adjust-logger logger)
+      (when adjust-p
+        (adjust-logger logger))
       (appender-removed logger appender))))
 
-(defun remove-all-appenders (logger)
+(defun remove-all-appenders-internal (logger &optional (adjust-p t))
   (let* ((state (current-state logger))
          (list (logger-state-appenders state)))
     (setf (logger-state-appenders state) nil)
+    (when adjust-p
+      (adjust-logger logger))
     (mapc (lambda (a) (appender-removed logger a))
           list)))
+
+(defun remove-appender (logger appender)
+  "Removes APPENDER from the logger. APPENDER-REMOVED generic function
+will be called if appender was removed"
+  (remove-appender-internal logger appender))
+
+(defun remove-all-appenders (logger)
+  "Removes all appenders from the logger."
+  (remove-all-appenders-internal logger))
 
 (defmethod close-appender (appender)
   (declare (ignore appender)))

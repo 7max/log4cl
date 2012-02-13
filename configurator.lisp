@@ -23,83 +23,128 @@ appender"
   (log-info "Logging configuration was reset to sane defaults"))
 
 (defun log-config (&rest args)
-  "User friendly way of configuring logger hierachy. 
+  "User friendly way of configuring loggers. General syntax is:
 
-  Synopsis:
- 
-  ;; set log level of a root logger
-  (log-config :info)
+    (LOG-CONFIG [LOGGER-IDENTIFIER] OPTION1 OPTION2...)
 
-  ;; set root logger to :info and unset per-logger level of all
-  ;; children
-  (log-config :reset)
+Logger can be one of:
 
-  ;; do both at the same time
-  (log-config :info :reset)
+- Logger instance ie result of (make-logger) expansion, or any form
+  that returns a logger.
 
-  ;; NOTE :reset has to be the last option in the list
-  
-  ;; set a logger named cl-user.mylogger to debug
-  (log-config :mylogger :debug)
-   
-  ;; set a logger named cl-user.somefunction to debug
-  (log-config somefunction :debug)
-  
-  ;; set a logger named full.logger.name to debug
-  (log-config \"full.logge.name\"  debug)
+- A list of logger categories, basically a shortcut for (MAKE-LOGGER
+  '(CAT1 CAT2 CAT3))
 
-  ;; set all loggers matching glob
-  (log-config :.*suffix :debug)
+Valid options can be:
 
-  ;; set all loggers matching glob
-  (log-config :.*(get|set)-.*line :debug)
+|-------------+---------------------------------------------------------------|
+| :INFO       | Or any other keyword identifying a log level, which can be    |
+| :DEBUG      | shortened to its shortestnunambiguous prefix, such as :D      |
+|-------------+---------------------------------------------------------------|
+| :CLEAR      | Removes log level and appenders from any child loggers,       |
+|             | appenders are not removed from non-additive loggers           |
+|-------------+---------------------------------------------------------------|
+| :ALL        | Changes :CLEAR to remove appenders from non-additive          |
+|             | loggers                                                       |
+|-------------+---------------------------------------------------------------|
+| :SANE       | Removes logger appenders, adds console appender with          |
+|             | pattern layout that makes messages look like this:            |
+|             |                                                               |
+|             | :     [11:22:25] INFO  {category.name} - message              |
+|-------------+---------------------------------------------------------------|
+| :OWN        | For :SANE and :DAILY makes logger non-additive                |
+|-------------+---------------------------------------------------------------|
+| :DAILY FILE | Adds file appender logging to the named file, which will      |
+|             | be rolled over every midnight into FILE.YYYYMMDD; Removes any |
+|             | other other appenders that subclass FILE-APPENDER-BASE from   |
+|             | the logger.  If :SANE is also specified, all logger appenders |
+|             | are removed, but console appender is not added                |
+|-------------+---------------------------------------------------------------|
+| :CONSOLE    | Forces adding of console appender if both :SANE and :DAILY    |
+|             | were specified                                                |
+|-------------+---------------------------------------------------------------|
+| :PATTERN    | For :SANE option uses specified conversion pattern instead    |
+| STRING      | of default one                                                |
+|-------------+---------------------------------------------------------------|
+
+Examples:
+
+  - (LOG-CONFIG :D) :: Changes root logger level to debug
+
+  - (LOG-CONFIG :SANE) :: Changes root logger level to info, removes its
+    appenders, adds console appender with pattern layout
+
+  - (LOG-CONFIG :SANE :WARN :CLEAR :ALL) :: Changes root logger level to
+    warnings, removes its appenders, adds console appender with
+    pattern layout; then resets all child loggers log levels, and
+    removes their appenders.
+
+  - (LOG-CONFIG (MAKE-LOGGER :FOOBAR) :SANE :OWN :D :DAILY
+    \"debug.log\") :: Configures the specified logger with debug log
+    level, logging into file debug.log which will be rolled over
+    daily, and makes it non-additive ie any messages will not be
+    propagated to logger parents.
 " 
-  (let (do-reset loggers 
-         (num-updated 0)
-         (num-reset 0)
-         log-level
-         had-log-level)
-    (declare (boolean do-reset)
-             (fixnum num-updated num-reset))
-    (setf args (reverse args))
-    (when (eq :reset (car args))
-      (pop args)
-      (setf do-reset t))
-    (when (and args  
-               (typep (first args) '(or string symbol)) 
-               (not (search "*" (string (first args)))))
-      (setf had-log-level t)
-      (setf log-level (make-log-level (pop args))))
-    (dolist (arg args)
-      (cond 
-        ((or (stringp arg) (symbolp arg))
-         (push (loggers-from-string (string arg))
-               loggers))
-        ((logger-p arg)
-         (push arg loggers))
-        (t (error "~s must be either symbol, string or a logger" arg))))
-    (when (null loggers)
-      (push *root-logger* loggers)
-      (or had-log-level
-          (setf log-level (make-log-level :error))))
-    (labels ((doit (logger)
-               (cond ((null logger))
-                     ((consp logger)
-                      (doit (car logger))
-                      (doit (cdr logger)))
-                     (t 
-                      ;; reset children first without adjusting
-                      (when do-reset
-                        (labels ((doit (logger)
-                                   (when (set-log-level logger +log-level-unset+ nil)
-                                     (incf num-reset))
-                                   (map-logger-children #'doit logger)))
-                          (map-logger-children #'doit logger)))
-                      ;; adjusts logger and descendants
-                      (when (set-log-level logger log-level)
-                        (incf num-updated))))))
-      (doit loggers)
-      (values num-updated num-reset))))
+  (let ((logger nil)
+        sane clear all own daily pattern 
+        level layout console
+        appenders
+        (default-pattern "[%d{%H:%M:%S}] [%P] <%c{}{}{:preserve}> %I%m%n"))
+    (cond ((logger-p (car args))
+           (setq logger (pop args)))
+          ((consp (car args))
+           (setq logger (get-logger-internal
+                         (pop args)
+                         (naming-option *package* :category-separator)
+                         (naming-option *package* :category-case))))
+          (t (setq logger *root-logger*)))
+    (loop
+      (let ((arg (or (pop args) (return))))
+        (case arg
+          (:sane (setq sane t))
+          (:clear (setq clear t))
+          (:all (setq all t))
+          (:own (setq own t))
+          (:console (setq console t))
+          (:daily
+           (setq daily (or (pop args) (error ":DAILY missing argument"))))
+          (:pattern
+           (setq pattern (or (pop args) (error ":PATTERN missing argument"))))
+          (t (if level (error "Only one log level can be specified")
+                 (setq level (log-level-from-object arg *package*)))))))
+    (or level sane clear daily
+        (error "A log level or one of :SANE :CLEAR :DAILY must be specified"))
+    (when (or level sane)
+      (set-log-level logger (or level +log-level-info+) nil))
+    (when clear
+      (map-logger-children (lambda (l)
+                             (set-log-level l +log-level-unset+ nil)
+                             (unless (and (logger-additivity l) (not all))
+                               (remove-all-appenders-internal l nil)))
+                           logger))
+    (when (or daily sane)
+      (setq layout (make-instance 'pattern-layout :pattern
+                    (or pattern default-pattern)))
+      (cond
+        (daily (if sane (remove-all-appenders-internal logger nil)
+                   (dolist (a (logger-appenders logger))
+                     (when (typep a 'file-appender-base)
+                       (remove-appender-internal logger a nil))))
+               (push (make-instance 'daily-file-appender
+                      :name-format daily
+                      :backup-name-format (format nil "~a.%Y%m%d" daily)
+                      :layout layout)
+                     appenders))
+        (t (remove-all-appenders-internal logger nil)))
+      
+      (when (and sane (or (not daily) console))
+        (push (make-instance 'console-appender :layout layout)
+              appenders))
+      (dolist (a appenders)
+        (add-appender-internal logger a nil)))
+    ;; finally recalculate reach-ability
+    (adjust-logger logger)))
+
 
 
 (defun loggers-from-string (regexp)
@@ -111,4 +156,5 @@ appender"
                (map-logger-children #'doit logger)))
       (doit *root-logger*))
     (nreverse loggers)))
+
 

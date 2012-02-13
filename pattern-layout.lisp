@@ -34,7 +34,9 @@ be known, (with-output-to-string) is used.
 Following pattern characters are recognized:
 
 --------------------------------------------------------------------
-   %p Log level string, for example DEBUG, INFO, TRACE
+   %p Log level string, for example DEBUG, INFO, TRACE. 
+
+   %P Log level string in lower case
 
    %c Full category name of the logger for example CL-USER:FOO:BAR.
 
@@ -244,6 +246,12 @@ Example: For the string {one}{}{three} will return the list (14
   "Output the %p (log level) pattern"
   (declare (ignore logger log-func))
   (format-string (log-level-to-string log-level) stream fmt-info)
+  (values))
+
+(define-pattern-formatter (#\P) 
+  "Output the %P (log level) pattern"
+  (declare (ignore logger log-func))
+  (format-string (log-level-to-lc-string log-level) stream fmt-info)
   (values))
 
 (defmethod parse-extra-args (fmt-info character pattern start)

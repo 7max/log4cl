@@ -94,9 +94,8 @@ use FIXED-STREAM-APPENDER class"))
     (maybe-flush-appender-stream this stream)))
 
 (defmethod appender-stream ((this console-appender))
-  "Returns *DEBUG-IO*"
+  "Returns current value of *DEBUG-IO*"
   *debug-io*)
-
 
 (defgeneric appender-filename (appender)
   (:documentation "Returns the appenders file name"))
@@ -114,29 +113,33 @@ its no longer attached to loggers"))
   (maybe-close-file appender))
 
 (defclass file-appender (file-appender-base)
-  ((filename :initarg :filename :reader appender-filename)) 
+  ((filename :initarg :name)) 
   (:documentation "Appender that writes to a file with a fixed file
 name"))
 
+(defmethod appender-filename ((appender file-appender-base))
+  (slot-value appender 'filename))
+
 (defclass rolling-file-appender-base (file-appender-base)
-  ((period :initform 60 :initarg :period)
-   (next-roll-time :initform 0))
-  (:documentation "File appender that periodically checks
-if it needs to roll the log file.
+  ((%rollover-check-period :initform 60 :initarg :rollover-check-period)
+   (%next-rollover-time :initform 0))
+  (:documentation
+  "File appender that periodically checks if it needs to rollover the
+log file.
 
-Calls to MAYBE-ROLL-FILE will be made when log event univeral time
-advances past the boundary that is evenly divisible by PERIOD.
+Calls to MAYBE-ROLL-FILE will be made when current time advances past
+the boundary that is evenly divisible by %ROLLOVER-CHECK-PERIOD.
 
-PERIOD is specified in seconds"))
+%ROLLOVER-CHECK-PERIOD is specified in seconds"))
 
 (defclass daily-file-appender (rolling-file-appender-base)
-  ((backup  :initform nil :initarg :backup)
-   (filename :initarg :filename)
+  ((backup-name-format  :initform nil :initarg :backup-name-format)
+   (name-format :initarg :name-format)
    (utc-p :initform nil :initarg :utc-p)
-   ;; filename of the currently active log file
-   (current-filename :initform nil :reader appender-filename)
-   ;; the name that the currently active file will be renamed into
-   (current-backup :initform nil))
+   ;; File name of the currently active log file
+   (%current-file-name :initform nil)
+   ;; The name that the currently active file will be renamed into
+   (%next-backup-name :initform nil))
   (:documentation "An appender that writes to the file named by
 expanding FILENAME pattern.  The expansion is done by the same
 converter as the %d conversion pattern of the PATTERN-LAYOUT, which is
@@ -145,56 +148,56 @@ controls if date pattern expansion uses local or GMT time, default is
 local.
 
 Each time an event is logged, and current time is greater or equal to
-PERIOD boundary, both FILENAME and BACKUP (if present) will be
-expanded.
+%ROLLOVER-CHECK-PERIOD boundary, both NAME-FORMAT and
+BACKUP-NAME-FORMAT (if present) will be expanded.
 
 If either of them differs from their previous values, current log file
-will be closed, and a new log file named after expanding FILENAME will
-be open. The old log file will be renamed to the result of previous
-BACKUP expansion that was remembered when it was open)
+will be closed, and a new log file named after expanding NAME-FORMAT
+will be opened. The old log file will be renamed to %NEXT-BACKUP-NAME
 
 In below examples it is assumed that current log file was created an
 2012-02-21, and the event being logged is the first one on the next
 day.
 
-  1) Example: FILENAME is \"test.log\" and backup is unset,
-     will always log to the file named test.log
+  1) Example: NAME-FORMAT is \"test.log\" and backup is unset, will
+     always log to the file named test.log
 
-  2) Example: FILENAME is \"test.%Y%m%d.log\" and BACKUP is
-     unset. Will log into the file test.20120221.log file, on the
-     rollover it will be closed and test.20120222.file will be opened.
+  2) Example: NAME-FORMAT is \"test.%Y%m%d.log\" and
+     BACKUP-NAME-FORMAT is unset. Will log into the file
+     test.20120221.log file, on the rollover it will be closed and
+     test.20120222.file will be opened.
 
-  3) Example: FILENAME is \"test.log\" and BACKUP is \"test.%Y%m%d.log\". Will
-     log into the file test.log. On rollover test.log will be renamed to
-     test.20120221.log, and new test.log will be created.
+  3) Example: NAME-FORMAT is \"test.log\" and BACKUP-NAME-FORMAT is
+     \"test.%Y%m%d.log\". Will log into the file test.log. On rollover
+     test.log will be renamed to test.20120221.log, and new test.log
+     will be created.
 
-     Note that backup file name is the one that was expanded at the
-     time when current log file was first created, not one based on
-     the current time.
-
-  4) Example: FILENAME is \"test.%Y%m%d\" and backup is
+  4) Example: NAME-FORMAT is \"test.%Y%m%d\" and BACKUP-NAME-FORMAT is
      \"test.log.bak\". Will log into the file test.20120210.log and
      when the day changes, will rename it to test.log.bak (erasing old
      one if it exists)"))
 
-(defun next-time-boundary (time period)
-  "Return next universal time evenly divisible by PERIOD seconds "
-  (declare (type unsigned-byte time period))
-  (setq period period)
-  (* period (truncate (+ time period) period)))
+(defmethod appender-filename ((appender daily-file-appender))
+  (slot-value appender '%current-file-name))
+
+(defun next-time-boundary (time check-period)
+  "Given universal time TIME return next boundary evenly divisible by
+CHECK-PERIOD seconds "
+  (declare (type unsigned-byte time check-period))
+  (* check-period (truncate (+ time check-period) check-period)))
 
 (defmethod appender-do-append :before ((this rolling-file-appender-base)
                                        logger level log-func)
   (declare (ignore logger level log-func))
-  (let ((et (log-event-time)))
-    (with-slots (next-roll-time period) this
-      (when (>= et next-roll-time)
-        (setf next-roll-time (next-time-boundary et period))
+  (let ((time (log-event-time)))
+    (with-slots (%next-rollover-time %rollover-check-period) this
+      (when (>= time %next-rollover-time)
+        (setf %next-rollover-time (next-time-boundary time %rollover-check-period))
         (maybe-roll-file this))))
   (values))
 
 (defgeneric maybe-roll-file (appender)
-  (:documentation "Should roll APPENDERs file if needed"))
+  (:documentation "Should rollover the log file file if needed"))
 
 (defmethod slot-unbound (class (appender file-appender-base)
                          (slot-name (eql 'stream)))
@@ -210,7 +213,7 @@ day.
                 :if-exists :append
                 :if-does-not-exist :create))))
 
-(defun expand-filename (pattern time utc-p)
+(defun expand-name-format (pattern time utc-p)
   (let ((*print-pretty* nil))
     (with-output-to-string (s)
       (format-time s (if (pathnamep pattern) (format nil "~a" pattern)
@@ -232,20 +235,20 @@ day.
 (defmethod maybe-roll-file ((appender daily-file-appender)) 
   "Expands FILENAME and BACKUP patterns, and if one of them changed,
 switches to the new log file"
-  (with-slots (filename backup current-filename current-backup utc-p)
-      appender
+  (with-slots (name-format backup-name-format
+               %current-file-name %next-backup-name utc-p) appender
     (let* ((time (log-event-time))
-           (new-file (expand-filename filename time utc-p))
-           (new-bak (expand-filename
-                     (or backup filename) time utc-p)))
-      (unless (and (equal new-file current-filename)
-                   (equal new-bak current-backup))
-        (when current-filename
+           (new-file (expand-name-format name-format time utc-p))
+           (new-bak (expand-name-format
+                     (or backup-name-format name-format) time utc-p)))
+      (unless (and (equal new-file %current-file-name)
+                   (equal new-bak %next-backup-name))
+        (when %current-file-name
           (maybe-close-file appender)
-          (unless (equal current-filename current-backup)
-            (backup-log-file appender current-filename current-backup)))
-        (setq current-filename new-file
-              current-backup new-bak)))))
+          (unless (equal %current-file-name %next-backup-name)
+            (backup-log-file appender %current-file-name %next-backup-name)))
+        (setq %current-file-name new-file
+              %next-backup-name new-bak)))))
 
 (unless (logger-appenders +self-logger+)
   (add-appender +self-logger+ (make-instance 'console-appender)))

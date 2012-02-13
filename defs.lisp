@@ -43,6 +43,9 @@
             "USER7" "USER8" "USER9")
           'simple-vector))
 
+(defparameter +log-level-to-lc-string+
+  (map 'simple-vector #'string-downcase +log-level-to-string+))
+
 (defvar *hierarchy-max* 1
   "Number of hierarchies registered with the log4cl library. Each
 hierarchy has independent configuration with regards to log levels and

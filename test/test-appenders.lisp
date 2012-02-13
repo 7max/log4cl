@@ -228,7 +228,7 @@ user log statement, its raised and does not disable the appender"
   (with-package-log-hierarchy
     (clear-logging-configuration)
     (let* ((fname (merge-pathnames (rand-filename) *tests-dir*))
-           (a (make-instance 'file-appender :filename fname))
+           (a (make-instance 'file-appender :name fname))
            (logger (make-logger '(one two three))))
       (setf (logger-additivity logger) nil)
       (add-appender logger a)
@@ -247,9 +247,9 @@ user log statement, its raised and does not disable the appender"
   (with-package-log-hierarchy
     (clear-logging-configuration)
     (let* ((fname-base (merge-pathnames (rand-filename) *tests-dir*))
-           (a (make-instance 'daily-file-appender :filename
+           (a (make-instance 'daily-file-appender :name-format
                (format nil "~a-%H-%M-%S.log" fname-base)
-               :period 1))
+               :rollover-check-period 1))
            (logger (make-logger '(one two three))))
       (add-appender logger a)
       ;; (add-appender *root-logger* (make-instance 'console-appender))
@@ -283,14 +283,14 @@ user log statement, its raised and does not disable the appender"
            ;; a1 is used only to figure out what the dynamic part
            ;; of backup filename will be, as we don't have public interface
            ;; for accessing backup file name
-           (a1 (make-instance 'daily-file-appender :filename
+           (a1 (make-instance 'daily-file-appender :name-format
                 (format nil "~a-%H-%M-%S.log" fname-base1)
-                :period 1))
+                :rollover-check-period 1))
            ;; fixed name, and formatted backup
-           (a2 (make-instance 'daily-file-appender :backup
+           (a2 (make-instance 'daily-file-appender :backup-name-format
                 (format nil "~a-%H-%M-%S.log" fname-base2)
-                :filename fname-base2
-                :period 1))
+                :name-format fname-base2
+                ::rollover-check-period 1))
            (logger (make-logger '(one two three))))
       (add-appender logger a1)
       (add-appender logger a2)

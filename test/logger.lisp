@@ -85,6 +85,27 @@ configuration"
                "WARN - Hello World!
 "))))
 
+(deftest produces-output-with-explicit-logger ()
+  "Test that log statement with explicit logger produce output"
+  (with-package-log-hierarchy
+    (reset-logging-configuration)
+    (is (equal (with-output-to-string (*debug-io*)
+                 (log-warn (make-logger)  "Hello World!"))
+               "WARN - Hello World!
+"))
+    (is (equal (with-output-to-string (*debug-io*)
+                 (log-warn '(log4cl test foobar)  "Hello World!"))
+               "WARN - Hello World!
+"))
+    (is (equal (with-output-to-string (*debug-io*)
+                 (log-warn :foobar  "Hello World!"))
+               "WARN - Hello World!
+"))
+    (is (equal (with-output-to-string (*debug-io*)
+                 (log-warn 'foobar  "Hello World!"))
+               "WARN - Hello World!
+"))))
+
 (deftest verify-returns-same-logger ()
   "Test that MAKE-LOGGER returns singleton logger object every time"
   (with-package-log-hierarchy

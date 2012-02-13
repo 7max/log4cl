@@ -248,17 +248,21 @@ SEPARATOR"
     ((constantp (first args))
      (let ((value (eval (first args))))
        (cond ((symbolp value)
-              (get-logger-internal
-               (package-log-category
-                package
-                (split-into-categories (symbol-name value) package)
-                nil)
-               (naming-option package :category-separator)
-               (naming-option package :category-case)))
+              (values
+               (get-logger-internal
+                (package-log-category
+                 package
+                 (split-into-categories (symbol-name value) package)
+                 nil)
+                (naming-option package :category-separator)
+                (naming-option package :category-case))
+               (rest args)))
              ((listp value)
-              (get-logger-internal (package-log-category package value t)
-                                   (naming-option package :category-separator)
-                                   (naming-option package :category-case)))
+              (values
+               (get-logger-internal (package-log-category package value t)
+                                    (naming-option package :category-separator)
+                                    (naming-option package :category-case))
+               (rest args)))
              (t (values (first args) (rest args))))))
     (t
      (values (first args) (rest args)))))

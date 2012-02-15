@@ -50,15 +50,20 @@ the logger name would be just package.
 (deflog-macros debug fatal error warn info user1 user2 user3 user4 
                trace user5 user6 user7 user8 user9)
 
-(defmacro log-sexp (&rest args) 
-  (let ((format 
-          (with-output-to-string (*standard-output*)  
-            (let ((first t))
-              (dolist (arg args)
-                (unless first
-                  (write-string " "))
-                (setf first nil)
-                (format t "~s=~~s" arg))))))
+(defmacro log-sexp (&rest sexps) 
+  (let* (args
+         (format 
+           (with-output-to-string (*standard-output*)  
+             (setq args
+                   (loop with first = t
+                         for arg in sexps
+                         do (if first (setf first nil)
+                                (write-string " "))
+                         if (stringp arg)
+                         do (write-string arg)
+                         else
+                         do (format t "~s=~~s" arg)
+                         and collect arg)))))
     `(log-debug ,format ,@args)))
 
 (defmacro log-trace-sexp (&rest args) 

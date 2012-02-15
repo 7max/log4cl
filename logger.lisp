@@ -185,16 +185,18 @@ on the strings in configuration file:
 
 "
   (do ((logger *root-logger*)
-       (first t nil))
+       (first t nil)
+       (names (make-array 0 :adjustable t :fill-pointer t)))
       ((null categories) logger)
     (let* ((cat (pop categories))
            (name (if (and (stringp cat)
                           (not force-string-case)) cat
-                     (with-output-to-string (s)
-                       (if cat-case
-                           (write-string-modify-case (string cat) s cat-case)
-                           (princ cat s)))))
+                          (with-output-to-string (s)
+                            (if cat-case
+                                (write-string-modify-case (string cat) s cat-case)
+                                (princ cat s)))))
            (hash (logger-children logger)))
+      (vector-push-extend name names)
       (setq logger
             (or
              (and hash (gethash name hash))
@@ -204,9 +206,11 @@ on the strings in configuration file:
                    (let ((logger
                            (create-logger
                             :category
-                            (coerce (if first name
-                                        (concatenate 'string (logger-category logger)
-                                                     cat-sep name))
+                            (coerce (with-output-to-string (s)
+                                      (dotimes (i (length names))
+                                        (when (plusp i)
+                                          (write-string cat-sep s))
+                                        (write-string (aref names i) s)))
                                     'simple-string)
                             :category-separator cat-sep
                             :parent logger

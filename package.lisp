@@ -90,7 +90,12 @@
    :+self-logger+
    :package-log-category
    :*self-log-level*
-   :logger-categories))
+   :logger-categories
+   :property-parser
+   :parse-property-stream
+   :property-configurator
+   :conversion-pattern
+   :property-parser-error))
 
 
 

@@ -2,8 +2,8 @@
 
 
 (defclass pattern-layout (layout)
-  ((pattern :initarg :pattern :accessor pattern-layout-pattern)
-   (formatter))
+  ((%pattern :initarg :conversion-pattern :accessor conversion-pattern)
+   (%formatter))
   (:documentation
    "Pattern layout uses a configurable conversion pattern to format log
 messages. For example, the following patterns produce these log
@@ -116,6 +116,10 @@ Following pattern characters are recognized:
 
    "))
 
+(defmethod property-initarg-alist ((instance pattern-layout))
+  (append (call-next-method)
+          '((:conversion-pattern . string))))
+
 
 (defvar *formatters* (make-hash-table))
 
@@ -126,16 +130,13 @@ Following pattern characters are recognized:
 
 (defun compile-pattern (layout pattern)
   (when pattern
-    (setf (slot-value layout 'formatter)
+    (setf (slot-value layout '%formatter)
           (compile-pattern-format layout pattern))))
 
-(defmethod initialize-instance :after ((layout pattern-layout) &key pattern)
-  (compile-pattern layout pattern))
+(defmethod shared-initialize :after ((layout pattern-layout) slots &key conversion-pattern)
+  (compile-pattern layout conversion-pattern))
 
-(defmethod reinitialize-instance :after ((layout pattern-layout) &key pattern)
-  (compile-pattern layout pattern))
-
-(defmethod (setf pattern-layout-pattern) :after (pattern (layout pattern-layout))
+(defmethod (setf conversion-pattern) :after (pattern (layout pattern-layout))
   (compile-pattern layout pattern))
 
 (defmethod layout-to-stream ((layout pattern-layout)
@@ -147,9 +148,9 @@ Following pattern characters are recognized:
   (declare (type stream stream)
            (type fixnum level)
            (type function log-func))
-  (with-slots (formatter)
+  (with-slots (%formatter)
       layout
-    (funcall formatter stream logger level log-func))
+    (funcall %formatter stream logger level log-func))
   (values))
 
 

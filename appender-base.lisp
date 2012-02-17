@@ -76,3 +76,19 @@ Return value of this function is ignored"))
   If this method resets the ERROR slot of the appender back to NIL, it
   is assumed that method had fixed whatever was wrong the appender,
   and the APPENDER-DO-APPEND will be attempted again"))
+
+(defgeneric property-initarg-from-string (instance property value)
+  (:documentation "Called on appenders and layouts to possibly convert
+property value from a string into whatever its supposed to be. Default
+method will handle numeric, boolean and string properties, by calling
+PROPERTY-TYPES function"))
+
+(defgeneric property-initarg-alist (instance)
+  (:documentation "Should return list of valid object properties, each
+element of the list being (PROPERTY . TYPE) with property being the
+keyword, and TYPE one of (member '(NUMBER BOOLEAN STRING)). Overriding
+this method to add extra properties is the only thing needed to allow
+extra properties in custom appenders/layouts to be configurable from
+by property file configurator. See also
+PROPERTY-INITARG-FROM-STRING"))
+

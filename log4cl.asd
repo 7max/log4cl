@@ -18,16 +18,16 @@
                (:file "logger")
                (:file "logging-macros")
                (:file "self-logger")
-               (:file "configurator")
-               (:file "property-parser")
-               (:file "property-configurator")
                ;; ;; TODO do this dynamically only if demacs
                ;; ;; package is present
                ;; (:file "demacs-integration")
 	       (:file "layout")
 	       (:file "simple-layout")
 	       (:file "pattern-layout")
-	       (:file "appender")))
+	       (:file "appender")
+               (:file "configurator")
+               (:file "property-parser")
+               (:file "property-configurator")))
 
 (defsystem :log4cl.test
   :serial t

@@ -1,5 +1,10 @@
 (in-package #:log4cl)
 
+
+(defmethod property-initarg-alist ((instance appender))
+  "Abstract appender has no properties"
+  '())
+
 (defun log-appender-error (appender condition)
   (log-error "Appender ~s disabled because of ~s" appender condition))
 
@@ -28,7 +33,7 @@
 (defclass stream-appender (serialized-appender)
   ((immediate-flush  :initform nil :initarg :immediate-flush)
    (flush-interval   :initform 1 :initarg :flush-interval)
-   (last-flush-time  :initform 0))
+   (%last-flush-time  :initform 0))
   (:documentation "Appender that writes message to stream returned by
   APPENDER-STREAM generic function.
 
@@ -39,6 +44,10 @@ Properties:
 
   - FLUSH-INTERVAL When set, will only flush if previous flush was
     that many seconds ago. Will only be used if IMMEDIATE-FLUSH is NIL"))
+
+(defmethod property-initarg-alist ((instance stream-appender))
+  '((:immediate-flush . boolean)
+    (:flush-interval . number)))
 
 (defgeneric appender-stream (appender) 
   (:documentation "Should return the stream to which appender will write log messages"))
@@ -58,15 +67,15 @@ use FIXED-STREAM-APPENDER class"))
 
 (defun maybe-flush-appender-stream (appender stream)
   "Flush the APPENDER's stream if needed"
-  (with-slots (immediate-flush flush-interval last-flush-time)
+  (with-slots (immediate-flush flush-interval %last-flush-time)
       appender
     (cond (immediate-flush
-           (setf last-flush-time (log-event-time))
+           (setf %last-flush-time (log-event-time))
            (finish-output stream))
           (flush-interval
            (let ((time (log-event-time)))
-             (when (>= (- time last-flush-time) flush-interval)
-               (setf last-flush-time time)
+             (when (>= (- time %last-flush-time) flush-interval)
+               (setf %last-flush-time time)
                (finish-output stream)))))))
 
 (defmethod appender-do-append :around
@@ -113,9 +122,13 @@ its no longer attached to loggers"))
   (maybe-close-file appender))
 
 (defclass file-appender (file-appender-base)
-  ((filename :initarg :name)) 
+  ((filename :initarg :file)) 
   (:documentation "Appender that writes to a file with a fixed file
 name"))
+
+(defmethod property-initarg-alist ((instance file-appender-base))
+  (append (call-next-method)
+          '((:file . string))))
 
 (defmethod appender-filename ((appender file-appender-base))
   (slot-value appender 'filename))
@@ -132,10 +145,14 @@ the boundary that is evenly divisible by %ROLLOVER-CHECK-PERIOD.
 
 %ROLLOVER-CHECK-PERIOD is specified in seconds"))
 
+(defmethod property-initarg-alist ((instance rolling-file-appender-base))
+  (append (call-next-method)
+          '((:rollover-check-period . number))))
+
 (defclass daily-file-appender (rolling-file-appender-base)
   ((backup-name-format  :initform nil :initarg :backup-name-format)
    (name-format :initarg :name-format)
-   (utc-p :initform nil :initarg :utc-p)
+   (utc-p :initform nil :initarg :utc)
    ;; File name of the currently active log file
    (%current-file-name :initform nil)
    ;; The name that the currently active file will be renamed into
@@ -177,6 +194,12 @@ day.
      when the day changes, will rename it to test.log.bak (erasing old
      one if it exists)"))
 
+(defmethod property-initarg-alist ((instance daily-file-appender))
+  (append (call-next-method)
+          '((:name-format . string)
+            (:backup-name-format . string)
+            (:utc . boolean))))
+
 (defmethod appender-filename ((appender daily-file-appender))
   (slot-value appender '%current-file-name))
 
@@ -216,8 +239,10 @@ CHECK-PERIOD seconds "
 (defun expand-name-format (pattern time utc-p)
   (let ((*print-pretty* nil))
     (with-output-to-string (s)
-      (format-time s (if (pathnamep pattern) (format nil "~a" pattern)
-                         pattern) time utc-p))))
+      (format-time
+       s (coerce (if (pathnamep pattern) (format nil "~a" pattern)
+                     pattern) 'simple-string)
+       time utc-p))))
 
 (defgeneric backup-log-file (appender log-filename backup-filename)
   (:documentation "Should move or rename LOG-FILENAME into the
@@ -241,6 +266,7 @@ switches to the new log file"
            (new-file (expand-name-format name-format time utc-p))
            (new-bak (expand-name-format
                      (or backup-name-format name-format) time utc-p)))
+      (log-sexp time new-file new-bak %current-file-name %next-backup-name)
       (unless (and (equal new-file %current-file-name)
                    (equal new-bak %next-backup-name))
         (when %current-file-name
@@ -252,3 +278,4 @@ switches to the new log file"
 
 (unless (logger-appenders +self-logger+)
   (add-appender +self-logger+ (make-instance 'console-appender)))
+

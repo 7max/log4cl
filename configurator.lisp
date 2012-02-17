@@ -8,9 +8,8 @@
                    (make-logger-state))
              (map-logger-children #'reset logger)))
     (reset *root-logger*)
-    (set-additivity +self-logger+ nil)
-    (add-appender +self-logger+ (make-instance 'console-appender))
-    (setf (logger-log-level +self-logger+) *self-log-level*))
+    (when *self-log-config*
+      (apply 'log-config +self-logger+ *self-log-config*)))
   (values))
 
 (defun reset-logging-configuration ()
@@ -53,6 +52,7 @@ Valid options can be:
 |             | :     [11:22:25] INFO  {category.name} - message              |
 |-------------+---------------------------------------------------------------|
 | :OWN        | For :SANE and :DAILY makes logger non-additive                |
+|             | otherwise additive flag will be set                           |
 |-------------+---------------------------------------------------------------|
 | :DAILY FILE | Adds file appender logging to the named file, which will      |
 |             | be rolled over every midnight into FILE.YYYYMMDD; Removes any |
@@ -65,6 +65,9 @@ Valid options can be:
 |-------------+---------------------------------------------------------------|
 | :PATTERN    | For :SANE option uses specified conversion pattern instead    |
 | STRING      | of default one                                                |
+|-------------+---------------------------------------------------------------|
+| :TWOLINE    | Changes default pattern layout to print user log message      |
+|             | log message on 2nd line after the headers                     |
 |-------------+---------------------------------------------------------------|
 
 Examples:
@@ -87,9 +90,8 @@ Examples:
 " 
   (let ((logger nil)
         sane clear all own daily pattern 
-        level layout console
-        appenders
-        (default-pattern "[%d{%H:%M:%S}] [%P] <%c{}{}{:preserve}> %I%m%n"))
+        twoline level layout console
+        appenders)
     (cond ((logger-p (car args))
            (setq logger (pop args)))
           ((consp (car args))
@@ -105,6 +107,7 @@ Examples:
           (:clear (setq clear t))
           (:all (setq all t))
           (:own (setq own t))
+          (:twoline (setq twoline t))
           (:console (setq console t))
           (:daily
            (setq daily (or (pop args) (error ":DAILY missing argument"))))
@@ -123,8 +126,13 @@ Examples:
                                (remove-all-appenders-internal l nil)))
                            logger))
     (when (or daily sane)
-      (setq layout (make-instance 'pattern-layout :pattern
-                    (or pattern default-pattern)))
+      (let ((default-pattern "[%d{%H:%M:%S}] [%P] <%c{}{}{:downcase}> - %m%n")
+            (twoline-pattern "[%d{%H:%M:%S}] [%P] <%c{}{}{:downcase}>%n  *%I{>} %m%n"))
+        (setq layout (make-instance 'pattern-layout
+                      :conversion-pattern
+                      (or pattern
+                          (if twoline twoline-pattern
+                              default-pattern)))))
       (cond
         (daily (if sane (remove-all-appenders-internal logger nil)
                    (dolist (a (logger-appenders logger))
@@ -141,7 +149,8 @@ Examples:
         (push (make-instance 'console-appender :layout layout)
               appenders))
       (dolist (a appenders)
-        (add-appender-internal logger a nil)))
+        (add-appender-internal logger a nil))
+      (set-additivity logger (not own) nil))
     ;; finally recalculate reach-ability
     (adjust-logger logger)))
 

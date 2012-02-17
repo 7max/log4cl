@@ -183,14 +183,25 @@ will be: package.foo.bar.baz
   "Return a list naming SBCL lexical environment. For example when
 compiling local function FOO inside a global function FOOBAR, will
 return \(FOOBAR FOO\)"
-  (let* ((names
-           (loop
-             as lambda = (sb-c::lexenv-lambda env)
-             then (sb-c::lambda-parent lambda)
-             while lambda
-             as debug-name = (include-block-debug-name? (sb-c::leaf-debug-name lambda))
-             if debug-name collect debug-name)))
-    (nreverse names)))
+  (let* ((names-from-lexenv
+           (nreverse
+            (loop
+              as lambda = (sb-c::lexenv-lambda env)
+              then (sb-c::lambda-parent lambda)
+              while lambda
+              as debug-name = (include-block-debug-name? (sb-c::leaf-debug-name lambda))
+              if debug-name collect debug-name)))
+         (name (or names-from-lexenv sb-pcl::*method-name*)))
+    (format t "here name=~s~%" name)
+    (when (and (consp (car name))
+               (equal (length name) 1))
+      (setq name (car name)))
+    (loop for elem in name
+          do (format t "processing elem=~s~%" elem)
+          if (consp elem)
+          ;; flatten method specializers and remove T ones
+          append (remove t elem)
+          else collect elem)))
 
 (defun join-categories (separator list)
   "Return a string with each element of LIST printed separated by

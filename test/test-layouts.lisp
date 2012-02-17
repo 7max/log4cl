@@ -17,7 +17,7 @@ specified PATTERN and compare its output to EXPECTED-RESULT"
                             (make-instance 'fixed-stream-appender
                              :stream s
                              :layout (make-instance 'pattern-layout
-                                      :pattern pattern)))
+                                      :conversion-pattern pattern)))
               (setf (logger-log-level *root-logger*) level)
               ;; TODO need a macro that logs with specified level
               (cond 
@@ -44,47 +44,47 @@ specified PATTERN and compare its output to EXPECTED-RESULT"
   "Test parsing of pattern layout patters and that it signals
 pattern-layout-error when parsing errors occur"
   (signals pattern-layout-error
-    (make-instance 'pattern-layout :pattern "%"))
+    (make-instance 'pattern-layout :conversion-pattern "%"))
   (signals pattern-layout-error
-    (make-instance 'pattern-layout :pattern "%-"))
+    (make-instance 'pattern-layout :conversion-pattern "%-"))
   (signals pattern-layout-error
-    (make-instance 'pattern-layout :pattern "\\"))
+    (make-instance 'pattern-layout :conversion-pattern "\\"))
   (signals pattern-layout-error
-    (make-instance 'pattern-layout :pattern "%-3"))
+    (make-instance 'pattern-layout :conversion-pattern "%-3"))
   (signals pattern-layout-error
-    (make-instance 'pattern-layout :pattern "%-3."))
+    (make-instance 'pattern-layout :conversion-pattern "%-3."))
   (signals pattern-layout-error
-    (make-instance 'pattern-layout :pattern "%-3.p"))
+    (make-instance 'pattern-layout :conversion-pattern "%-3.p"))
   (signals pattern-layout-error
-    (make-instance 'pattern-layout :pattern "%.p"))
+    (make-instance 'pattern-layout :conversion-pattern "%.p"))
   (signals pattern-layout-error
-    (make-instance 'pattern-layout :pattern "%.p"))
+    (make-instance 'pattern-layout :conversion-pattern "%.p"))
   (finishes 
-    (make-instance 'pattern-layout :pattern "%.10p"))
+    (make-instance 'pattern-layout :conversion-pattern "%.10p"))
   (signals pattern-layout-error
-    (make-instance 'pattern-layout :pattern "%c{3"))
+    (make-instance 'pattern-layout :conversion-pattern "%c{3"))
   (finishes 
-    (make-instance 'pattern-layout :pattern "%c{3}"))
+    (make-instance 'pattern-layout :conversion-pattern "%c{3}"))
   (finishes 
-    (make-instance 'pattern-layout :pattern "%c{3\\3}{}"))
+    (make-instance 'pattern-layout :conversion-pattern "%c{3\\3}{}"))
   (finishes 
-    (make-instance 'pattern-layout :pattern "%c{3\\3}{}{:invert}"))
+    (make-instance 'pattern-layout :conversion-pattern "%c{3\\3}{}{:invert}"))
   (signals pattern-layout-error
-    (make-instance 'pattern-layout :pattern "%c{3\\3}{}{:blah}"))
+    (make-instance 'pattern-layout :conversion-pattern "%c{3\\3}{}{:blah}"))
   (signals pattern-layout-error
-    (make-instance 'pattern-layout :pattern "%c{3\\}"))
+    (make-instance 'pattern-layout :conversion-pattern "%c{3\\}"))
   (signals pattern-layout-error
-    (make-instance 'pattern-layout :pattern "%c{foo\\}bar}"))
+    (make-instance 'pattern-layout :conversion-pattern "%c{foo\\}bar}"))
   (finishes 
-    (make-instance 'pattern-layout :pattern "lala%%lala"))
+    (make-instance 'pattern-layout :conversion-pattern "lala%%lala"))
   (finishes 
-    (make-instance 'pattern-layout :pattern "|%p %c %%|"))
+    (make-instance 'pattern-layout :conversion-pattern "|%p %c %%|"))
   (finishes 
-    (make-instance 'pattern-layout :pattern "\\\\"))
+    (make-instance 'pattern-layout :conversion-pattern "\\\\"))
   (finishes 
-    (make-instance 'pattern-layout :pattern "\\t"))
+    (make-instance 'pattern-layout :conversion-pattern "\\t"))
   (finishes 
-    (make-instance 'pattern-layout :pattern "\\n")))
+    (make-instance 'pattern-layout :conversion-pattern "\\n")))
 
 (deftest test-basic-patterns ()
   "Test basic pattern-layout patterns"

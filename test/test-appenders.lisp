@@ -1,6 +1,7 @@
 (in-package :log4cl.test)
 
 (in-suite test)
+(defsuite* test-appenders)
 
 (deftest test-appender-refcounts ()
   (with-package-log-hierarchy
@@ -228,7 +229,7 @@ user log statement, its raised and does not disable the appender"
   (with-package-log-hierarchy
     (clear-logging-configuration)
     (let* ((fname (merge-pathnames (rand-filename) *tests-dir*))
-           (a (make-instance 'file-appender :name fname))
+           (a (make-instance 'file-appender :file fname))
            (logger (make-logger '(one two three))))
       (setf (logger-additivity logger) nil)
       (add-appender logger a)
@@ -244,6 +245,7 @@ user log statement, its raised and does not disable the appender"
       (delete-file fname))))
 
 (deftest test-daily-file-appender-1 ()
+  "Test the variable name-format"
   (with-package-log-hierarchy
     (clear-logging-configuration)
     (let* ((fname-base (merge-pathnames (rand-filename) *tests-dir*))
@@ -275,6 +277,7 @@ user log statement, its raised and does not disable the appender"
             (delete-file fname2)))))))
 
 (deftest test-daily-file-appender-2 ()
+  "Test the variable backup name format"
   (with-package-log-hierarchy
     (clear-logging-configuration)
     (let* ((fname-base1 (merge-pathnames (rand-filename) *tests-dir*))

@@ -34,11 +34,13 @@ Logger can be one of:
 - A list of logger categories, basically a shortcut for (MAKE-LOGGER
   '(CAT1 CAT2 CAT3))
 
+If not specified, default logger will be root logger
+
 Valid options can be:
 
 |-------------+---------------------------------------------------------------|
 | :INFO       | Or any other keyword identifying a log level, which can be    |
-| :DEBUG      | shortened to its shortestnunambiguous prefix, such as :D      |
+| :DEBUG      | shortened to its shortest unambiguous prefix, such as :D      |
 |-------------+---------------------------------------------------------------|
 | :CLEAR      | Removes log level and appenders from any child loggers,       |
 |             | appenders are not removed from non-additive loggers           |
@@ -69,6 +71,18 @@ Valid options can be:
 | :TWOLINE    | Changes default pattern layout to print user log message      |
 |             | log message on 2nd line after the headers                     |
 |-------------+---------------------------------------------------------------|
+| :SELF       | Used for debugging LOG4CL itself. Instead of root logger,     |
+|             | make default logger LOG4CL:SELF and remember all arguments    |
+|             | in the variable *SELF-LOG-CONFIG*, so that they are restored  |
+|             | even on (CLEAR-LOGGING-CONFIGURATION). Automatically assumes  |
+|             | :OWN making the LOG4CL:SELF logger non-additive               |
+|-------------+---------------------------------------------------------------|
+| :PROPERTIES | Configure with PROPERTY-CONFIGURATOR by parsing specified     |
+| FILE        | properties file                                               |
+|-------------+---------------------------------------------------------------|
+| :WATCH      | Used with :PROPERTIES, uses watcher thread to check           |
+|             | properites file modification time, and reloads if it changes  |
+|-------------+---------------------------------------------------------------|
 
 Examples:
 
@@ -89,9 +103,10 @@ Examples:
     propagated to logger parents.
 " 
   (let ((logger nil)
+        (orig-args args)
         sane clear all own daily pattern 
         twoline level layout console
-        appenders)
+        self appenders)
     (cond ((logger-p (car args))
            (setq logger (pop args)))
           ((consp (car args))
@@ -103,6 +118,9 @@ Examples:
     (loop
       (let ((arg (or (pop args) (return))))
         (case arg
+          (:self
+           (setq logger (make-logger '(log4cl self))
+                 self t))
           (:sane (setq sane t))
           (:clear (setq clear t))
           (:all (setq all t))
@@ -151,6 +169,32 @@ Examples:
       (dolist (a appenders)
         (add-appender-internal logger a nil))
       (set-additivity logger (not own) nil))
+    (when self
+      ;; This is special adhoc case of configuring the LOG4CL:SELF
+      (let ((config (cons :own
+                          (remove-if (lambda (x) (member x '(:own :self)))
+                                     orig-args))))
+        ;; if specified new appenders, simply remember new configuration
+        (if (or sane daily) (setq *self-log-config* config)
+            ;; otherwise merge specified config and the remembered one
+            ;; This is so (log-config :self :d) would still do same
+            ;; thing as (log-config :self :d :sane), if old value of
+            ;; *self-log-config* contained :sane
+            (let (tmp doit)
+              (when (setq tmp (member :sane *self-log-config*))
+                (push :sane config)
+                (setq doit t))
+              (when (setq tmp (member :daily *self-log-config*))
+                (setq config (append config (subseq tmp 0 2)))
+                (setq doit t))
+              (when (and (setq tmp (member :pattern *self-log-config*))
+                         (not pattern))
+                (setq config (append config (subseq tmp 0 2)))
+                (setq doit t))
+              (when (and (setq tmp (member :twoline *self-log-config*))
+                         (not pattern))
+                (setq config (cons :twoline (remove :twoline config))))
+              (when doit (setq *self-log-config* config))))))
     ;; finally recalculate reach-ability
     (adjust-logger logger)))
 

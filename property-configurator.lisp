@@ -116,7 +116,8 @@ token name into the keyword and call this function again"
             additivity))))
 
 (defun intern-class-name (string)
-  (let ((pos (position #\Colon string)))
+  (let ((pos (position #\Colon string))
+        (*print-readably* nil))
     (if (null pos)
         (find-symbol string)
         (let ((pkg (find-package (substr string 0 pos)))

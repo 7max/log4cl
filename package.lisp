@@ -89,7 +89,6 @@
    :daily-file-appender
    :+self-logger+
    :package-log-category
-   :*self-log-level*
    :logger-categories
    :property-parser
    :parse-property-stream

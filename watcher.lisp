@@ -28,8 +28,8 @@
        :name "Hierarchy Watcher"
        :initial-bindings
        `((*hierarchy* . 0)
-         ,@*watcher-thread-bindings*
-         ,@bordeaux-threads:*standard-io-bindings*)))))
+         (*package* . (find-package :log4cl))
+         ,@*watcher-thread-bindings*)))))
 
 
 (defun hierarchy-watcher-do-one-token (hier token)

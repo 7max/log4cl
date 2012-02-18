@@ -78,16 +78,15 @@ appended to it"
       (is (equal 3 (slot-value a2 'count))))))
 
 (deftest test-appender-error-log ()
-  "Verify that after appender suffers an error, it's logged to self logger"
+  "Verify that after appender suffers an error, it's logged to LOG4CL logger"
   (with-package-log-hierarchy
     (clear-logging-configuration)
-    (remove-all-appenders +self-logger+)
     (let ((output
             (with-output-to-string (s)
               (let ((a1 (make-instance 'fixed-stream-appender :stream s))
                     (a2 (make-instance 'bad-appender))
                     (logger (make-logger '(one two three))))
-                (add-appender +self-logger+ a1)
+                (add-appender (make-logger '(log4cl)) a1)
                 (add-appender logger a2)
                 (log-config :i)
                 (log-info logger "hey")
@@ -136,7 +135,7 @@ is entered"
               (let ((a1 (make-instance 'fixed-stream-appender :stream s))
                     (a2 (make-instance 'bad-appender-ignore-errors :once-only nil))
                     (logger (make-logger '(one two three))))
-                (add-appender +self-logger+ a1)
+                (add-appender (make-logger '(log4cl)) a1)
                 (add-appender logger a2)
                 (log-config :i)
                 (setf (logger-additivity logger) nil)

@@ -192,12 +192,10 @@ return \(FOOBAR FOO\)"
               as debug-name = (include-block-debug-name? (sb-c::leaf-debug-name lambda))
               if debug-name collect debug-name)))
          (name (or names-from-lexenv sb-pcl::*method-name*)))
-    (format t "here name=~s~%" name)
     (when (and (consp (car name))
                (equal (length name) 1))
       (setq name (car name)))
     (loop for elem in name
-          do (format t "processing elem=~s~%" elem)
           if (consp elem)
           ;; flatten method specializers and remove T ones
           append (remove t elem)

@@ -9,18 +9,14 @@
 (in-package :log4cl)
 
 #+sbcl (declaim (sb-ext:always-bound
-                 *hierarchy* *log-indent*
+                 *log-indent*
                  *ndc-context* *log-event-time*
-                 *hierarchy-lock*
-                 *name-to-hierarchy*
-                 *hierarchy-max*
                  *inside-user-log-function*))
 
 (declaim (special *root-logger*)
          (type logger *root-logger*)
-	 (type fixnum  *hierarchy-max* *hierarchy* *log-indent*)
-	 (type hash-table *name-to-hierarchy*)
-         (inline is-enabled-for current-state hierarchy-index
+	 (type fixnum *log-indent*)
+         (inline is-enabled-for current-state 
                  log-level-to-string
                  log-event-time))
 
@@ -451,26 +447,6 @@ consed list of strings"
                        'simple-string)
                categories))
     categories))
-
-(defun %hierarchy-index (name)
-  (when (stringp name)
-    (setq name (intern name)))
-  (let ((index (gethash name *name-to-hierarchy*)))
-    (unless index
-      (with-recursive-lock-held (*hierarchy-lock*)
-        (adjust-all-loggers-state (1+ *hierarchy-max*))
-        (setf index *hierarchy-max*)
-        (setf (gethash name *name-to-hierarchy*) index)
-        (incf *hierarchy-max*)))
-    index))
-
-(defun hierarchy-index (hierarchy)
-  "Return the hierarchy index for the specified hierarchy. Hierarchy
-must be already a number or a unique identifier suitable for comparing
-using EQL. If hierarchy is a string, it will be interned in the current
-package"
-  (if (numberp hierarchy) hierarchy
-      (%hierarchy-index hierarchy)))
 
 (defun adjust-all-loggers-state (new-len)
   (labels ((doit (logger)

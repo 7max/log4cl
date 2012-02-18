@@ -1,5 +1,7 @@
 (in-package :log4cl)
 
+;; generic property file parser, can be reused for other stuff
+
 (defclass property-parser ()
   ((name-token-separator :initform ":" :initarg :separator)
    (name-token-read-case :initform (readtable-case *readtable*)
@@ -13,7 +15,24 @@
 (defvar %parse-line-num nil
   "Current line number in the input stream")
 
-(define-condition property-parser-error (error)
+(defclass property-location ()
+  ((line :initform %parse-line)
+   (line-num :initform %parse-line-num))
+  (:documentation "Remembered line and line number in the input
+stream where object appeared, so we can signal errors with that
+info"))
+
+(defmacro with-property-location ((location) &body body)
+  "Run BODY with %PARSE-LINE and %PARSE-LINE-NUM bound to the
+remembered location, so that any errors signaled will have correct
+location"
+  `(with-slots (line-num line)
+       ,location
+     (let ((%parse-line line)
+           (%parse-line-num line-num))
+       ,@body)))
+
+(define-condition property-parser-error (log4cl-error parse-error)
   ((condition :initarg :condition :accessor condition-of)
    (line-num :initarg :line-num :accessor line-num-of)
    (line :initarg :line :accessor line-of))

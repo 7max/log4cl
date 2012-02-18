@@ -172,7 +172,7 @@ conversion pattern after the PATTERN-CHAR, ie in the string
 Should return two values, new parse position and either FMT-INFO or
 its subclass."))
 
-(define-condition pattern-layout-error (simple-error)
+(define-condition pattern-layout-error (log4cl-error parse-error)
   ())
 
 (defun pattern-layout-error (message &rest args)

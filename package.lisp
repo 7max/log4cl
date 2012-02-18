@@ -95,7 +95,8 @@
    :parse-property-stream
    :property-configurator
    :conversion-pattern
-   :property-parser-error))
+   :property-parser-error
+   :configure))
 
 
 

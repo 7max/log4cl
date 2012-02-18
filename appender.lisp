@@ -6,7 +6,7 @@
   '())
 
 (defun log-appender-error (appender condition)
-  (log-error "Appender ~s disabled because of ~s" appender condition))
+  (log-error '(log4cl) "Appender ~s disabled because of ~s" appender condition))
 
 (defmethod handle-appender-error (appender condition)
   (log-appender-error appender condition))

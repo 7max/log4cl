@@ -15,6 +15,8 @@
                (:file "defs")
                (:file "naming")
                (:file "appender-base")
+               (:file "hierarchy-base")
+               (:file "hierarchy")
                (:file "logger")
                (:file "logging-macros")
                (:file "self-logger")
@@ -27,7 +29,8 @@
 	       (:file "appender")
                (:file "configurator")
                (:file "property-parser")
-               (:file "property-configurator")))
+               (:file "property-configurator")
+               (:file "watcher")))
 
 (defsystem :log4cl.test
   :serial t
@@ -36,6 +39,7 @@
   :components ((:file "test/logger")
                (:file "test/test-layouts")
                (:file "test/test-appenders")
+               (:file "test/test-property-configurator")
                (:file "test/speed")))
 
 (defmethod perform ((op test-op) (system (eql (find-system :log4cl))))

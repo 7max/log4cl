@@ -13,12 +13,12 @@
       config
     (setf loggers '() additivity '() appenders '())))
 
-(defclass logger-record ()
+(defclass logger-record (property-location)
   ((logger :initarg :logger)
    (level :initarg :level)
    (appender-names :initform nil :initarg :appender-names)))
 
-(defclass delayed-instance ()
+(defclass delayed-instance (property-location)
   ((class :initform nil)
    (properties :initform nil)
    (extra-initargs :initform nil)
@@ -143,7 +143,7 @@ token name into the keyword and call this function again"
       (or (null tokens) (error "~a expecting a single property" name))
       (or (null (assoc prop properties))
           (error "~a property ~s specified twice" name prop))
-      (push (list prop value %parse-line %parse-line-num) properties))))
+      (push (list prop value (make-instance 'property-location)) properties))))
 
 (defmethod parse-property-keyword ((parser property-configurator)
                                    (keyword (eql :appender))
@@ -184,21 +184,22 @@ token name into the keyword and call this function again"
 (defun create-delayed-instance (instance)
   "First filter all properties through through INSTANCE-PROPERTY-FROM-STRING,
 and then create the instance"
-  (with-slots (instance name class properties extra-initargs)
-      instance
-    (setf instance
-          (make-instance (or class (error "Class not specified for ~a" name))))
-    ;; need to do it twice to apply properties, since property parsing
-    ;; stuff is specialized on the instance class
-    (setf instance (apply #'reinitialize-instance
-                          instance
-                          (append
-                           (loop for (prop value %parse-line %parse-line-num)
-                                 in properties
-                                 appending
-                                    (list prop (property-initarg-from-string
-                                                instance prop value)))
-                           extra-initargs)))))
+  (with-property-location (instance)
+    (with-slots (instance name class properties extra-initargs)
+        instance
+      (setf instance
+            (make-instance (or class (error "Class not specified for ~a" name))))
+      ;; need to do it twice to apply properties, since property parsing
+      ;; stuff is specialized on the instance class
+      (setf instance (apply #'reinitialize-instance
+                            instance
+                            (append
+                             (loop for (prop value location) in properties
+                                   appending
+                                      (with-property-location (location)
+                                        (list prop (property-initarg-from-string
+                                                    instance prop value))))
+                             extra-initargs))))))
 
 (defmethod parse-property-stream :after ((configurator property-configurator) stream)
   "Parse the stream and apply changes to logging configuration"
@@ -207,12 +208,14 @@ and then create the instance"
         configurator
       ;; for each logger, see that logger's in appender list were defined
       (loop for (logger . rec) in loggers
-            do (dolist (name (slot-value rec 'appender-names))
-                 (or (assoc name appenders :test 'equal)
-                     (error "Logger ~a refers to non-existing appender ~s"
-                            logger name))
-                 (setf (slot-value (cdr (assoc name appenders :test 'equal))
-                                   'used) t)))
+            do (with-property-location (rec)
+                 (log-sexp rec %parse-line %parse-line-num)
+                 (dolist (name (slot-value rec 'appender-names))
+                   (or (assoc name appenders :test 'equal)
+                       (error "Logger ~a refers to non-existing appender ~s"
+                              logger name))
+                   (setf (slot-value (cdr (assoc name appenders :test 'equal))
+                                     'used) t))))
       ;; create the appenders, we do this before mucking with loggers,
       ;; in case creating an appender singals an error
       (loop for (name . a) in appenders
@@ -247,3 +250,53 @@ property it is. Signals error if property is not in the list"
       (boolean (intern-boolean (strip-whitespace value)))
       (string value)
       (t (error "Unknown property ~s for class ~s" property instance)))))
+
+(defgeneric configure (configurator source &key &allow-other-keys)
+  (:documentation "Configure the logging system from specified source"))
+
+(defmethod configure ((configurator property-configurator)
+                      (s stream) &key)
+  "Configures logging from the specified stream"
+  (parse-property-stream configurator s))
+
+(defclass property-configurator-file-watch ()
+  ((filespec :initarg :filespec :accessor filespec-of)
+   (time :initarg :time)
+   (configurator :initarg :configurator)))
+
+(defmethod print-object ((watch property-configurator-file-watch) stream)
+  (print-unreadable-object (watch stream :type t)
+    (prin1 (slot-value watch 'filespec) stream)))
+
+(defmethod configure ((configurator property-configurator) filespec &key auto-reload)
+  "Configures logging from the specified file. If AUTO-RELOAD is
+non-NIL, then after initial configuration will watch the file for
+modifications and re-configure when it changes. Note that auto-reload
+will not be configured if initial configuration signaled a error"
+  (let ((filespec (merge-pathnames filespec)))
+    (with-open-file (s filespec)
+      (configure configurator s))
+    (when auto-reload
+      (with-slots (watch-tokens) (aref *hierarchies* *hierarchy*)
+        (unless (find filespec watch-tokens :test #'equal :key #'filespec-of)
+          (push (make-instance 'property-configurator-file-watch
+                 :filespec filespec
+                 :time (file-write-date filespec)
+                 :configurator configurator)
+                watch-tokens))))))
+
+(defmethod watch-token-check ((token property-configurator-file-watch))
+  "Checks properties file write time, and re-configure from it if it changed.
+Catches and does not re-signal PROPERTY-PARSER-ERROR, so watching the
+file continues if newly modified file had an error"
+  (with-slots (filespec time configurator) token
+    (let ((new-time (file-write-date filespec)))
+      (when (/= new-time time)
+        (setf time new-time)
+        (log-info '(log4cl) "Re-configuring logging from changed file ~A" filespec)
+        (handler-case
+            (configure configurator filespec)
+          (property-parser-error (c)
+            (log-error '(log4cl)
+                       "Configuration from file ~A failed:~%~A"
+                       filespec c)))))))

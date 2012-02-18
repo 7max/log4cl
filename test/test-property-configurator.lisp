@@ -44,21 +44,36 @@ one.two=three
 
 (deftest test-property-configurator-whitespace-and-separator ()
   ;; test using different separator, and that whitespace works
-  (let ((config (make-instance 'property-configurator)))
-    (let ((logger (make-logger '(one two three))))
-      (clear-logging-configuration)
-      ;; verify (clear-log-configuration) cleared everything
-      (is (equal (effective-log-level logger) +log-level-off+))
-      (is (equal 0 (length (effective-appenders logger))))
-      ;; parse
-      (with-input-from-string
-          (s "separator =.
+  (with-package-log-hierarchy
+    (let ((config (make-instance 'property-configurator)))
+      (let ((logger (make-logger '(one two three))))
+        (clear-logging-configuration)
+        ;; verify (clear-log-configuration) cleared everything
+        (is (equal (effective-log-level logger) +log-level-off+))
+        (is (equal 0 (length (effective-appenders logger))))
+        ;; parse
+        (with-input-from-string
+            (s "separator =.
               log4cl.logger.one.two.three = DEBUG, A1
               log4cl.appender.A1 = console-appender")
-        (configure config s))
-      ;; see that changes were made
-      (is (equal (effective-log-level logger) +log-level-debug+))
-      (is (equal 1 (length (effective-appenders logger)))))))
+          (configure config s))
+        ;; see that changes were made
+        (is (equal (effective-log-level logger) +log-level-debug+))
+        (is (equal 1 (length (effective-appenders logger))))))))
+
+(deftest test-property-configurator-appender-lower-case ()
+  "Verify that specifying appender name in lower case works"
+  (with-package-log-hierarchy
+    (let ((config (make-instance 'property-configurator)))
+      (let ((logger (make-logger '(one two three))))
+        (clear-logging-configuration)
+        (with-input-from-string
+            (s " log4cl:logger:one:two:three = DEBUG, a1
+                 log4cl:appender:a1 = Console-Appender")
+          (configure config s))
+        ;; see that changes were made
+        (is (equal (effective-log-level logger) +log-level-debug+))
+        (is (equal 1 (length (effective-appenders logger))))))))
 
 (deftest test-property-configurator-boolean-property ()
   (with-package-log-hierarchy

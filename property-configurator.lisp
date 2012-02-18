@@ -64,7 +64,11 @@ token name into the keyword and call this function again"
                   (make-instance 'logger-record
                    :logger logger
                    :level (log-level-from-object (first value-tokens) *package*)
-                   :appender-names (rest value-tokens)))
+                   :appender-names
+                   (mapcar (lambda (name)
+                             (convert-read-case
+                              name name-token-read-case))
+                           (rest value-tokens))))
             loggers))))
 
 (defmethod parse-property-keyword ((parser property-configurator)
@@ -123,8 +127,9 @@ token name into the keyword and call this function again"
                        (char= (char string pos) #\Colon))
               (incf pos)
               (setf only-external-p nil))
+            (log-sexp pkg only-external-p (substr string pos))
             (multiple-value-bind (symbol visibility)
-                (find-symbol (substr string pos))
+                (find-symbol (substr string pos) pkg)
               (and (or (not only-external-p)
                        (equal visibility :external))
                    symbol)))))))
@@ -153,7 +158,9 @@ token name into the keyword and call this function again"
       parser
     (when (null tokens)
       (error "appender should be followed by appender name"))
-    (let* ((name (pop tokens))
+    (let* ((name (convert-read-case
+                  (strip-whitespace (pop tokens))
+                  name-token-read-case))
            (appender (or (cdr (assoc name appenders :test 'equal))
                          (cdar (push (cons
                                       name

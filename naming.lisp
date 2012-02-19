@@ -168,7 +168,8 @@ will be: package.foo.bar.baz
   (if (symbolp debug-name)
       (when (and (not (member debug-name '(sb-c::.anonymous. 
                                            sb-thread::with-mutex-thunk)))
-                 (not (scan "(?i)^cleanup-fun-" (symbol-name debug-name))))
+                 (not (equal 0 (search "CLEANUP-FUN-"
+                                       (symbol-name debug-name)))))
         debug-name)
       (case (first debug-name)
         (labels (include-block-debug-name? (second debug-name)))

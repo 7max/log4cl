@@ -44,8 +44,8 @@
                       (let ((*print-circle* nil))
                         (print-unreadable-object (logger stream)
                           (princ "LOGGER " stream)
-                          (princ (if (zerop (length (logger-category logger))) "+ROOT+"
-                                     (logger-category logger)) stream))))))
+                          (princ (if (logger-parent logger) (logger-category logger)
+                                     "+ROOT+") stream))))))
   ;; Full category name as in parent.sub-parent.thislogger
   (category  nil :type string)
   ;; Logger's native category separator string
@@ -427,8 +427,10 @@ will be called if appender was removed"
 
 (defun logger-name (logger)
   "Return the name of the logger category itself (without parent loggers)"
-  (substr (logger-category logger)
-          (logger-name-start-pos logger)))
+  (if (logger-parent logger) 
+      (substr (logger-category logger)
+              (logger-name-start-pos logger))
+      "+ROOT+"))
 
 (defun logger-name-length (logger)
   "Return length of logger itself (without parent loggers)"

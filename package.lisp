@@ -4,12 +4,7 @@
 
 
 (cl:defpackage :log4cl
-  (:use :cl
-   :bordeaux-threads
-   :cl-ppcre
-   :demacs
-   #+sbcl :sb-gray
-   #+clisp :gray)
+  (:use :cl :bordeaux-threads)
   (:export
    ;; log levels
    :+log-level-unset+ :+log-level-unset+ :+log-level-user9+

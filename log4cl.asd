@@ -8,9 +8,7 @@
 (defsystem :log4cl
   :serial t
   :version "1.0"
-  :depends-on (:bordeaux-threads 
-               :cl-ppcre
-               :demacs)
+  :depends-on (:bordeaux-threads)
   :components ((:file "package")
                (:file "defs")
                (:file "naming")

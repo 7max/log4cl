@@ -103,9 +103,9 @@ Examples:
     propagated to logger parents.
 " 
   (let ((logger nil)
-        (orig-args args)
         sane clear all own daily pattern 
         twoline level layout console
+        orig-args
         self appenders)
     (cond ((logger-p (car args))
            (setq logger (pop args)))
@@ -113,28 +113,39 @@ Examples:
            (setq logger (get-logger-internal
                          (pop args)
                          (naming-option *package* :category-separator)
-                         (naming-option *package* :category-case))))
-          (t (setq logger *root-logger*)))
+                         (naming-option *package* :category-case)))))
+    (setq orig-args args)
     (loop
       (let ((arg (or (pop args) (return))))
         (case arg
           (:self
+           (when logger (log4cl-error "Both :SELF and a logger was specified"))
            (setq logger (make-logger '(log4cl self))
                  self t))
           (:sane (setq sane t))
           (:clear (setq clear t))
           (:all (setq all t))
           (:own (setq own t))
-          (:twoline (setq twoline t))
+          ((:twoline :two-line) (setq twoline t))
           (:console (setq console t))
           (:daily
-           (setq daily (or (pop args) (error ":DAILY missing argument"))))
+           (setq daily (or (pop args)
+                           (log4cl-error ":DAILY missing argument"))))
           (:pattern
-           (setq pattern (or (pop args) (error ":PATTERN missing argument"))))
-          (t (if level (error "Only one log level can be specified")
-                 (setq level (log-level-from-object arg *package*)))))))
+           (setq pattern (or (pop args)
+                             (log4cl-error ":PATTERN missing argument"))))
+          (t (let ((lvl (handler-case (log-level-from-object arg *package*)
+                          (log4cl-error ()))))
+               (cond ((and level lvl)
+                      (log4cl-error "Only one log level can be specified"))
+                     (lvl (setq level lvl))
+                     ((keywordp arg)
+                      (log4cl-error "Invalid LOG-CONFIG keyword ~s" arg))
+                     (t (log4cl-error
+                         "Don't know what do with argument ~S" arg))))))))
+    (or logger (setq logger *root-logger*))
     (or level sane clear daily
-        (error "A log level or one of :SANE :CLEAR :DAILY must be specified"))
+        (log4cl-error "A log level or one of :SANE :CLEAR :DAILY must be specified"))
     (when (or level sane)
       (set-log-level logger (or level +log-level-info+) nil))
     (when clear

@@ -97,9 +97,9 @@ this function will be called with the arguments
          (setq pos (position-if #'space-or-equal-p %parse-line :start start))
          (setq name (substr %parse-line start pos))
          (unless (plusp (length name))
-           (error "Property name can't be empty"))
+           (log4cl-error "Property name can't be empty"))
          (unless (and pos (setq pos (position #\= %parse-line :start pos)))
-           (error "Expecting '=' after property '~a'" name))
+           (log4cl-error "Expecting '=' after property '~a'" name))
          ;; note we don't strip whitespace from beginning of value, since
          ;; string properties like pattern layout's :conversion-pattern
          ;; may start with literal whitespace
@@ -128,14 +128,14 @@ tokens according to read case, and forwards to PARSE-PROPERTY-TOKENS"
     (let ((name-tokens (split-string name name-token-separator)))
       (cond ((equalp "separator" (first name-tokens))
              (unless (null (cdr name-tokens))
-               (error "Separator can't have any sub-properties"))
+               (log4cl-error "Separator can't have any sub-properties"))
              (setf name-token-separator (strip-whitespace value))
              (unless (plusp (length name-token-separator))
-               (error "Separator can't be empty"))
+               (log4cl-error "Separator can't be empty"))
              (log-sexp "changed separator" name-token-separator))
             ((equalp "read-case" (first name-tokens))
              (unless (null (cdr name-tokens))
-               (error "Read-case can't have any sub-properties"))
+               (log4cl-error "Read-case can't have any sub-properties"))
              (setq name-token-read-case
                    (let ((read-case (strip-whitespace value)))
                      (cond ((equalp read-case ":upcase")
@@ -149,7 +149,7 @@ tokens according to read case, and forwards to PARSE-PROPERTY-TOKENS"
                            ((or (equalp "" read-case)
                                 (equalp "nil" read-case))
                             nil)
-                           (t (error "Invalid read case ~s" read-case)))))
+                           (t (log4cl-error "Invalid read case ~s" read-case)))))
              (log-sexp "changed read-case" name-token-read-case))
             (t
              (parse-property-tokens

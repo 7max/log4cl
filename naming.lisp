@@ -98,15 +98,15 @@ Supported values for ARG are:
                    if (or (null tmp)
                           (= tmp len))
                    do (if match
-                          (error "~s matches more then one log level" arg)
+                          (log4cl-error "~s matches more then one log level" arg)
                           (setf match level)))))
            (or match 
-               (error "~s does not match any log levels" arg))))
+               (log4cl-error "~s does not match any log levels" arg))))
         ((and (numberp arg)
               (>= arg +min-log-level+)
               (<= arg +log-level-unset+))
          arg)
-        (t (error "~s does not match any log levels" arg))))
+        (t (log4cl-error "~s does not match any log levels" arg))))
 
 #-sbcl
 (defmethod resolve-default-logger-form (package env args)

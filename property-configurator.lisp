@@ -51,14 +51,14 @@ token name into the keyword and call this function again"
     (let ((logger
             (cond ((eq keyword :rootLogger)
                    (or (null tokens)
-                       (error "Root logger cannot have any sub-properties"))
+                       (log4cl-error "Root logger cannot have any sub-properties"))
                    *root-logger*)
-                  (t (or tokens (error "Logger name missing"))
+                  (t (or tokens (log4cl-error "Logger name missing"))
                      (get-logger-internal
                       tokens name-token-separator name-token-read-case))))
           (value-tokens (split-string value "," t)))
       (unless (plusp (length value-tokens))
-        (error "Expecting LEVEL, [<APPENDER> ...] as the value"))
+        (log4cl-error "Expecting LEVEL, [<APPENDER> ...] as the value"))
       (setf loggers (delete logger loggers :key #'car))
       (push (cons logger
                   (make-instance 'logger-record
@@ -96,7 +96,7 @@ token name into the keyword and call this function again"
          nil)
         ((member value '("t" "true" "yes" "on") :test 'equalp)
          t)
-        (t (error "Invalid boolean value ~s" value))))
+        (t (log4cl-error "Invalid boolean value ~s" value))))
 
 (defmethod parse-property-keyword ((parser property-configurator)
                                    (keyword (eql :additivity))
@@ -105,7 +105,7 @@ token name into the keyword and call this function again"
   (with-slots (name-token-separator name-token-read-case additivity)
       parser
     (or tokens
-        (error "Missing logger name"))
+        (log4cl-error "Missing logger name"))
     (let* ((logger
              (if (equalp tokens '("rootLogger"))
                  *root-logger*
@@ -138,17 +138,17 @@ token name into the keyword and call this function again"
 (defun set-delayed-instance-class (instance value)
   (with-slots (class name) instance
     (let ((new-class (intern-class-name value)))
-      (or (null class) (error "~a class specified twice" name))
-      (or new-class (error "~a class ~s not found" name value))
+      (or (null class) (log4cl-error "~a class specified twice" name))
+      (or new-class (log4cl-error "~a class ~s not found" name value))
       (setf class new-class))))
 
 (defun set-delayed-instance-property (instance tokens value)
   (with-slots (name properties)
       instance
     (let ((prop (intern (pop tokens) :keyword)))
-      (or (null tokens) (error "~a expecting a single property" name))
+      (or (null tokens) (log4cl-error "~a expecting a single property" name))
       (or (null (assoc prop properties))
-          (error "~a property ~s specified twice" name prop))
+          (log4cl-error "~a property ~s specified twice" name prop))
       (push (list prop value (make-instance 'property-location)) properties))))
 
 (defmethod parse-property-keyword ((parser property-configurator)
@@ -158,7 +158,7 @@ token name into the keyword and call this function again"
   (with-slots (name-token-separator name-token-read-case appenders)
       parser
     (when (null tokens)
-      (error "appender should be followed by appender name"))
+      (log4cl-error "appender should be followed by appender name"))
     (let* ((name (convert-read-case
                   (strip-whitespace (pop tokens))
                   name-token-read-case))
@@ -196,7 +196,7 @@ and then create the instance"
     (with-slots (instance name class properties extra-initargs)
         instance
       (setf instance
-            (make-instance (or class (error "Class not specified for ~a" name))))
+            (make-instance (or class (log4cl-error "Class not specified for ~a" name))))
       ;; need to do it twice to apply properties, since property parsing
       ;; stuff is specialized on the instance class
       (setf instance (apply #'reinitialize-instance
@@ -220,7 +220,7 @@ and then create the instance"
                  (log-sexp rec %parse-line %parse-line-num)
                  (dolist (name (slot-value rec 'appender-names))
                    (or (assoc name appenders :test 'equal)
-                       (error "Logger ~a refers to non-existing appender ~s"
+                       (log4cl-error "Logger ~a refers to non-existing appender ~s"
                               logger name))
                    (setf (slot-value (cdr (assoc name appenders :test 'equal))
                                      'used) t))))
@@ -257,7 +257,7 @@ property it is. Signals error if property is not in the list"
       (number (parse-integer (strip-whitespace value)))
       (boolean (intern-boolean (strip-whitespace value)))
       (string value)
-      (t (error "Unknown property ~s for class ~s" property instance)))))
+      (t (log4cl-error "Unknown property ~s for class ~s" property instance)))))
 
 (defgeneric configure (configurator source &key &allow-other-keys)
   (:documentation "Configure the logging system from specified source"))

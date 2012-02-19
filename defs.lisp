@@ -61,5 +61,10 @@ pattern format")
 errors that are signaled the log statement itself, vs errors in layout
 or appender.")
 
-(define-condition log4cl-error (simple-error program-error)
-  ())
+(define-condition log4cl-error (simple-error program-error) ()
+  (:documentation "Base class for all LOG4CL errors"))
+
+(defun log4cl-error (message &rest args)
+  (error 'log4cl-error
+         :format-control message
+         :format-arguments args))

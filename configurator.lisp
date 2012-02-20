@@ -113,15 +113,19 @@ Examples:
            (setq logger (get-logger-internal
                          (pop args)
                          (naming-option *package* :category-separator)
-                         (naming-option *package* :category-case)))))
-    (setq orig-args args)
+                         (naming-option *package* :category-case))))
+          ((member :self args)
+           (setq logger (make-logger '(log4cl self))
+                 self t)
+           (setq args (remove :self args))))
+    (setq logger (or logger *root-logger*))
+    (unless (setq orig-args args)
+      (return-from log-config (show-logger-settings logger)))
     (loop
       (let ((arg (or (pop args) (return))))
         (case arg
-          (:self
-           (when logger (log4cl-error "Both :SELF and a logger was specified"))
-           (setq logger (make-logger '(log4cl self))
-                 self t))
+          (:self ; still in the arglist means 1st arg was a logger
+           (log4cl-error "Specifying a logger is incompatible with :SELF"))
           (:sane (setq sane t))
           (:clear (setq clear t))
           (:all (setq all t))
@@ -183,7 +187,9 @@ Examples:
     (when self
       ;; This is special adhoc case of configuring the LOG4CL:SELF
       (let ((config (cons :own
-                          (remove-if (lambda (x) (member x '(:own :self)))
+                          ;; we don't remember these
+                          (remove-if (lambda (x)
+                                       (member x '(:own :self :clear :all)))
                                      orig-args))))
         ;; if specified new appenders, simply remember new configuration
         (if (or sane daily) (setq *self-log-config* config)
@@ -209,16 +215,42 @@ Examples:
     ;; finally recalculate reach-ability
     (adjust-logger logger)))
 
+(defun show-logger-settings (logger)
+  "Print logger settings and its children to *STANDARD-OUTPUT*
 
+Example output:
 
-(defun loggers-from-string (regexp)
-  (let ((regexp (create-scanner regexp :case-insensitive-mode t))
-        loggers)
-    (labels ((doit (logger)
-               (when (scan regexp (logger-category logger))
-                 (push logger loggers))
-               (map-logger-children #'doit logger)))
-      (doit *root-logger*))
-    (nreverse loggers)))
-
++ROOT, WARN
+ |
+ +-#<CONSOLE-APPENDER>
+ |     with #<PATTERN-LAYOUT>
+ |              :pattern [%P] %c %m%n
+ |     :immediate-flush: nil
+ |     :flush-interval: 1
+ +-LOG4CL
+   |
+   +-SELF (non-additive), DEBUG
+   | |  :config (:SANE, :OWN :TWOLINE :D)
+   | |
+   | +- #<CONSOLE-APPENDER 0x123123>,
+   | |     with #<PATTERN-LAYOUT>
+   | |              :pattern [%P] %c %m%n
+   | |     :immediate-flush: nil
+   | |     :flush-interval: 1
+   | +- #<DAILY-ROLLING-APPENDER 0x12345>
+   |       with #<SIMPLE-LAYOUT 1234>
+   |       :immediate-flush NIL
+   |       :flush-interval: 1
+   | 
+   +-OTHER, DEBUG
+"
+  (flet ((interesting-logger-p (logger)
+           ;; return if logger is worth mentioning, its only
+           ;; interesting if its a root logger, is non-additive or has
+           ;; custom log level or appenders
+           (or (eq logger *root-logger*)
+               (logger-appenders logger)
+               (not (logger-additivity logger))
+               (logger-log-level logger))))
+    (logger-name logger)))
 

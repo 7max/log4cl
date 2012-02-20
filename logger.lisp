@@ -5,61 +5,65 @@
 ;;; logging-macros.lisp had not yet complied.
 ;;;
 ;;; So any code that uses self-logging to log4cl:self logger, needs to be
-;;; in the files that are later in the .asd 
+;;; in the files that are later in the system definition file
+;;; 
 (in-package :log4cl)
 
-#+sbcl (declaim (sb-ext:always-bound
-                 *log-indent*
-                 *ndc-context* *log-event-time*
-                 *inside-user-log-function*))
+;; these needs to be in separate file from the their definitions
+#+sbcl
+(declaim (sb-ext:always-bound
+          *log-indent*
+          *ndc-context* *log-event-time*
+          *inside-user-log-function*))
 
 (declaim (special *root-logger*)
          (type logger *root-logger*)
 	 (type fixnum *log-indent*)
          (inline is-enabled-for current-state 
                  log-level-to-string
+                 log-level-to-lc-string
                  log-event-time))
 
 (defstruct logger-state
-  "Structure containng logger internal state"
-  ;; list of appenders attached to this logger
+  ;; List of appenders attached to this logger
   (appenders nil :type list)
-  ;; explicit log level for this logger if its set
+  ;; Explicit log level for this logger if its set, NIL otherwise
   (level nil :type (or null fixnum))
-  ;; If true then log level and appenders are inherited from
-  ;; parent logger
+  ;; Does logger passes messages upward to its ancestor appenders
   (additivity t :type boolean)
-  ;; performance hack, for each log level we set a bit in mask, if a
+  ;; Performance hack, for each log level we set a bit in mask, if a
   ;; log message with said level will reach any appenders either in
   ;; this logger or it's parents
   ;;
-  ;; update-logger-mask function recalculates this value for parent
-  ;; and child loggers
+  ;; ADJUST-LOGGER recalculates this value
   (mask 0 :type fixnum))
 
+;; actual logger
 (defstruct (logger (:constructor create-logger)
                    (:print-function 
                     (lambda  (logger stream depth)
                       (declare (ignore depth))
-                      (let ((*print-circle* nil))
-                        (print-unreadable-object (logger stream)
-                          (princ "LOGGER " stream)
-                          (princ (if (logger-parent logger) (logger-category logger)
-                                     "+ROOT+") stream))))))
-  ;; Full category name as in parent.sub-parent.thislogger
-  (category  nil :type string)
-  ;; Logger's native category separator string
-  (category-separator nil :type string)
-  ;; position of the 1st character of this logger name in full
-  ;; category name
+                      (print-unreadable-object (logger stream)
+                        (princ "LOGGER " stream)
+                        (princ (if (logger-parent logger) (logger-category logger)
+                                   "+ROOT+") stream)))))
+  ;; Full category name in a string format, using whatever separator
+  ;; that was in effect when logger was first instantiated
+  (category  nil :type simple-string)
+  ;; Native category separator
+  (category-separator nil :type simple-string)
+  ;; Position of the 1st character of this logger name in the CATEGORY. Used
+  ;; as space saving measure so we don't have to keep loggers own short name
+  ;; separately
   (name-start-pos 0 :type fixnum)
-  ;; parent logger, only nil for the root logger
+  ;; Parent logger, only NIL for the root logger
   (parent    nil :type (or null logger))
-  ;; How many parents up and including the root logger this logger has
+  ;; How many parents up and including the root logger this logger
+  ;; has. Root logger has depth of zero
   (depth     0   :type fixnum)
-  ;; child loggers
+  ;; Child loggers. Only set when any child loggers are present
   (children  nil :type (or null hash-table))
-  ;; per-hierarchy configuration
+  ;; Per-hierarchy configuration
   (state (map-into (make-array *hierarchy-max*) #'make-logger-state)
    :type (simple-array logger-state *)))
 
@@ -78,8 +82,8 @@ value of *PACKAGE* "
   (log-level-from-object arg *package*))
 
 (defun effective-log-level (logger)
-  "Return logger's own log level (if set) or the one it
-had inherited from parent"
+  "Return logger's own log level (if set) or the one it had inherited
+from parent"
   (declare (type (or null logger) logger))
   (if (null logger) +log-level-off+
       (let* ((state (current-state logger))
@@ -88,8 +92,8 @@ had inherited from parent"
 	    (effective-log-level (logger-parent logger))))))
 
 (defun have-appenders-for-level (logger level)
-  "Return non-NIL if logging with LEVEL will actually
-reach any appenders"
+  "Return non-NIL if logging with LEVEL will actually reach any
+appenders"
   (declare (type logger logger) (type fixnum level))
   ;; Note: below code actually walk parent chain twice but since its
   ;; cached anyway, don't optimize unless becomes a problem
@@ -103,7 +107,7 @@ reach any appenders"
 
 (defun map-logger-children (function logger)
   "Apply the function to all of logger's children (but not their
-descedants)"
+descendants)"
   (let ((child-hash (logger-children logger)))
     (when child-hash
       (maphash (lambda (name logger)
@@ -127,8 +131,8 @@ reachable appenders. "
     (doit logger))
   (values))
 
-
 (defun strip-whitespace (string)
+  "Strip tab and space characters from a string"
   (declare (type string string))
   (remove-if (lambda (c)
                (or (char= c #\Space)
@@ -136,7 +140,8 @@ reachable appenders. "
              string))
 
 (defun split-string (string separator &optional skip-whitespace-p)
-  "Split the STRING into a list of strings."
+  "Split the STRING into a list of strings. If SKIP-WHITESPACE-P is
+non-NIL strip whitespace from the string first"
   (declare (type string string separator))
   (if (not skip-whitespace-p)
       (loop for start = 0 then (+ pos (length separator))
@@ -186,11 +191,12 @@ on the strings in configuration file:
       ((null categories) logger)
     (let* ((cat (pop categories))
            (name (if (and (stringp cat)
-                          (not force-string-case)) cat
-                          (with-output-to-string (s)
-                            (if cat-case
-                                (write-string-modify-case (string cat) s cat-case)
-                                (princ cat s)))))
+                          (not force-string-case))
+                     cat
+                     (with-output-to-string (s)
+                       (if cat-case
+                           (write-string-modify-case (string cat) s cat-case)
+                           (princ cat s)))))
            (hash (logger-children logger)))
       (vector-push-extend name names)
       (setq logger
@@ -208,7 +214,7 @@ on the strings in configuration file:
                                           (write-string cat-sep s))
                                         (write-string (aref names i) s)))
                                     'simple-string)
-                            :category-separator cat-sep
+                            :category-separator (coerce cat-sep 'simple-string)
                             :parent logger
                             :name-start-pos
                             (if first 0 (+ (length (logger-category logger))

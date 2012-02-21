@@ -83,12 +83,12 @@ property value from a string into whatever its supposed to be. Default
 method will handle numeric, boolean and string properties, by calling
 PROPERTY-TYPES function"))
 
-(defgeneric property-initarg-alist (instance)
+(defgeneric property-alist (instance)
   (:documentation "Should return list of valid object properties, each
-element of the list being (PROPERTY . TYPE) with property being the
-keyword, and TYPE one of (member '(NUMBER BOOLEAN STRING)). Overriding
-this method to add extra properties is the only thing needed to allow
-extra properties in custom appenders/layouts to be configurable from
-by property file configurator. See also
-PROPERTY-INITARG-FROM-STRING"))
+element of the list being (INITARG SLOT TYPE) with INITARG being the
+keyword, SLOT is the slot name for the property and TYPE one of
+(member '(NUMBER BOOLEAN STRING)). Overriding this method to add extra
+properties is the only thing needed to allow extra properties in
+custom appenders/layouts to be configurable from by property file
+configurator. See also PROPERTY-INITARG-FROM-STRING"))
 

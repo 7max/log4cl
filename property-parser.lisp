@@ -45,6 +45,7 @@ location"
                      (condition-of c)))))
 
 (defmethod shared-initialize :after ((parser property-parser) slots &rest initargs &key &allow-other-keys)
+  (declare (ignore slots))
   (with-slots (name-token-separator name-token-read-case
                line-num %orig-initargs) parser
     (unless (slot-boundp parser '%orig-initargs)

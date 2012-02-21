@@ -9,7 +9,7 @@
 specified indirectly by LOG-FUNC argument, which is a callable object
 that accepts a stream and writes log message to it"))
 
-(defmethod property-initarg-alist ((instance layout))
+(defmethod property-alist ((instance layout))
   "Abstract layout has no properties"
   '())
 

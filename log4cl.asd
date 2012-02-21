@@ -46,13 +46,4 @@
   (eval (read-from-string "(stefil:funcall-test-with-feedback-message 'log4cl.test::test)"))
   (values))
 
-(defvar *default-init-done-p* nil)
 
-(defmethod perform :after ((op load-op) (system (eql (find-system :log4cl))))
-  "Perform default initialization"
-  (unless *default-init-done-p*
-    (setq *default-init-done-p* t)
-    (eval (read-from-string
-           "(progn
-             (log4cl:add-appender log4cl:*root-logger* (make-instance 'log4cl:console-appender))
-             (log4cl:log-config :info))"))))

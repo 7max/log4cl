@@ -90,7 +90,9 @@
    :property-configurator
    :conversion-pattern
    :property-parser-error
-   :configure))
+   :configure
+   :logger-children
+   :logger-descendants))
 
 
 

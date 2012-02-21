@@ -116,9 +116,9 @@ Following pattern characters are recognized:
 
    "))
 
-(defmethod property-initarg-alist ((instance pattern-layout))
+(defmethod property-alist ((instance pattern-layout))
   (append (call-next-method)
-          '((:conversion-pattern . string))))
+          '((:conversion-pattern %pattern string))))
 
 
 (defvar *formatters* (make-hash-table))

@@ -38,8 +38,8 @@
 
 ;; For converting level to string
 (defparameter +log-level-to-string+
-  (coerce '("OFF" "FATAL" "ERROR" "WARN" "INFO" "DEBUG" "TRACE"
-            "USER1" "USER2" "USER3" "USER4" "USER5" "USER6"
+  (coerce '("OFF" "FATAL" "ERROR" "WARN" "INFO" "DEBUG" 
+            "USER1" "USER2" "USER3" "USER4" "TRACE" "USER5" "USER6"
             "USER7" "USER8" "USER9")
           'simple-vector))
 

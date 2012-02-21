@@ -232,25 +232,121 @@ Example output:
    +-SELF (non-additive), DEBUG
    | |  :config (:SANE, :OWN :TWOLINE :D)
    | |
-   | +- #<CONSOLE-APPENDER 0x123123>,
+   | +-#<CONSOLE-APPENDER 0x123123>,
    | |     with #<PATTERN-LAYOUT>
    | |              :pattern [%P] %c %m%n
    | |     :immediate-flush: nil
    | |     :flush-interval: 1
-   | +- #<DAILY-ROLLING-APPENDER 0x12345>
+   | +-#<DAILY-ROLLING-APPENDER 0x12345>
    |       with #<SIMPLE-LAYOUT 1234>
    |       :immediate-flush NIL
    |       :flush-interval: 1
    | 
    +-OTHER, DEBUG
 "
-  (flet ((interesting-logger-p (logger)
-           ;; return if logger is worth mentioning, its only
-           ;; interesting if its a root logger, is non-additive or has
-           ;; custom log level or appenders
-           (or (eq logger *root-logger*)
-               (logger-appenders logger)
-               (not (logger-additivity logger))
-               (logger-log-level logger))))
-    (logger-name logger)))
+  (let ((indents '())
+        (interesting-cache (make-hash-table)))
+    (labels ((interesting-logger-p (l)
+               ;; return if logger is worth mentioning, its only
+               ;; interesting if its a root logger, is non-additive or
+               ;; has custom log level or appenders
+               (multiple-value-bind (result present)
+                   (gethash l interesting-cache)
+                 (if present result
+                     (setf (gethash l interesting-cache)
+                           (or (eq l logger)
+                               (logger-appenders l)
+                               (not (logger-additivity l))
+                               (logger-log-level l)
+                               (some #'interesting-logger-p (logger-children l)))))))
+             (print-indent (&optional node-p)
+               (dolist (elem (reverse indents))
+                 (let* ((lastp (eq elem (car indents)))
+                        (width (car elem))
+                        (nodes-left (cdr elem)))
+                   (loop repeat (1- width)
+                         do (write-char #\Space))
+                   (write-char (if (and lastp node-p)
+                                   #\+
+                                   ;; only continue drawing vertical line down
+                                   ;; if there are more child nodes to be printed
+                                   ;; at this level
+                                   (if (plusp nodes-left)
+                                       #\|
+                                       #\Space)))))
+               ;; Each time we print a child node, we decrement
+               ;; number of child nodes left at this level, so that
+               ;; we know when to stop drawing the vertical line linking
+               ;; to more nodes of the same level
+               (when node-p
+                 (when indents
+                   (assert (plusp (cdar indents)))
+                   (decf (cdar indents)))))
+             (print-one-logger (l)
+               (let* ((lvl (logger-log-level l))
+                      (appenders (logger-appenders l))
+                      (additivity (logger-additivity l))
+                      (children (remove-if-not #'interesting-logger-p (logger-children l)))
+                      (cnt-nodes (+ (length appenders)
+                                    (length children))))
+                 (print-indent t)
+                 (cond (indents
+                        (format t "-~A" (logger-name l))
+                        (push (cons 2 cnt-nodes) indents))
+                       ;; start vertical line at column 0 for root node
+                       (t (format t "~A" (logger-name l))
+                          (push (cons 1 cnt-nodes) indents)))
+                 (unless additivity
+                   (write-string " (non-additive)"))
+                 (when lvl
+                   (format t ", ~A" (log-level-to-string lvl)))
+                 (terpri)
+                 (when appenders
+                   (dolist (a appenders)
+                     (print-one-appender a)))
+                 (when (some #'interesting-logger-p children)
+                   (dolist (l children)
+                     (when (interesting-logger-p l)
+                       (print-indent) (terpri)
+                       (print-one-logger l))))
+                 (pop indents)))
+             (print-properties (obj)
+               (let* ((props (property-alist obj))
+                      (name-width (loop for prop in props maximize
+                                           (length (format nil "~s" (car prop))))))
+                 (loop for (initarg slot type) in props
+                       do (print-indent)
+                       do (format t "~v<~(~s~)~;~> ~s~%"
+                                  name-width
+                                  initarg
+                                  (slot-value obj slot)))))
+             (print-one-appender (a)
+               ;; empty line for spacing
+               (print-indent) (terpri)
+               ;; now the appender node
+               (print-indent t) (format t "-~A~%" a) 
+               ;; indent appender attributes and layout under the appender,
+               ;; don't draw the tree for them
+               (push (cons 5 0) indents)
+               (print-layout (slot-value a 'layout))
+               (print-properties a)
+               (pop indents))
+             (print-layout (layout)
+               (print-indent)
+               (format t "with ~A~%" layout)
+               (push (cons 5 0) indents)
+               (print-properties layout)
+               (pop indents)))
+      (print-one-logger logger))
+    (values)))
 
+;; do default configuration
+(defvar *default-init-done-p* nil)
+
+(defun perform-default-init ()
+  (unless *default-init-done-p*
+    (setq *default-init-done-p* t)
+    (clear-logging-configuration)
+    (log-config :i :sane)))
+
+(perform-default-init)

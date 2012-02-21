@@ -1,7 +1,7 @@
 (in-package #:log4cl)
 
 
-(defmethod property-initarg-alist ((instance appender))
+(defmethod property-alist ((instance appender))
   "Abstract appender has no properties"
   '())
 
@@ -45,9 +45,9 @@ Properties:
   - FLUSH-INTERVAL When set, will only flush if previous flush was
     that many seconds ago. Will only be used if IMMEDIATE-FLUSH is NIL"))
 
-(defmethod property-initarg-alist ((instance stream-appender))
-  '((:immediate-flush . boolean)
-    (:flush-interval . number)))
+(defmethod property-alist ((instance stream-appender))
+  '((:immediate-flush immediate-flush boolean)
+    (:flush-interval flush-interval number)))
 
 (defgeneric appender-stream (appender) 
   (:documentation "Should return the stream to which appender will write log messages"))
@@ -126,9 +126,9 @@ its no longer attached to loggers"))
   (:documentation "Appender that writes to a file with a fixed file
 name"))
 
-(defmethod property-initarg-alist ((instance file-appender-base))
+(defmethod property-alist ((instance file-appender))
   (append (call-next-method)
-          '((:file . string))))
+          '((:file filename string))))
 
 (defmethod appender-filename ((appender file-appender-base))
   (slot-value appender 'filename))
@@ -145,9 +145,9 @@ the boundary that is evenly divisible by %ROLLOVER-CHECK-PERIOD.
 
 %ROLLOVER-CHECK-PERIOD is specified in seconds"))
 
-(defmethod property-initarg-alist ((instance rolling-file-appender-base))
+(defmethod property-alist ((instance rolling-file-appender-base))
   (append (call-next-method)
-          '((:rollover-check-period . number))))
+          '((:rollover-check-period %rollover-check-period number))))
 
 (defclass daily-file-appender (rolling-file-appender-base)
   ((backup-name-format  :initform nil :initarg :backup-name-format)
@@ -194,11 +194,11 @@ day.
      when the day changes, will rename it to test.log.bak (erasing old
      one if it exists)"))
 
-(defmethod property-initarg-alist ((instance daily-file-appender))
+(defmethod property-alist ((instance daily-file-appender))
   (append (call-next-method)
-          '((:name-format . string)
-            (:backup-name-format . string)
-            (:utc . boolean))))
+          '((:name-format name-format string)
+            (:backup-name-format backup-name-format string)
+            (:utc utc-p boolean))))
 
 (defmethod appender-filename ((appender daily-file-appender))
   (slot-value appender '%current-file-name))

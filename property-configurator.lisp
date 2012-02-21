@@ -8,7 +8,7 @@
   the properties file"))
 
 (defmethod shared-initialize :after ((config property-configurator) slots &rest initargs &key)
-  (declare (ignore initargs))
+  (declare (ignore slots initargs))
   (with-slots (loggers additivity appenders)
       config
     (setf loggers '() additivity '() appenders '())))
@@ -211,6 +211,7 @@ and then create the instance"
 
 (defmethod parse-property-stream :after ((configurator property-configurator) stream)
   "Parse the stream and apply changes to logging configuration"
+  (declare (ignore stream))
   (with-log-indent ()
     (with-slots (appenders loggers additivity)
         configurator
@@ -249,10 +250,10 @@ and then create the instance"
 
 (defmethod property-initarg-from-string (instance property value)
   "Generic implementation for numbers, boolean and string properties,
-that calls PROPERTY-INITARG-ALIST function to determine what kind of
+that calls PROPERTY-ALIST function to determine what kind of
 property it is. Signals error if property is not in the list"
-  (let* ((props-alist (property-initarg-alist instance))
-         (type (cdr (assoc property props-alist))))
+  (let* ((props-alist (property-alist instance))
+         (type (third (assoc property props-alist))))
     (case type
       (number (parse-integer (strip-whitespace value)))
       (boolean (intern-boolean (strip-whitespace value)))

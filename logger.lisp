@@ -62,7 +62,7 @@
   ;; has. Root logger has depth of zero
   (depth     0   :type fixnum)
   ;; Child loggers. Only set when any child loggers are present
-  (children  nil :type (or null hash-table))
+  (child-hash  nil :type (or null hash-table))
   ;; Per-hierarchy configuration
   (state (map-into (make-array *hierarchy-max*) #'make-logger-state)
    :type (simple-array logger-state *)))
@@ -108,7 +108,7 @@ appenders"
 (defun map-logger-children (function logger)
   "Apply the function to all of logger's children (but not their
 descendants)"
-  (let ((child-hash (logger-children logger)))
+  (let ((child-hash (logger-child-hash logger)))
     (when child-hash
       (maphash (lambda (name logger)
                  (declare (ignore name))
@@ -197,13 +197,13 @@ on the strings in configuration file:
                        (if cat-case
                            (write-string-modify-case (string cat) s cat-case)
                            (princ cat s)))))
-           (hash (logger-children logger)))
+           (hash (logger-child-hash logger)))
       (vector-push-extend name names)
       (setq logger
             (or
              (and hash (gethash name hash))
              (setf (gethash name (or hash
-                                     (setf (logger-children logger)
+                                     (setf (logger-child-hash logger)
                                            (make-hash-table :test #'equal))))
                    (let ((logger
                            (create-logger
@@ -303,6 +303,19 @@ context of the current application."
                (values)))
       (log-to-logger-appenders logger logger level log-func)
       (values))))
+
+
+(defun logger-children (logger)
+  "Return a list of LOGGER's direct children"
+  (let ((hash (logger-child-hash logger)))
+    (when hash
+      (loop for child being each hash-value in (logger-child-hash logger)
+            collect child))))
+
+(defun logger-descendants (logger)
+  "Return a list of LOGGER's descendants"
+  (let ((children (logger-children logger)))
+    (nconc children (mapcan #'logger-descendants children))))
 
 (defun logger-log-level (logger)
   "Return the logger own log level or NIL if unset. Please note that
@@ -436,7 +449,7 @@ will be called if appender was removed"
   (if (logger-parent logger) 
       (substr (logger-category logger)
               (logger-name-start-pos logger))
-      "+ROOT+"))
+      "ROOT"))
 
 (defun logger-name-length (logger)
   "Return length of logger itself (without parent loggers)"

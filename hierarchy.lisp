@@ -5,17 +5,27 @@
           *hierarchy* 
           *hierarchy-lock*
           *name-to-hierarchy*
-          *hierarchy-max*))
+          *hierarchy-max*
+          *watcher-event-time*))
 
 (declaim (type fixnum  *hierarchy-max* *hierarchy*)
 	 (type hash-table *name-to-hierarchy*)
-         (inline hierarchy-index))
+         (inline hierarchy-index
+                 current-hierarchy))
+
+(defun current-hierarchy ()
+  "Return the currently active hierarchy"
+  (aref *hierarchies* *hierarchy*))
+
+(defmacro with-hierarchy-lock (&body body)
+  `(with-recursive-lock-held (*hierarchy-lock*)
+     ,@body))
 
 (defun %hierarchy-index (name)
   (when (stringp name)
     (setq name (intern name)))
   (let ((h (or (gethash name *name-to-hierarchy*)
-               (with-recursive-lock-held (*hierarchy-lock*)
+               (with-hierarchy-lock
                  (let ((h (make-instance 'hierarchy
                            :index *hierarchy-max*
                            :name name)))
@@ -36,5 +46,14 @@ package"
     (hierarchy (slot-value hierarchy 'index))
     (t (%hierarchy-index hierarchy))))
 
+(defun add-watch-token (token &key (test #'equal) key)
+  (with-slots (watch-tokens) (current-hierarchy)
+    (with-hierarchy-lock
+      (unless (find token watch-tokens :test test :key key)
+        (push token watch-tokens)))
+    (start-hierarchy-watcher-thread)))
 
-
+(defun remove-watch-token (token &key (test #'equal) key)
+  (with-slots (watch-tokens) (current-hierarchy)
+    (with-hierarchy-lock
+      (setf watch-tokens (remove token watch-tokens :test test :key key)))))

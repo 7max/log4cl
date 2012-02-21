@@ -62,8 +62,7 @@ Valid options can be:
 |             | the logger.  If :SANE is also specified, all logger appenders |
 |             | are removed, but console appender is not added                |
 |-------------+---------------------------------------------------------------|
-| :CONSOLE    | Forces adding of console appender if both :SANE and :DAILY    |
-|             | were specified                                                |
+| :CONSOLE    | Forces adding of console appender if :DAILY was specified     |
 |-------------+---------------------------------------------------------------|
 | :PATTERN    | For :SANE option uses specified conversion pattern instead    |
 | STRING      | of default one                                                |
@@ -106,7 +105,8 @@ Examples:
         sane clear all own daily pattern 
         twoline level layout console
         orig-args
-        self appenders)
+        self appenders
+        properties watch)
     (cond ((logger-p (car args))
            (setq logger (pop args)))
           ((consp (car args))
@@ -132,9 +132,13 @@ Examples:
           (:own (setq own t))
           ((:twoline :two-line) (setq twoline t))
           (:console (setq console t))
+          (:watch (setq watch t))
           (:daily
            (setq daily (or (pop args)
                            (log4cl-error ":DAILY missing argument"))))
+          (:properties
+           (setq properties (or (pop args)
+                                (log4cl-error ":PROPERTIES missing argument"))))
           (:pattern
            (setq pattern (or (pop args)
                              (log4cl-error ":PATTERN missing argument"))))
@@ -148,8 +152,11 @@ Examples:
                      (t (log4cl-error
                          "Don't know what do with argument ~S" arg))))))))
     (or logger (setq logger *root-logger*))
-    (or level sane clear daily
-        (log4cl-error "A log level or one of :SANE :CLEAR :DAILY must be specified"))
+    (or level sane clear daily properties
+        (log4cl-error "A log level or one of :SANE :CLEAR :DAILY or :PROPERTIES must be specified"))
+    (or (not properties)
+        (not (or sane daily pattern console level))
+        (log4cl-error ":PROPERTIES can't be used with :SANE :DAILY :PATTERN or log level"))
     (when (or level sane)
       (set-log-level logger (or level +log-level-info+) nil))
     (when clear
@@ -169,7 +176,8 @@ Examples:
       (cond
         (daily (if sane (remove-all-appenders-internal logger nil)
                    (dolist (a (logger-appenders logger))
-                     (when (typep a 'file-appender-base)
+                     (when (or (typep a 'file-appender-base)
+                               (and console (typep a 'console-appender)))
                        (remove-appender-internal logger a nil))))
                (push (make-instance 'daily-file-appender
                       :name-format daily
@@ -177,13 +185,15 @@ Examples:
                       :layout layout)
                      appenders))
         (t (remove-all-appenders-internal logger nil)))
-      
-      (when (and sane (or (not daily) console))
+      (when (or console (and sane (not daily)))
         (push (make-instance 'console-appender :layout layout)
               appenders))
       (dolist (a appenders)
         (add-appender-internal logger a nil))
       (set-additivity logger (not own) nil))
+    (when properties
+      (configure (make-instance 'property-configurator) properties
+                 :auto-reload watch))
     (when self
       ;; This is special adhoc case of configuring the LOG4CL:SELF
       (let ((config (cons :own

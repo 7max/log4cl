@@ -322,3 +322,33 @@ user log statement, its raised and does not disable the appender"
                  (is (equal (read-line s) "INFO - Hey again"))))
           (ignore-errors (delete-file fname-bak))
           (ignore-errors (delete-file fname-base2)))))))
+
+(deftest test-appender-flush-interval ()
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (let* ((fname (merge-pathnames (rand-filename) *tests-dir*))
+           (a (make-instance 'file-appender :file fname
+               :immediate-flush nil
+               :flush-interval 1))
+           (logger (make-logger '(one two three))))
+      (setf (logger-additivity logger) nil)
+      (add-appender logger a)
+      (log-config :i)
+      (log-info logger "Hello World 1")
+      (is (appender-stream a))
+      (is (probe-file fname))
+      ;; first log statement will flush because last flush time was
+      ;; initialized to zero
+      (with-open-file (s fname)
+        (is (equal (read-line s nil) "INFO - Hello World 1"))
+        ;; this log statement should not flush
+        (log-info logger "Hello World 2")
+        ;; verify it is so
+        (is (equal nil (read-line s nil)))
+        ;; give auto-flusher chance to run
+        (sleep 2)
+        ;; see that it got flushed
+        (is (equal (read-line s nil) "INFO - Hello World 2")))
+      (remove-appender logger a)
+      (delete-file fname))))
+

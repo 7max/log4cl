@@ -17,6 +17,9 @@ indexed by this variable. Can be assigned directly or ")
   "How long hierarchy watcher thread sleeps between calling
 WATCHER-HOOK of each hierarchy")
 
+(defvar *watcher-event-time* 0
+  "Universal time of the current watcher heartbeat")
+
 (defvar *watcher-thread* nil
   "The hierarchy watcher thread")
 
@@ -51,4 +54,5 @@ WATCHER-HOOK of each hierarchy")
 when hierarchy watcher thread is started. If a unhandled condition is
 signaled from this function the watcher thread will remove
 corresponding token from the list"))
+
 

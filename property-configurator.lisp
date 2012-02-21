@@ -212,7 +212,7 @@ and then create the instance"
 (defmethod parse-property-stream :after ((configurator property-configurator) stream)
   "Parse the stream and apply changes to logging configuration"
   (declare (ignore stream))
-  (with-log-indent ()
+ (with-log-indent ()
     (with-slots (appenders loggers additivity)
         configurator
       ;; for each logger, see that logger's in appender list were defined
@@ -226,7 +226,7 @@ and then create the instance"
                    (setf (slot-value (cdr (assoc name appenders :test 'equal))
                                      'used) t))))
       ;; create the appenders, we do this before mucking with loggers,
-      ;; in case creating an appender singals an error
+      ;; in case creating an appender signals an error
       (loop for (name . a) in appenders
             if (slot-value a 'used)
             do (with-slots (layout extra-initargs) a
@@ -286,13 +286,14 @@ will not be configured if initial configuration signaled a error"
     (with-open-file (s filespec)
       (configure configurator s))
     (when auto-reload
-      (with-slots (watch-tokens) (aref *hierarchies* *hierarchy*)
-        (unless (find filespec watch-tokens :test #'equal :key #'filespec-of)
-          (push (make-instance 'property-configurator-file-watch
-                 :filespec filespec
-                 :time (file-write-date filespec)
-                 :configurator configurator)
-                watch-tokens))))))
+      (add-watch-token (make-instance 'property-configurator-file-watch
+                        :filespec filespec
+                        :time (file-write-date filespec)
+                        :configurator configurator)
+                       :test
+                       (lambda (spec tok)
+                         (and (pathnamep tok)
+                              (equal spec tok)))))))
 
 (defmethod watch-token-check ((token property-configurator-file-watch))
   "Checks properties file write time, and re-configure from it if it changed.

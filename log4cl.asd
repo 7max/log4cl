@@ -24,11 +24,11 @@
 	       (:file "layout")
 	       (:file "simple-layout")
 	       (:file "pattern-layout")
-	       (:file "appender")
+               (:file "watcher")
+               (:file "appender")
                (:file "configurator")
                (:file "property-parser")
-               (:file "property-configurator")
-               (:file "watcher")))
+               (:file "property-configurator")))
 
 (defsystem :log4cl.test
   :serial t

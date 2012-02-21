@@ -27,13 +27,14 @@
       (call-next-method))))
 
 (defclass serialized-appender (appender)
-  ((lock :initform (make-lock)))
+  ((%lock :initform (make-lock)))
   (:documentation "Appender that serializes itself using a lock"))
 
 (defclass stream-appender (serialized-appender)
   ((immediate-flush  :initform nil :initarg :immediate-flush)
    (flush-interval   :initform 1 :initarg :flush-interval)
-   (%last-flush-time  :initform 0))
+   (%last-flush-time  :initform 0)
+   (%last-output-time :initform 0))
   (:documentation "Appender that writes message to stream returned by
   APPENDER-STREAM generic function.
 
@@ -64,6 +65,38 @@ being written.  If instead you want an appender that would write log
 messages to the *debug-io* stream active when appender was created,
 use FIXED-STREAM-APPENDER class"))
 
+(defmethod appender-added :after (logger (appender stream-appender))
+  "Add appender to the watch tokens in the current hierarchy,
+unless :IMMEDAITE-FLUSH property is set."
+  (declare (ignore logger))
+  (with-slots (immediate-flush)
+      appender
+    (when (not immediate-flush)
+      (add-watch-token appender :test #'eq))))
+
+(defmethod appender-removed :after (logger (appender stream-appender))
+  "When appender refcount is zero, remove it from watch tokens"
+  (declare (ignore logger))
+  (with-slots (logger-count immediate-flush)
+      appender
+    (when (zerop logger-count)
+      (remove-watch-token appender :test #'eq))))
+
+(defmethod watch-token-check ((appender stream-appender))
+  (with-slots (immediate-flush flush-interval %last-flush-time %lock
+               %last-output-time)
+      appender
+    (let ((time *watcher-event-time*))
+      (when (and (not immediate-flush)
+                 flush-interval)
+        (when (and
+               ;; do not continue re-flashing when there was no output
+               (<= %last-flush-time %last-output-time)
+               (>= (- time %last-flush-time)
+                   flush-interval))
+          (with-lock-held (%lock)
+            (setf %last-flush-time time)
+            (finish-output (appender-stream appender))))))))
 
 (defun maybe-flush-appender-stream (appender stream)
   "Flush the APPENDER's stream if needed"
@@ -74,21 +107,22 @@ use FIXED-STREAM-APPENDER class"))
            (finish-output stream))
           (flush-interval
            (let ((time (log-event-time)))
-             (when (>= (- time %last-flush-time) flush-interval)
+             (when (and (>= (- time %last-flush-time) flush-interval))
                (setf %last-flush-time time)
                (finish-output stream)))))))
 
 (defmethod appender-do-append :around
     ((this serialized-appender) logger level log-func)
   (declare (ignore logger level log-func))
-  (with-lock-held ((slot-value this 'lock))
+  (with-lock-held ((slot-value this '%lock))
     (call-next-method)))
 
 (defmethod appender-do-append ((this stream-appender) logger level log-func)
   (let ((stream (appender-stream this)))
-    (layout-to-stream (slot-value this 'layout) stream
-                      logger level log-func)
-    (maybe-flush-appender-stream this stream))
+    (with-slots (layout %last-output-time) this
+      (layout-to-stream layout stream logger level log-func)
+      (setf %last-output-time (log-event-time))
+      (maybe-flush-appender-stream this stream)))
   (values))
 
 ;; Save one generic function dispatch by accessing STREAM slot directly
@@ -96,11 +130,11 @@ use FIXED-STREAM-APPENDER class"))
                                logger
 			       level
                                log-func)
-  (let ((stream (slot-value this 'stream)))
-    (layout-to-stream (slot-value this 'layout)
-                      (slot-value this 'stream)
-                      logger level log-func)
-    (maybe-flush-appender-stream this stream)))
+  (with-slots (layout stream %last-output-time) this
+    (layout-to-stream layout stream logger level log-func)
+    (setf %last-output-time (log-event-time))
+    (maybe-flush-appender-stream this stream))
+  (values))
 
 (defmethod appender-stream ((this console-appender))
   "Returns current value of *DEBUG-IO*"
@@ -266,7 +300,7 @@ switches to the new log file"
            (new-file (expand-name-format name-format time utc-p))
            (new-bak (expand-name-format
                      (or backup-name-format name-format) time utc-p)))
-      (log-sexp time new-file new-bak %current-file-name %next-backup-name)
+      ;; (log-sexp time new-file new-bak %current-file-name %next-backup-name)
       (unless (and (equal new-file %current-file-name)
                    (equal new-bak %next-backup-name))
         (when %current-file-name

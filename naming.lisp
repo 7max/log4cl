@@ -67,6 +67,25 @@ message but will rather expand into a non-nil value if logger is"))
 arguments do not specify the logger to log into. See
 RESOLVE-LOGGER-FORM for return values"))
 
+(defgeneric enclosing-scope-block-name (package env)
+  (:documentation "Is called by RESOLVE-DEFAULT-LOGGER-FORM to try to
+determine the enclosing lexical scope name. For example if logging
+macro is being expanded while compiling local function BAR inside of a
+definition of function FOO, the implementation of this method should
+strive to return '(FOO BAR) if possible.
+
+For CLOS method it is recommended that return value be a generic
+function name, followed by optional qualifier, and then followed by
+any non-T specializers, with EQL specializers flattened to their
+values, for example for the :AROUND method FOO with lambda list
+of ((OBJ1 BAR) (OPTION (EQL :BAZ)) OBJ3) the return value is
+recommended to be in the form of '(FOO AROUND BAR BAZ) "))
+
+#-(or sbcl)
+(defmethod enclosing-scope-block-name (package env)
+  "Default method that always return NIL"
+  (declare (ignore package env)))
+
 (defmethod log-level-from-object (arg package)
   "Converts human readable log level description in ARG into numeric log level.
 
@@ -108,13 +127,14 @@ Supported values for ARG are:
          arg)
         (t (log4cl-error "~s does not match any log levels" arg))))
 
-#-sbcl
 (defmethod resolve-default-logger-form (package env args)
-  "Returns the logger named after the package by default"
-  (declare (ignore env))
-  (values (get-logger-internal (package-log-category package nil nil)
-                               (naming-option package :category-separator)
-                               (naming-option package :category-case))
+  "Returns the logger named after the enclosing lexical environment"
+  (values (get-logger-internal
+           (package-log-category package
+                                 (enclosing-scope-block-name package env)
+                                 nil)
+           (naming-option package :category-separator)
+           (naming-option package :category-case))
           args))
 
 (defmethod package-log-category (package categories explicit-p)
@@ -133,75 +153,6 @@ list with it and prefix CATEGORIES list with it"
         (setq name nickname)))
     name))
 
-#+sbcl 
-(defun include-block-debug-name? (debug-name)
-  "Figures out if we should include the debug-name into the stack of
-nested blocks..  Should return the symbol to use.
-
-For now SBCL seems to use:
-
-  SYMBOL => normal defun block
-  (LABELS SYMBOL) => inside of labels function
-  (FLET SYMBOL)   => inside of flet function
-  (LAMBDA (arglist) => inside of anonymous lambda
-  (SB-PCL::FAST-METHOD SYMBOL ...) for defmethod
-  (SB-PCL::VARARGS-ENTRY (SB-PCL::FAST-METHOD SYMBOL )) for defmethod with &rest parametwer
-  (SB-C::HAIRY-ARG-PROCESSOR SYMBOL) => for functions with complex lambda lists
-
-In all of the above cases except LAMBDA we simply return SYMBOL, for
-LAMBDA we return the word LAMBDA and NIL for anything else.
-
-Example: As a result of this default logger name for SBCL for the
-following form:
-
-   (defmethod foo ()
-     (labels ((bar ()
-                (funcall (lambda ()
-                           (flet ((baz ()
-                                    (log-info \"test\")))
-                             (baz))))))
-       (bar)))
-
-will be: package.foo.bar.baz
-
-"
-  (if (symbolp debug-name)
-      (when (and (not (member debug-name '(sb-c::.anonymous. 
-                                           sb-thread::with-mutex-thunk)))
-                 (not (equal 0 (search "CLEANUP-FUN-"
-                                       (symbol-name debug-name)))))
-        debug-name)
-      (case (first debug-name)
-        (labels (include-block-debug-name? (second debug-name)))
-        (flet (include-block-debug-name? (second debug-name)))
-        ;; (lambda 'lambda)
-        (SB-PCL::FAST-METHOD (rest debug-name))
-        (SB-C::HAIRY-ARG-PROCESSOR (include-block-debug-name? (second debug-name)))
-        (SB-C::VARARGS-ENTRY (include-block-debug-name? (second debug-name))))))
-
-#+sbcl
-(defun sbcl-get-block-name  (env)
-  "Return a list naming SBCL lexical environment. For example when
-compiling local function FOO inside a global function FOOBAR, will
-return \(FOOBAR FOO\)"
-  (let* ((names-from-lexenv
-           (nreverse
-            (loop
-              as lambda = (sb-c::lexenv-lambda env)
-              then (sb-c::lambda-parent lambda)
-              while lambda
-              as debug-name = (include-block-debug-name? (sb-c::leaf-debug-name lambda))
-              if debug-name collect debug-name)))
-         (name (or names-from-lexenv sb-pcl::*method-name*)))
-    (when (and (consp (car name))
-               (equal (length name) 1))
-      (setq name (car name)))
-    (loop for elem in name
-          if (consp elem)
-          ;; flatten method specializers and remove T ones
-          append (remove t elem)
-          else collect elem)))
-
 (defun join-categories (separator list)
   "Return a string with each element of LIST printed separated by
 SEPARATOR"
@@ -212,16 +163,6 @@ SEPARATOR"
       (dolist (elem list)
         (princ separator s)
         (princ elem s)))))
-
-#+sbcl
-(defmethod resolve-default-logger-form (package env args)
-  "Returns the logger named after the current lexical environment"
-  (values
-   (get-logger-internal
-    (package-log-category package (sbcl-get-block-name env) nil)
-    (naming-option package :category-separator)
-    (naming-option package :category-case))
-   args))
 
 (defmethod naming-option (package option)
   "Return default values for naming options which are:

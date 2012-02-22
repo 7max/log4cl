@@ -332,7 +332,6 @@ user log statement, its raised and does not disable the appender"
         ;; the restart  in this case
         ((simple-error
            (lambda (c)
-             (declare (ignore c))
              (when (and (search "open" (format nil "~a" c)
                                 :test 'equalp)
                         (find-restart 'continue))

@@ -12,6 +12,7 @@
   :components ((:file "package")
                (:file "defs")
                (:file "naming")
+               #+sbcl (:file "naming-sbcl")
                (:file "appender-base")
                (:file "hierarchy-base")
                (:file "hierarchy")

@@ -6,53 +6,81 @@
   `(let ((*log-indent* ,indent))
      ,@body))
 
-(defmacro deflog-macros (&rest levels)
+(defmacro deflog-macros (levels)
   (let (list)
     (dolist (level levels)
       (let ((log-macro-name (intern (format nil "LOG-~a" level)))
             (level-name (intern (format nil "+LOG-LEVEL-~a+" level))))
         (push `(defmacro ,log-macro-name (&rest args &environment env)
-                 "Logs the message with the logger.
+                 "
+Submit log message to the logging system. Whenever
+the message is actually displayed or not depends on logging system
+configuration at run-time.
 
-Synopsis:
+The ARGS are parsed as follows:
 
- (defun foo ()
-   ;; DEBUG - cl-user.foo: entered
-   (log-debug \"entered\")
+1. Determine a logger object
 
-   ;; DEBUG - cl-user.bar: message
-   (log-debug :bar \"message\")
+If first argument is a constant list, constant symbol or a keyword, it
+is made into a logger object as described in the MAKE-LOGGER macro
+documentation
 
-   ;; INFO - full.logger.name: message
-   (log-info :/full.logger.name \"message\")
+If first argument is a constant string, logger name is auto-determined
+from context as described in the MAKE-LOGGER macro documentation, and
+system proceeds to step 2.
 
-   ;; DEBUG - cl-user.foo.test: entered
-   ;; DEBUG - cl-user.foo.test: arg1=1 arg2=2
-   (flet ((test (arg1 arg2)
-            (log-debug \"enter\")
-            (log-debug arg1 arg2)))
-     (test 1 2)))
+Otherwise any non-NIL first argument is assumed to be a form, that
+when evaluated will return a logger object.
 
-Logger category is found by examinining the first argument of the macro.
+2. If there are remaining arguments, they are used as format control
+string and format arguments, to be passed into the FORMAT function to
+produce the log message, when one is produced.
 
-If first argument is a string then logger name is automatically determined
-in a implementation dependend manner. On implementations that support it
-the logger name would be package.block-name. On implementations where
-it's not possible to determine the block name that is currently being compiled
-the logger name would be just package.
-
+If there were no other arguments, then this macro expands into a form,
+that will return T or NIL depending if logging with specified log
+level will actually produce any log messages. Note that having log
+level enabled does not necessary mean logging with log level is
+enabled, it also takes into account whenever log message will reach
+any appenders.
 "
                  (expand-log-with-level env ,level-name args))
               list)))
     `(progn
        ,@(nreverse list))))
 
-(deflog-macros debug fatal error warn info user1 user2 user3 user4 
-  trace user5 user6 user7 user8 user9)
+(deflog-macros #.+log-level-macro-symbols+)
+
+(defvar +make-logger-symbols+ '(make-logger))
 
 (defmacro log-sexp (&rest sexps &environment env) 
+  "Expands into DEBUG log statement that will print each element of SEXPS
+in the form of ELEMENT=VALUE where ELEMENT will be the literal argument
+without evaluating it, and VALUE will be the result of evaluation. For constant
+string elements, it is output literally without printing its value.
+
+Example:
+
+     (let ((a 1) (b '(two three)))  
+       (log-sexp \"values are\" a b))
+
+will produce log message:
+
+    [debug] - values are A=1 B=(TWO THREE)
+
+       "
   (multiple-value-bind (logger-form sexps)
-      (resolve-logger-form *package* env sexps)
+      (resolve-logger-form *package* env
+                           (cond
+                             ((or (stringp (first sexps))
+                                  (and
+                                   (symbolp (first sexps))
+                                   (not (constantp (first sexps))))
+                                  (and (listp (first sexps))
+                                       (not (constantp (first sexps)))
+                                       (not (member (caar sexps)
+                                                    +make-logger-symbols+))))
+                              `((make-logger) ,@sexps))
+                             (t sexps)))
     (let* (args
            (format 
              (with-output-to-string (*standard-output*)  
@@ -60,7 +88,7 @@ the logger name would be just package.
                      (loop with first = t
                            for arg in sexps
                            do (if first (setf first nil)
-                                  (write-string " "))
+                                  (write-char #\Space))
                            if (stringp arg)
                            do (write-string arg)
                            else

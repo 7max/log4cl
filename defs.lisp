@@ -31,10 +31,18 @@
 
 ;; For converting log levels from string
 (defparameter +log-level-from-letter+ "OFEWID1234T56789U")
+
+(defparameter +log-level-symbols+
+  '(off fatal error warn info
+    debug user1 user2 user3 user4 trace
+    user5 user6 user7 user8 user9 unset))
+
+(defparameter +log-level-macro-symbols+
+  (remove-if (lambda (x) (member x '(off unset)))
+             +log-level-symbols+))
+
 (defparameter +log-level-from-string+ 
-  '("OFF" "FATAL" "ERROR" "WARN" "INFO"
-    "DEBUG" "USER1" "USER2" "USER3" "USER4" "TRACE"
-    "USER5" "USER6" "USER7" "USER8" "USER9" "UNSET"))
+  (mapcar 'string-upcase (mapcar 'symbol-name +log-level-symbols+)))
 
 ;; For converting level to string
 (defparameter +log-level-to-string+

@@ -1,7 +1,7 @@
 (in-package :log4cl.test)
 
 (in-suite test)
-(defsuite* test-property-configurator)
+(defsuite* test-configurator)
 
 (deftest test-property-configurator-whitespace-and-comments ()
   (with-package-log-hierarchy
@@ -257,3 +257,26 @@ done via property configurator, rather then directly"
             (ignore-errors (delete-file fname1))
             (ignore-errors (delete-file fname2))))))))
 
+(deftest test-log-config-clear ()
+  "Test that :clear option works"
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (let ((four (make-logger '(one two three clear four)))
+          (clear (make-logger '(one two three clear)))
+          (three (make-logger '(one two three)))
+          (one (make-logger '(one))))
+      (add-appender three (make-instance 'console-appender))
+      (log-config one :sane)
+      (is (log-info one))
+      (is (log-info four))
+      (is (not (log-debug four)))
+      (log-config three :own)
+      (is (not (logger-additivity three)))
+      (log-config clear :d)
+      (is (log-debug four))
+      (is (logger-appenders three))
+      (log-config one :i :clear)
+      (is (logger-appenders three))
+      (is (not (log-debug four)))
+      (log-config one :clear :all)
+      (is (null (logger-appenders three))))))

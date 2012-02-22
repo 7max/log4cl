@@ -92,7 +92,8 @@
    :property-parser-error
    :configure
    :logger-children
-   :logger-descendants))
+   :logger-descendants
+   :map-logger-descendants))
 
 
 

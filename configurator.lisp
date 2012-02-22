@@ -152,19 +152,22 @@ Examples:
                      (t (log4cl-error
                          "Don't know what do with argument ~S" arg))))))))
     (or logger (setq logger *root-logger*))
-    (or level sane clear daily properties
-        (log4cl-error "A log level or one of :SANE :CLEAR :DAILY or :PROPERTIES must be specified"))
+    (or level sane clear daily properties own
+        (log4cl-error "A log level or one of :SANE :CLEAR :OWN :DAILY or :PROPERTIES must be specified"))
     (or (not properties)
         (not (or sane daily pattern console level))
         (log4cl-error ":PROPERTIES can't be used with :SANE :DAILY :PATTERN or log level"))
     (when (or level sane)
       (set-log-level logger (or level +log-level-info+) nil))
     (when clear
-      (map-logger-children (lambda (l)
-                             (set-log-level l +log-level-unset+ nil)
-                             (unless (and (logger-additivity l) (not all))
-                               (remove-all-appenders-internal l nil)))
-                           logger))
+      (map-logger-descendants
+       (lambda (l)
+         (set-log-level l +log-level-unset+ nil)
+         (when (or (logger-additivity l) all)
+           (remove-all-appenders-internal l nil)))
+       logger))
+    (when own
+      (set-additivity logger nil nil))
     (when (or daily sane)
       (let ((default-pattern "[%d{%H:%M:%S}] [%P] <%c{}{}{:downcase}> - %m%n")
             (twoline-pattern "[%d{%H:%M:%S}] [%-5P] <%c{}{}{:downcase}>%n  *%I{>} %m%n"))

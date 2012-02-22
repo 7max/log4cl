@@ -115,6 +115,16 @@ descendants)"
                  (funcall function logger))
                child-hash))))
 
+(defun map-logger-descendants (function logger)
+  "Apply the function to all of logger's descendants"
+  (let ((child-hash (logger-child-hash logger)))
+    (when child-hash
+      (maphash (lambda (name logger)
+                 (declare (ignore name))
+                 (funcall function logger)
+                 (map-logger-descendants function logger))
+               child-hash))))
+
 (defun adjust-logger (logger)
   "Recalculate LOGGER mask by finding out which log levels have
 reachable appenders. "

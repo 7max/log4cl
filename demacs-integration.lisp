@@ -1,5 +1,5 @@
 
-(cl:in-package :log4cl-impl)
+(cl:in-package #:log4cl-impl)
 
 (defgeneric wrap-with-logger-name (definer forms logger-name))
 

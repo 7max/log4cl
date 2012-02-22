@@ -7,7 +7,7 @@
 (cl:defpackage :log4cl-test.dots
   (:use :cl :log4cl-impl :stefil))
 
-(in-package :log4cl-test)
+(in-package #:log4cl-test)
 
 (eval-when (:load-toplevel :compile-toplevel :execute)
   (defmethod naming-option ((pkg (eql (find-package :log4cl-test.dots)))
@@ -151,7 +151,7 @@ situation"
 ;; Test in a different package, where logger category separator is dot
 ;; instead of new line
 
-(in-package :log4cl-test.dots)
+(in-package #:log4cl-test.dots)
 (in-root-suite)
 (defsuite* test)
 
@@ -305,7 +305,7 @@ correctly parsed into multiple loggers"
 
 
 ;; Include the "dots" package test suite into main one
-(in-package :log4cl-test)
+(in-package #:log4cl-test)
 (in-suite test)
 
 (deftest dots ()

@@ -1,4 +1,4 @@
-(in-package :log4cl-impl)
+(in-package #:log4cl-impl)
 
 (defmacro with-log-indent ((&optional (indent '(1+ *log-indent*)))
                            &body body)

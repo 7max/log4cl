@@ -1,4 +1,4 @@
-(in-package :log4cl-impl)
+(in-package #:log4cl-impl)
 
 (defun clear-logging-configuration ()
   "Delete all loggers configuration, leaving only LOG4CL.SELF"

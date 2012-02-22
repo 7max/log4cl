@@ -1,4 +1,4 @@
-(in-package :log4cl-test)
+(in-package #:log4cl-test)
 
 (in-suite test)
 (defsuite* test-appenders)

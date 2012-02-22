@@ -1,4 +1,4 @@
-(cl:in-package :log4cl-impl)
+(cl:in-package #:log4cl-impl)
 
 (defmethod package-log-category ((pkg (eql *package*)) categories explitic-p)
   "Make default logger in the log4cl package to be log4cl:self"

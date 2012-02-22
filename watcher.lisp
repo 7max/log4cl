@@ -1,4 +1,4 @@
-(in-package :log4cl-impl)
+(in-package #:log4cl-impl)
 
 (defvar *watcher-thread-bindings* `((*debug-io* . ,*debug-io*)))
 

@@ -1,4 +1,4 @@
-(in-package :log4cl-impl)
+(in-package #:log4cl-impl)
 
 ;; generic property file parser, can be reused for other stuff
 

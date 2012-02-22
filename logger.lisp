@@ -7,7 +7,7 @@
 ;;; So any code that uses self-logging to log4cl:self logger, needs to be
 ;;; in the files that are later in the system definition file
 ;;; 
-(in-package :log4cl-impl)
+(in-package #:log4cl-impl)
 
 ;; these needs to be in separate file from the their definitions
 #+sbcl
@@ -100,7 +100,7 @@ appenders"
   (labels ((have-appenders (logger)
 	     (when logger
 	       (or (logger-state-appenders (current-state logger))
-		   (have-appenders (logger-parent logger))))))
+		   (and (have-appenders (logger-parent logger)))))))
     (let* ((logger-level (effective-log-level logger)))
       (and (>= logger-level level)
 	   (have-appenders logger)))))

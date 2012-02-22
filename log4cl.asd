@@ -29,7 +29,8 @@
                (:file "appender")
                (:file "configurator")
                (:file "property-parser")
-               (:file "property-configurator")))
+               (:file "property-configurator")
+               (:file "package")))
 
 (defsystem :log4cl-test
   :serial t

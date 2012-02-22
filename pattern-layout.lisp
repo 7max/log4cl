@@ -134,6 +134,7 @@ Following pattern characters are recognized:
           (compile-pattern-format layout pattern))))
 
 (defmethod shared-initialize :after ((layout pattern-layout) slots &key conversion-pattern)
+  (declare (ignore slots))
   (compile-pattern layout conversion-pattern))
 
 (defmethod (setf conversion-pattern) :after (pattern (layout pattern-layout))

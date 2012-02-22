@@ -8,7 +8,7 @@
       (bordeaux-threads:make-thread
        (lambda ()
          ;; prevent two watcher threads from being started due to race
-         (when (with-hierarchy-lock
+         (when (with-hierarchies-lock
                  (cond (*watcher-thread*
                         (log-debug "Watcher thread already started")
                         nil)
@@ -23,7 +23,7 @@
                         (sleep *hierarchy-watcher-heartbeat*)))
                   (error (e)
                     (log-error logger "Error in hierarchy watcher thread:~%~A" e)))
-             (with-hierarchy-lock
+             (with-hierarchies-lock
                (setf *watcher-thread* nil))
              (log-info logger "Hierarchy watcher thread ended"))))
        :name "Hierarchy Watcher"
@@ -38,7 +38,7 @@
     (with-log-hierarchy (hier)
       (handler-bind ((serious-condition
                        (lambda (c)
-                         (remove-watch-token token)
+                         (remove-watch-token token :test #'eq)
                          (log-error
                           '(log4cl)
                           "WATCH-TOKEN-CHECK in ~S hierarchy signaled error for token ~S~%~A"

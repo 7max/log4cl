@@ -13,7 +13,7 @@ indexed by this variable. Can be assigned directly or ")
   (make-recursive-lock "hierarchy-lock")
   "Global lock for changing logging configuration")
 
-(defvar *hierarchy-watcher-heartbeat* 0.5
+(defvar *hierarchy-watcher-heartbeat* 1
   "How long hierarchy watcher thread sleeps between calling
 WATCHER-HOOK of each hierarchy")
 
@@ -33,7 +33,8 @@ WATCHER-HOOK of each hierarchy")
    ;;
    ;; Used for auto-reloading the modified files in
    ;; PROPERTY-CONFIGURATOR but can be used for other stuff.
-   (watch-tokens :initform nil)))
+   (watch-tokens :initform nil)
+   (%lock :initform (make-lock))))
 
 (defvar *hierarchies*
   (make-array 1 :adjustable t :fill-pointer t

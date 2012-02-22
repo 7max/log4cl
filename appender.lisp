@@ -310,6 +310,4 @@ switches to the new log file"
         (setq %current-file-name new-file
               %next-backup-name new-bak)))))
 
-(unless (logger-appenders +self-logger+)
-  (add-appender +self-logger+ (make-instance 'console-appender)))
 

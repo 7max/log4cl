@@ -37,7 +37,7 @@
   :components ((:file "test/logger")
                (:file "test/test-layouts")
                (:file "test/test-appenders")
-               (:file "test/test-property-configurator")
+               (:file "test/test-configurator")
                (:file "test/speed")))
 
 (defmethod perform ((op test-op) (system (eql (find-system :log4cl))))

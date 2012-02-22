@@ -48,23 +48,25 @@ the logger name would be just package.
        ,@(nreverse list))))
 
 (deflog-macros debug fatal error warn info user1 user2 user3 user4 
-               trace user5 user6 user7 user8 user9)
+  trace user5 user6 user7 user8 user9)
 
-(defmacro log-sexp (&rest sexps) 
-  (let* (args
-         (format 
-           (with-output-to-string (*standard-output*)  
-             (setq args
-                   (loop with first = t
-                         for arg in sexps
-                         do (if first (setf first nil)
-                                (write-string " "))
-                         if (stringp arg)
-                         do (write-string arg)
-                         else
-                         do (format t "~s=~~s" arg)
-                         and collect arg)))))
-    `(log-debug ,format ,@args)))
+(defmacro log-sexp (&rest sexps &environment env) 
+  (multiple-value-bind (logger-form sexps)
+      (resolve-logger-form *package* env sexps)
+    (let* (args
+           (format 
+             (with-output-to-string (*standard-output*)  
+               (setq args
+                     (loop with first = t
+                           for arg in sexps
+                           do (if first (setf first nil)
+                                  (write-string " "))
+                           if (stringp arg)
+                           do (write-string arg)
+                           else
+                           do (format t "~s=~~s" arg)
+                           and collect arg)))))
+      `(log-debug ,logger-form ,format ,@args))))
 
 (defmacro log-trace-sexp (&rest args) 
   (let ((format 

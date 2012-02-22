@@ -31,20 +31,25 @@
   (:documentation "Appender that serializes itself using a lock"))
 
 (defclass stream-appender (serialized-appender)
-  ((immediate-flush  :initform nil :initarg :immediate-flush)
+  ((immediate-flush
+    :initform #+bordeaux-threads nil
+              #-bordeaux-threads t
+    :initarg :immediate-flush)
    (flush-interval   :initform 1 :initarg :flush-interval)
    (%last-flush-time  :initform 0)
-   (%last-output-time :initform 0))
-  (:documentation "Appender that writes message to stream returned by
-  APPENDER-STREAM generic function.
+   (%output-since-flush :initform nil))
+  (:documentation "Appender that writes message to stream. Stream is
+obtained on each output by calling APPENDER-STREAM function.
 
 Properties:
 
-  - IMMEDIATE-FLUSH When non-NIL will call FINISH-OUTPUT after every
-    log message
+  - IMMEDIATE-FLUSH :: When non-NIL will call FINISH-OUTPUT after
+    every log message
 
-  - FLUSH-INTERVAL When set, will only flush if previous flush was
-    that many seconds ago. Will only be used if IMMEDIATE-FLUSH is NIL"))
+  - FLUSH-INTERVAL :: When set, will only flush if previous flush was
+    earlier than FLUSH-INTERVAL seconds ago. In addition a background
+    thread will be used to flush all appenders with FLUSH-INTERVAL
+    set. See ADD-WATCH-TOKEN"))
 
 (defmethod property-alist ((instance stream-appender))
   '((:immediate-flush immediate-flush boolean)
@@ -65,6 +70,7 @@ being written.  If instead you want an appender that would write log
 messages to the *debug-io* stream active when appender was created,
 use FIXED-STREAM-APPENDER class"))
 
+#+bordeaux-threads
 (defmethod appender-added :after (logger (appender stream-appender))
   "Add appender to the watch tokens in the current hierarchy,
 unless :IMMEDAITE-FLUSH property is set."
@@ -74,6 +80,7 @@ unless :IMMEDAITE-FLUSH property is set."
     (when (not immediate-flush)
       (add-watch-token appender :test #'eq))))
 
+#+bordeaux-threads
 (defmethod appender-removed :after (logger (appender stream-appender))
   "When appender refcount is zero, remove it from watch tokens"
   (declare (ignore logger))
@@ -84,32 +91,45 @@ unless :IMMEDAITE-FLUSH property is set."
 
 (defmethod watch-token-check ((appender stream-appender))
   (with-slots (immediate-flush flush-interval %last-flush-time %lock
-               %last-output-time)
+               %output-since-flush)
       appender
     (let ((time *watcher-event-time*))
       (when (and (not immediate-flush)
-                 flush-interval)
-        (when (and
-               ;; do not continue re-flashing when there was no output
-               (<= %last-flush-time %last-output-time)
-               (>= (- time %last-flush-time)
-                   flush-interval))
-          (with-lock-held (%lock)
-            (setf %last-flush-time time)
-            (finish-output (appender-stream appender))))))))
+                 flush-interval
+                 %output-since-flush)
+        (let ((since-last-flush (- time %last-flush-time)))
+          ;; flush it now if by the next heartbeat we'll be late for
+          ;; example if flush-interval is 2, and heartbeat 5, and its
+          ;; been 1 second since last flush, then it will be (> (+ 1
+          ;; 5) 2) which would flush right now, since next opportunity
+          ;; to flush will be only 5 seconds later.
+          ;;
+          ;; Same calculation with flush-interval 2, heartbeat 0.5 and
+          ;; 1 second since last flush will be (> (+ 1 0.5) 2) which
+          ;; will be false, because we'll come back in 0.5 seconds and
+          ;; flush then.
+          (when (> (+ since-last-flush *hierarchy-watcher-heartbeat*)
+                   flush-interval)
+            (with-lock-held (%lock)
+              (setf %last-flush-time    time
+                    %output-since-flush nil)
+              (finish-output (appender-stream appender)))))))))
 
 (defun maybe-flush-appender-stream (appender stream)
   "Flush the APPENDER's stream if needed"
-  (with-slots (immediate-flush flush-interval %last-flush-time)
+  (with-slots (immediate-flush flush-interval %last-flush-time
+               %output-since-flush)
       appender
     (cond (immediate-flush
-           (setf %last-flush-time (log-event-time))
-           (finish-output stream))
+           (finish-output stream)
+           (setf %output-since-flush nil
+                 %last-flush-time    (log-event-time)))
           (flush-interval
            (let ((time (log-event-time)))
              (when (and (>= (- time %last-flush-time) flush-interval))
-               (setf %last-flush-time time)
-               (finish-output stream)))))))
+               (finish-output stream)
+               (setf %output-since-flush nil
+                     %last-flush-time    time)))))))
 
 (defmethod appender-do-append :around
     ((this serialized-appender) logger level log-func)
@@ -119,9 +139,9 @@ unless :IMMEDAITE-FLUSH property is set."
 
 (defmethod appender-do-append ((this stream-appender) logger level log-func)
   (let ((stream (appender-stream this)))
-    (with-slots (layout %last-output-time) this
+    (with-slots (layout %output-since-flush) this
       (layout-to-stream layout stream logger level log-func)
-      (setf %last-output-time (log-event-time))
+      (setf %output-since-flush t)
       (maybe-flush-appender-stream this stream)))
   (values))
 
@@ -130,9 +150,9 @@ unless :IMMEDAITE-FLUSH property is set."
                                logger
 			       level
                                log-func)
-  (with-slots (layout stream %last-output-time) this
+  (with-slots (layout stream %output-since-flush) this
     (layout-to-stream layout stream logger level log-func)
-    (setf %last-output-time (log-event-time))
+    (setf %output-since-flush t)
     (maybe-flush-appender-stream this stream))
   (values))
 
@@ -248,6 +268,7 @@ CHECK-PERIOD seconds "
   (declare (ignore logger level log-func))
   (let ((time (log-event-time)))
     (with-slots (%next-rollover-time %rollover-check-period) this
+      ;; (log-sexp time %next-rollover-time (>= time %next-rollover-time))
       (when (>= time %next-rollover-time)
         (setf %next-rollover-time (next-time-boundary time %rollover-check-period))
         (maybe-roll-file this))))

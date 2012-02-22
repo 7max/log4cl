@@ -326,29 +326,48 @@ user log statement, its raised and does not disable the appender"
 (deftest test-appender-flush-interval ()
   (with-package-log-hierarchy
     (clear-logging-configuration)
-    (let* ((fname (merge-pathnames (rand-filename) *tests-dir*))
-           (a (make-instance 'file-appender :file fname
-               :immediate-flush nil
-               :flush-interval 1))
-           (logger (make-logger '(one two three))))
-      (setf (logger-additivity logger) nil)
-      (add-appender logger a)
-      (log-config :i)
-      (log-info logger "Hello World 1")
-      (is (appender-stream a))
-      (is (probe-file fname))
-      ;; first log statement will flush because last flush time was
-      ;; initialized to zero
-      (with-open-file (s fname)
-        (is (equal (read-line s nil) "INFO - Hello World 1"))
+    (handler-bind
+        ;; CLISP apparently gives warning about reading the file
+        ;; that is already open for output, automatically invoke
+        ;; the restart  in this case
+        ((simple-error
+           (lambda (c)
+             (declare (ignore c))
+             (when (and (search "open" (format nil "~a" c)
+                                :test 'equalp)
+                        (find-restart 'continue))
+               (invoke-restart 'continue)))))
+      (let* ((fname (merge-pathnames (rand-filename) *tests-dir*))
+             (a (make-instance 'file-appender :file fname
+                 ;; use defaults, since non-threaded lisp (ie CLISP) will have
+                 ;; immediate-flush set to t by default
+                 ))
+             (logger (make-logger '(one two three))))
+        (setf (logger-additivity logger) nil)
+        (add-appender logger a)
+        (log-config :i)
+        (log-info logger "Hello World 1")
+        (is (appender-stream a))
+        (is (probe-file fname))
+        ;; first log statement will flush because last flush time was
+        ;; initialized to zero
+        (with-open-file (s fname)
+          (is (equal (read-line s nil) "INFO - Hello World 1")))
         ;; this log statement should not flush
         (log-info logger "Hello World 2")
-        ;; verify it is so
-        (is (equal nil (read-line s nil)))
+        ;; verify it did not flush, (this will fail on non-threaded lisp
+        ;; so only do it if its threaded lisp, and therefore immediate-flush
+        ;; defaulted to NIL
+        (unless (slot-value a 'log4cl::immediate-flush)
+          (with-open-file (s fname)
+            (is (read-line s nil))
+            (is (not (read-line s nil)))))
         ;; give auto-flusher chance to run
         (sleep 2)
-        ;; see that it got flushed
-        (is (equal (read-line s nil) "INFO - Hello World 2")))
-      (remove-appender logger a)
-      (delete-file fname))))
+        (with-open-file (s fname)
+          (is (equal (read-line s nil) "INFO - Hello World 1"))
+          ;; this log statement should not flush
+          (is (equal (read-line s nil) "INFO - Hello World 2")))
+        (remove-appender logger a)
+        (delete-file fname)))))
 

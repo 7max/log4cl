@@ -1,4 +1,4 @@
-(in-package :log4cl)
+(in-package :log4cl-impl)
 
 (defclass property-configurator (property-parser)
   ((loggers)

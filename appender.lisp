@@ -1,4 +1,4 @@
-(in-package #:log4cl)
+(in-package :log4cl-impl)
 
 
 (defmethod property-alist ((instance appender))

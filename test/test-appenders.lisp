@@ -1,4 +1,4 @@
-(in-package :log4cl.test)
+(in-package :log4cl-test)
 
 (in-suite test)
 (defsuite* test-appenders)
@@ -357,7 +357,7 @@ user log statement, its raised and does not disable the appender"
         ;; verify it did not flush, (this will fail on non-threaded lisp
         ;; so only do it if its threaded lisp, and therefore immediate-flush
         ;; defaulted to NIL
-        (unless (slot-value a 'log4cl::immediate-flush)
+        (unless (slot-value a 'log4cl-impl::immediate-flush)
           (with-open-file (s fname)
             (is (read-line s nil))
             (is (not (read-line s nil)))))

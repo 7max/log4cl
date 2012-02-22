@@ -1,7 +1,7 @@
 ;; This test is used to see which approach leads to the smallest
 ;; amount of waste as far as size of the code is concerned
 
-(cl:defpackage :log4cl-test (:use :cl :log4cl))
+(cl:defpackage :log4cl-test (:use :cl :log4cl-impl))
 (cl:in-package :log4cl-test)
 
 (defun generate-test-file (path num-functions num-parameters with-logging)

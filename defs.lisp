@@ -1,4 +1,4 @@
-(in-package :log4cl)
+(in-package :log4cl-impl)
 ;;
 ;; Define the log levels. Similar to Log4J, except that we add extra
 ;; nice log levels named "user1" through "user9" with "trace" log

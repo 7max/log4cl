@@ -1,4 +1,4 @@
-(in-package :log4cl)
+(in-package :log4cl-impl)
 
 (defun include-block-debug-name? (debug-name)
   "Figures out if we should include the debug-name into the stack of

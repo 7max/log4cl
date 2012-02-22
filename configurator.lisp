@@ -1,4 +1,4 @@
-(in-package :log4cl)
+(in-package :log4cl-impl)
 
 (defun clear-logging-configuration ()
   "Delete all loggers configuration, leaving only LOG4CL.SELF"
@@ -74,7 +74,7 @@ Valid options can be:
 |             | make default logger LOG4CL:SELF and remember all arguments    |
 |             | in the variable *SELF-LOG-CONFIG*, so that they are restored  |
 |             | even on (CLEAR-LOGGING-CONFIGURATION). Automatically assumes  |
-|             | :OWN making the LOG4CL:SELF logger non-additive               |
+|             | :OWN making the LOG4CL-IMPL:SELF logger non-additive          |
 |-------------+---------------------------------------------------------------|
 | :PROPERTIES | Configure with PROPERTY-CONFIGURATOR by parsing specified     |
 | FILE        | properties file                                               |
@@ -115,7 +115,7 @@ Examples:
                          (naming-option *package* :category-separator)
                          (naming-option *package* :category-case))))
           ((member :self args)
-           (setq logger (make-logger '(log4cl self))
+           (setq logger (make-logger '(log4cl-impl self))
                  self t)
            (setq args (remove :self args))))
     (setq logger (or logger *root-logger*))
@@ -198,7 +198,7 @@ Examples:
       (configure (make-instance 'property-configurator) properties
                  :auto-reload watch))
     (when self
-      ;; This is special adhoc case of configuring the LOG4CL:SELF
+      ;; This is special adhoc case of configuring the LOG4CL-iMPL:SELF
       (let ((config (cons :own
                           ;; we don't remember these
                           (remove-if (lambda (x)

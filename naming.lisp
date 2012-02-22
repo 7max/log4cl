@@ -1,4 +1,4 @@
-(in-package :log4cl)
+(in-package :log4cl-impl)
 
 (defgeneric log-level-from-object (obj package)
   (:documentation "Should return numeric log level from the user

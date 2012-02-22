@@ -9,7 +9,7 @@
   :serial t
   :version "1.0"
   :depends-on (:bordeaux-threads)
-  :components ((:file "package")
+  :components ((:file "impl-package")
                (:file "defs")
                (:file "naming")
                #+sbcl (:file "naming-sbcl")
@@ -31,7 +31,7 @@
                (:file "property-parser")
                (:file "property-configurator")))
 
-(defsystem :log4cl.test
+(defsystem :log4cl-test
   :serial t
   :version "1.0"
   :depends-on (:log4cl :stefil)
@@ -42,9 +42,9 @@
                (:file "test/speed")))
 
 (defmethod perform ((op test-op) (system (eql (find-system :log4cl))))
-  (operate 'load-op :log4cl.test)
-  (in-package :log4cl.test)
-  (eval (read-from-string "(stefil:funcall-test-with-feedback-message 'log4cl.test::test)"))
+  (operate 'load-op :log4cl-test)
+  (let ((*package* (find-package :log4cl-test)))
+    (eval (read-from-string "(stefil:funcall-test-with-feedback-message 'log4cl-test::test)")))
   (values))
 
 

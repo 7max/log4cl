@@ -1,4 +1,4 @@
-(in-package :log4cl)
+(in-package :log4cl-impl)
 
 (defvar *hierarchy-max* 1
   "Number of hierarchies registered with the log4cl library. Each

@@ -1,16 +1,16 @@
-(cl:defpackage :log4cl.test
-  (:use :cl :log4cl :stefil)
+(cl:defpackage :log4cl-test
+  (:use :cl :log4cl-impl :stefil)
   (:export :test :speed
            :handle-appender-error)
   (:shadow :speed))
 
-(cl:defpackage :log4cl.test.dots
-  (:use :cl :log4cl :stefil))
+(cl:defpackage :log4cl-test.dots
+  (:use :cl :log4cl-impl :stefil))
 
-(in-package :log4cl.test)
+(in-package :log4cl-test)
 
 (eval-when (:load-toplevel :compile-toplevel :execute)
-  (defmethod naming-option ((pkg (eql (find-package :log4cl.test.dots)))
+  (defmethod naming-option ((pkg (eql (find-package :log4cl-test.dots)))
                             (option (eql :category-separator)))
     "."))
 
@@ -21,9 +21,9 @@
   "Test some basic facts about the logger structure"
   (with-package-log-hierarchy
     (is (not (null logger)))
-    (is (not (null (log4cl::logger-state logger))))
+    (is (not (null (log4cl-impl::logger-state logger))))
     (is (not (null (logger-category logger))))
-    (is (eql (length (log4cl::logger-state logger)) log4cl::*hierarchy-max*))))
+    (is (eql (length (log4cl-impl::logger-state logger)) log4cl-impl::*hierarchy-max*))))
 
 (deftest make-logger-by-list-of-categories ()
   "Test MAKE-LOGGER macro with static list of categories"
@@ -151,7 +151,7 @@ situation"
 ;; Test in a different package, where logger category separator is dot
 ;; instead of new line
 
-(in-package :log4cl.test.dots)
+(in-package :log4cl-test.dots)
 (in-root-suite)
 (defsuite* test)
 
@@ -159,7 +159,7 @@ situation"
   "Test MAKE-LOGGER macro with static list of categories"
   (with-package-log-hierarchy
     (let ((logger (make-logger '(two three four))))
-      (log4cl.test::basics logger)
+      (log4cl-test::basics logger)
       (is (equal (logger-category logger)
                  (concatenate 'string
                               (symbol-name 'two) "."
@@ -296,7 +296,7 @@ correctly parsed into multiple loggers"
 (deftest make-logger-with-dotted-symbol-name ()
   (with-package-log-hierarchy
     (let ((logger (make-logger :one.two.three)))
-      (log4cl.test::basics logger)
+      (log4cl-test::basics logger)
       (is (equal (logger-category logger)
                  (concatenate 'string
                               (package-name #.*package*)
@@ -305,8 +305,8 @@ correctly parsed into multiple loggers"
 
 
 ;; Include the "dots" package test suite into main one
-(in-package :log4cl.test)
+(in-package :log4cl-test)
 (in-suite test)
 
 (deftest dots ()
-  (log4cl.test.dots::test))
+  (log4cl-test.dots::test))

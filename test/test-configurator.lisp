@@ -1,4 +1,4 @@
-(in-package :log4cl.test)
+(in-package :log4cl-test)
 
 (in-suite test)
 (defsuite* test-configurator)
@@ -82,24 +82,24 @@ one.two=three
       (dolist (val '("true" "yes" "on" "t"))
         (clear-logging-configuration)
         (with-input-from-string
-            (s (format nil "log4cl:logger:log4cl.test = DEBUG, A1
+            (s (format nil "log4cl:logger:log4cl-test = DEBUG, A1
                             log4cl:appender:A1:immediate-flush = ~a
                             log4cl:appender:A1 = console-appender" val))
           (configure config s))
         (is (equal (effective-log-level (make-logger)) +log-level-debug+))
         (is (equal 1 (length (effective-appenders (make-logger)))))
         (let ((appender (first (effective-appenders (make-logger)))))
-          (is (equal t (slot-value appender 'log4cl::immediate-flush)))))
+          (is (equal t (slot-value appender 'log4cl-impl::immediate-flush)))))
       (dolist (val '("off" "false" "nil" ""))
         (clear-logging-configuration)
         (finishes
           (with-input-from-string
-              (s (format nil "log4cl:logger:log4cl.test = DEBUG, A1
+              (s (format nil "log4cl:logger:log4cl-test = DEBUG, A1
                               log4cl:appender:A1:immediate-flush = ~a
                               log4cl:appender:A1 = console-appender" val))
             (configure config s)))
         (let ((appender (first (effective-appenders (make-logger)))))
-          (is (equal nil (slot-value appender 'log4cl::immediate-flush))))))))
+          (is (equal nil (slot-value appender 'log4cl-impl::immediate-flush))))))))
 
 (deftest test-property-configurator-number-property ()
   (with-package-log-hierarchy
@@ -108,14 +108,14 @@ one.two=three
       (clear-logging-configuration)
       (finishes
         (with-input-from-string
-            (s "log4cl:logger:log4cl.test=DEBUG, A1
+            (s "log4cl:logger:log4cl-test=DEBUG, A1
              	log4cl:appender:A1:flush-interval=123
                 log4cl:appender:A1=console-appender")
           (configure config s)))
       (is (equal (effective-log-level (make-logger)) +log-level-debug+))
       (is (equal 1 (length (effective-appenders (make-logger)))))
       (let ((appender (first (effective-appenders (make-logger)))))
-        (is (equal 123 (slot-value appender 'log4cl::flush-interval)))))))
+        (is (equal 123 (slot-value appender 'log4cl-impl::flush-interval)))))))
 
 (deftest test-property-configurator-errors ()
   (with-package-log-hierarchy
@@ -131,7 +131,7 @@ one.two=three
         (signals property-parser-error
           (remember-error
            (with-input-from-string
-               (s "log4cl:logger:log4cl.test=DEBUG, A1
+               (s "log4cl:logger:log4cl-test=DEBUG, A1
                    log4cl:appender:A1:flush-interval=blah
                    log4cl:appender:A1=console-appender")
              (configure config s))))
@@ -142,7 +142,7 @@ one.two=three
         (signals property-parser-error
           (remember-error
            (with-input-from-string
-               (s "log4cl:logger:log4cl.test=DEBUG, A1
+               (s "log4cl:logger:log4cl-test=DEBUG, A1
                    log4cl:appender:A1=console-appender
                    log4cl:appender:A1:non-existent-property=whatever")
              (configure config s))))
@@ -153,7 +153,7 @@ one.two=three
         (signals property-parser-error
           (remember-error
            (with-input-from-string
-               (s "log4cl:logger:log4cl.test=DEBUG, A2
+               (s "log4cl:logger:log4cl-test=DEBUG, A2
                    log4cl:appender:A1=console-appender
                    # comment
                    log4cl:appender:A1:non-existent-property=whatever")
@@ -164,7 +164,7 @@ one.two=three
         (signals property-parser-error
           (remember-error
            (with-input-from-string
-               (s "log4cl:logger:log4cl.test=DEBUG, A1
+               (s "log4cl:logger:log4cl-test=DEBUG, A1
                    # comment
                    log4cl:appender:A1 = no such class
                    log4cl:appender:A1:non-existent-property=whatever")

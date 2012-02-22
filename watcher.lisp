@@ -1,4 +1,4 @@
-(in-package :log4cl)
+(in-package :log4cl-impl)
 
 (defvar *watcher-thread-bindings* `((*debug-io* . ,*debug-io*)))
 
@@ -29,7 +29,7 @@
        :name "Hierarchy Watcher"
        :initial-bindings
        `((*hierarchy* . 0)
-         (*package* . (find-package :log4cl))
+         (*package* . (find-package :log4cl-impl))
          ,@*watcher-thread-bindings*)))))
 
 

@@ -1,4 +1,4 @@
-(in-package :log4cl)
+(in-package :log4cl-impl)
 
 ;; Base APPENDER class and generics that logging core needs to know
 ;; about

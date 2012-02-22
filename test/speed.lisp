@@ -1,11 +1,11 @@
-(in-package :log4cl.test)
+(in-package :log4cl-test)
 
 (in-root-suite)
 (defsuite* speed)
 
 ;; Logging case, with default optimizations
 ;;
-;; (time (log4cl.test::speed-test-to-file :iterations 10000000))
+;; (time (log4cl-test::speed-test-to-file :iterations 10000000))
 ;;
 ;; Evaluation took:
 ;;   27.621 seconds of real time
@@ -22,7 +22,7 @@
 ;;
 ;; No logging case (note 10x iterations the logging case)
 ;;
-;; (time (log4cl.test::speed-test-to-file :iterations 100000000
+;; (time (log4cl-test::speed-test-to-file :iterations 100000000
 ;;   :root-logger-level :info))
 ;;
 ;; Evaluation took:
@@ -53,4 +53,4 @@
                                    :flush-interval nil))
       (setf (logger-log-level *root-logger*) root-logger-level)
       (dotimes (cnt iterations)
-        (log-debug :log4cl.test.category "iter=~d" cnt)))))
+        (log-debug :log4cl-test.category "iter=~d" cnt)))))

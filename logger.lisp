@@ -99,8 +99,10 @@ appenders"
   ;; cached anyway, don't optimize unless becomes a problem
   (labels ((have-appenders (logger)
 	     (when logger
-	       (or (logger-state-appenders (current-state logger))
-		   (and (have-appenders (logger-parent logger)))))))
+               (let ((state (current-state logger)))
+                 (or (logger-state-appenders state)
+                     (and (logger-state-additivity state)
+                          (have-appenders (logger-parent logger))))))))
     (let* ((logger-level (effective-log-level logger)))
       (and (>= logger-level level)
 	   (have-appenders logger)))))

@@ -208,8 +208,8 @@ done via property configurator, rather then directly"
                  ;; verify it got closed
                  (with-open-file (s fname2)
                    (is (equal (read-line s) "INFO - Hey again"))))
-            (delete-file fname1)
-            (delete-file fname2)))))))
+            (ignore-errors (delete-file fname1))
+            (ignore-errors (delete-file fname2))))))))
 
 (deftest test-property-configurator-with-pattern-layout ()
   "A copy of previous test, but we add a pattern layout"
@@ -254,6 +254,6 @@ done via property configurator, rather then directly"
                               (format nil "DEBUG ~s:~s Hey again"
                                       'bar
                                       'baz)))))
-            (delete-file fname1)
-            (delete-file fname2)))))))
+            (ignore-errors (delete-file fname1))
+            (ignore-errors (delete-file fname2))))))))
 

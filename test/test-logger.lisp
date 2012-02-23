@@ -220,6 +220,10 @@ correctly parsed into multiple loggers"
       (is (equal 2 (slot-value a1 'count)))
       (is (equal 3 (slot-value a2 'count)))
       (is (equal 2 (slot-value a3 'count)))
+      ;; damn, our (reset-logger) uses HAVE-APPENDERS-FOR-LEVEL
+      ;; rather then (EFFECTIVE-APPENDERS), to avoid consing, and
+      ;; I forgot to update it for additivity... Test that (log-whatever)
+      ;; expressions take additivity into account as well
       (log-config one-two-three :d)
       (is (log-debug one-two-three))
       (setf (logger-additivity one-two-three) nil)

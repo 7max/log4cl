@@ -169,8 +169,8 @@ Examples:
     (when own
       (set-additivity logger nil nil))
     (when (or daily sane)
-      (let ((default-pattern "[%d{%H:%M:%S}] [%P] <%c{}{}{:downcase}> - %m%n")
-            (twoline-pattern "[%d{%H:%M:%S}] [%-5P] <%c{}{}{:downcase}>%n  *%I{>} %m%n"))
+      (let ((default-pattern "[%D{%H:%M:%S}] [%P] <%c{}{}{:downcase}> - %m%n")
+            (twoline-pattern "[%D{%H:%M:%S}] [%-5P] <%c{}{}{:downcase}>%n  *%I{>} %m%n"))
         (setq layout (make-instance 'pattern-layout
                       :conversion-pattern
                       (or pattern

@@ -122,7 +122,7 @@ Supported values for ARG are:
            (or match 
                (log4cl-error "~s does not match any log levels" arg))))
         ((and (numberp arg)
-              (>= arg +min-log-level+)
+              (>= arg 0)
               (<= arg +log-level-unset+))
          arg)
         (t (log4cl-error "~s does not match any log levels" arg))))

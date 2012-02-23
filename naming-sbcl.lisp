@@ -61,11 +61,14 @@ return \(FOOBAR FOO\)"
     (when (and (consp (car name))
                (equal (length name) 1))
       (setq name (car name)))
-    (loop for elem in name
-          if (consp elem)
-          ;; flatten method specializers and remove T ones
-          append (remove t elem)
-          else collect elem)))
+    (labels ((flatten (list)
+               (when list
+                 (loop for elem in list
+                       if (consp elem)
+                       ;; flatten method specializers and remove T ones
+                       append (flatten (remove t elem))
+                       else collect elem))))
+      (flatten name))))
 
 
 (defmethod enclosing-scope-block-name (package env)

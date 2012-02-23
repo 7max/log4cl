@@ -19,9 +19,6 @@
                (:file "logger")
                (:file "logging-macros")
                (:file "self-logger")
-               ;; ;; TODO do this dynamically only if demacs
-               ;; ;; package is present
-               ;; (:file "demacs-integration")
 	       (:file "layout")
 	       (:file "simple-layout")
 	       (:file "pattern-layout")

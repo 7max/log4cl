@@ -58,9 +58,13 @@ Properties:
 (defgeneric appender-stream (appender) 
   (:documentation "Should return the stream to which appender will write log messages"))
 
-(defclass fixed-stream-appender (stream-appender)
+(defclass fixed-stream-appender-base (stream-appender)
+  ((stream :accessor appender-stream))
+  (:documentation "Appender that writes message to the stream in STREAM slot"))
+
+(defclass fixed-stream-appender (fixed-stream-appender-base)
   ((stream :initarg :stream :accessor appender-stream))
-  (:documentation "Appender that writes message to the stream specified in STREAM slot"))
+  (:documentation "Appender that writes message to the stream in STREAM slot"))
 
 (defclass console-appender (stream-appender) () 
   (:documentation "A stream appender that writes messages to
@@ -146,7 +150,7 @@ unless :IMMEDAITE-FLUSH property is set."
   (values))
 
 ;; Save one generic function dispatch by accessing STREAM slot directly
-(defmethod appender-do-append ((this fixed-stream-appender)
+(defmethod appender-do-append ((this fixed-stream-appender-base)
                                logger
 			       level
                                log-func)
@@ -168,7 +172,7 @@ unless :IMMEDAITE-FLUSH property is set."
     (close (slot-value appender 'stream))
     (slot-makunbound appender 'stream)))
 
-(defclass file-appender-base (fixed-stream-appender) () 
+(defclass file-appender-base (fixed-stream-appender-base) () 
   (:documentation "Appender that writes to a file and closes it when
 its no longer attached to loggers"))
 

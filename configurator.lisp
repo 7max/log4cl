@@ -327,7 +327,7 @@ Example output:
                (let* ((props (property-alist obj))
                       (name-width (loop for prop in props maximize
                                            (length (format nil "~s" (car prop))))))
-                 (loop for (initarg slot type) in props
+                 (loop for (initarg slot nil) in props
                        do (print-indent)
                        do (format t "~v<~(~s~)~;~> ~s~%"
                                   name-width

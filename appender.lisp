@@ -291,6 +291,7 @@ CHECK-PERIOD seconds "
     (maybe-close-file appender)
     (setf (slot-value appender 'stream)
           (open (ensure-directories-exist filename)
+                #+ccl :sharing #+ccl :external
                 :direction :output
                 :if-exists :append
                 :if-does-not-exist :create))))

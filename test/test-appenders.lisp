@@ -213,16 +213,12 @@ user log statement, its raised and does not disable the appender"
       (can-create-file-p (asdf:getenv "TMP"))
       (can-create-file-p ".")))
 
-(defvar *tests-dir* nil)
+(defparameter *tests-dir*
+  (ensure-directories-exist
+   (merge-pathnames (format nil "~a/" (rand-filename))
+                    *temp-dir*)))
 
 (defsuite* test-file-appenders)
-
-(deftest file-tests-figure-out-test-directory ()
-  (setq *tests-dir* nil)
-  (setq *tests-dir*
-        (ensure-directories-exist
-         (merge-pathnames (format nil "~a/" (rand-filename))
-                          *temp-dir*))))
 
 (deftest test-normal-file-appender ()
   (with-package-log-hierarchy
@@ -361,7 +357,7 @@ user log statement, its raised and does not disable the appender"
           (with-open-file (s fname)
             (is (read-line s nil))
             (is (not (read-line s nil)))))
-        ;; give auto-flusher chance to run
+        ;; Give auto-flusher chance to run
         (sleep 2)
         (with-open-file (s fname)
           (is (equal (read-line s nil) "INFO - Hello World 1"))

@@ -116,7 +116,7 @@ token name into the keyword and call this function again"
             additivity))))
 
 (defun intern-class-name (string)
-  (let ((pos (position #\Colon string))
+  (let ((pos (position #\: string))
         (*print-readably* nil))
     (if (null pos)
         (find-symbol string)
@@ -125,7 +125,7 @@ token name into the keyword and call this function again"
           (when pkg
             (incf pos)
             (when (and (< pos (length string))
-                       (char= (char string pos) #\Colon))
+                       (char= (char string pos) #\:))
               (incf pos)
               (setf only-external-p nil))
             (log-sexp pkg only-external-p (substr string pos))
@@ -227,7 +227,7 @@ and then create the instance"
                                      'used) t))))
       ;; create the appenders, we do this before mucking with loggers,
       ;; in case creating an appender signals an error
-      (loop for (name . a) in appenders
+      (loop for (nil . a) in appenders
             if (slot-value a 'used)
             do (with-slots (layout extra-initargs) a
                  (when layout

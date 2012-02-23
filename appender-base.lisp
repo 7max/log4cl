@@ -8,7 +8,7 @@
            :initarg :layout)
    (error :initform nil :accessor appender-error)
    (logger-count :initform 0 :accessor appender-logger-count
-                 :type (integer 0 most-positive-fixnum)))
+                 :type (integer 0)))
   (:documentation "Appender is log message sink, and is responsible
 for physically delivering the log message, somewhere. The formatting
 of message is done by layout.

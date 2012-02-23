@@ -507,8 +507,8 @@ consed list of strings"
 compiled file"
   (declare (ignore env))
   `(get-logger-internal ',(logger-categories log)
-                        ,(naming-option *package* :category-separator)
-                        ,(naming-option *package* :category-case)))
+                        (naming-option *package* :category-separator)
+                        (naming-option *package* :category-case)))
 
 (defun log-event-time ()
   "Returns the universal time of the current log event"

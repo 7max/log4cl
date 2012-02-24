@@ -271,12 +271,12 @@ explicit log level, or having any appenders, or being non-additive
 ## Appenders and layouts
 
 While loggers are logical sinks for the log messages, appenders are
-physical ones, that are actually responsible formatting and routing
-the formatter log message somewhere.
+physical ones, that are responsible for formatting the log messages
+and delivering them to their ultimate destination.
 
 For example `CONSOLE-APPENDER` writes message to `*DEBUG-IO*` stream
-and `DAILY-FILE-APPENDER` writes messages into a file with
-configurable file-name.
+and `DAILY-FILE-APPENDER` writes messages into a file that rolls over
+each day.
 
 ### Layouts
 
@@ -292,8 +292,8 @@ LOG4CL provides two layout classes:
 
 - `PATTERN-LAYOUT` formats the message by specifying a conversion
   pattern string, which has escape sequences for various part of the
-  log message. See Lisp docstring for `LOG4CL:PATTERN-LAYOUT` class
-  for the description of the pattern layout elements.
+  log message. See Lisp docstring for `PATTERN-LAYOUT` class for the
+  description of the pattern layout elements.
 
 ### Configuring appenders and layouts with `(log:config)` function
 
@@ -350,4 +350,77 @@ description, below are a few examples:
               (log:info "test")
 
               2012-02-23 21:05:12 -- INFO -- test
+
+- `:PROPERTIES` option configures logging system from Log4J style
+  properties file. There are important differences from Log4J:
+
+  - Logging configuration lines start with log4cl instead of log4j
+
+  - The default separator is colon instead of dot, similar to log
+    category names
+
+              $ cat tests/log4cl.properties
+
+              log4cl:rootLogger = INFO, file1, console
+              log4cl:appender:console = log4cl:console-appender
+              log4cl:appender:console:layout = log4cl:pattern-layout
+              log4cl:appender:console:layout:conversion-pattern =    |%p| |%c| - %m%n
+              log4cl:appender:file1 = log4cl:file-appender
+              log4cl:appender:file1:file = /tmp/logfile.txt
+              log4cl:appender:file1:immediate-flush = true
+              
+              (log:config :properties "tests/log4cl.properties")
+
+              (log:info "testing")
+
+                  |INFO| |CL-USER| - testing
+
+              $ cat /tmp/logfile.txt
+
+              INFO - testing
+  Note that whitespace is not stripped from the start of conversion
+  pattern property, but is stripped from the beginning of the
+  file-name property.
+
+- `:WATCH` option is used together with *:PROPERTIES* option, and will make
+  LOG4CL watch the file modification time, and reload it when it changes.
+
+              (log:config :properties "tests/log4cl.properties" :watch)
+
+              (log:info "testing")
+
+                  |INFO| |CL-USER| - testing
+
+              $ cat /tmp/logfile.txt
+
+              INFO - testing
+  Now modify and save the *log4cl.properites* file.
+
+              |INFO| |LOG4CL| - Re-configured logging from tests/log4cl.properties
+  Now modify the file to have some error
+   
+              |ERROR| |LOG4CL| - Re-configuring from tests/log4cl.properties failed:
+              "log4cl:appender:console:layout:conversion-patter =    |%p| |%c| - %m%n"
+              Error at line 6:
+              Unknown property :CONVERSION-PATTER for class #<PATTERN-LAYOUT
+                                                              {10761F4841}>
+
+## More documentation
+
+  Hopefully this Quick-Start guide covered enough to get you up and running, and
+  using basic logging in your application.
+
+  Description of the more advanced features, such as logging
+  hierarchies, and how to customize LOG4CL by adding your own
+  appenders and layouts, or customizing auto-naming will be covered
+  later once user manual is finished.
+
+  For now, you can browse the source code, where most generic
+  functions, classes and methods have detailed docstrings. When doing
+  so, please note that *LOG4CL* is simply a forwarder package, intended
+  to be used only for log statements, and not for any customizations;
+  the actual implementation of *LOG4CL* lives in the *LOG4CL-IMPL*
+  package, which exports everything needed to for writing your own
+  appenders and layouts. You can start with `src/appender.lisp` if you
+  are looking for examples.
 

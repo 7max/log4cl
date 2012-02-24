@@ -314,6 +314,7 @@ description, below are a few examples:
 - `:TWOLINE` option changes the pattern layout used to have output on
   two lines, the header line with time-stamp, log level, and logger's
   category, and second line with the actual log message.
+
               (log:config :sane :twoline)
 
               (log:info "test")

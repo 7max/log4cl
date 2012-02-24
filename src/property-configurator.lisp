@@ -255,9 +255,14 @@ property it is. Signals error if property is not in the list"
   (let* ((props-alist (property-alist instance))
          (type (third (assoc property props-alist))))
     (case type
-      (number (parse-integer (strip-whitespace value)))
-      (boolean (intern-boolean (strip-whitespace value)))
-      (string value)
+      ((number :number) (parse-integer (strip-whitespace value)))
+      ((boolean :boolean) (intern-boolean (strip-whitespace value)))
+      ((string :string) value)
+      (:string-skip-whitespace
+       (loop for idx from 0 below (length value)
+             for c = (char value idx)
+             while (member c '(#\Space #\Tab) :test 'char=)
+             finally (return (coerce (substr value idx) 'simple-string))))
       (t (log4cl-error "Unknown property ~s for class ~s" property instance)))))
 
 (defgeneric configure (configurator source &key &allow-other-keys)
@@ -291,9 +296,10 @@ will not be configured if initial configuration signaled a error"
                         :time (file-write-date filespec)
                         :configurator configurator)
                        :test
-                       (lambda (spec tok)
-                         (and (pathnamep tok)
-                              (equal spec tok)))))))
+                       (lambda (watch1 watch2)
+                         (and (typep watch2 'property-configurator-file-watch)
+                              (equal (slot-value watch1 'filespec)
+                                     (slot-value watch2 'filespec))))))))
 
 (defmethod watch-token-check ((token property-configurator-file-watch))
   "Checks properties file write time, and re-configure from it if it changed.
@@ -303,10 +309,11 @@ file continues if newly modified file had an error"
     (let ((new-time (file-write-date filespec)))
       (when (/= new-time time)
         (setf time new-time)
-        (log-info '(log4cl) "Re-configuring logging from changed file ~A" filespec)
         (handler-case
-            (configure configurator filespec)
+            (progn (configure configurator filespec)
+                   (log-info '(log4cl) "Re-configured logging from ~A"
+                             (enough-namestring filespec)))
           (property-parser-error (c)
             (log-error '(log4cl)
-                       "Configuration from file ~A failed:~%~A"
-                       filespec c)))))))
+                       "Re-configuring from ~A failed:~%~A"
+                       (enough-namestring filespec) c)))))))

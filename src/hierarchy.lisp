@@ -59,8 +59,10 @@ package"
                               (hierarchy (current-hierarchy)))
   (with-slots (watch-tokens) hierarchy
     (with-hierarchy-lock (hierarchy)
-        (unless (find token watch-tokens :test test :key key)
-          (push token watch-tokens)))
+      ;; remove first, in case caller got the test wrong initially,
+      ;; and is now stuck with extra values
+      (setf watch-tokens (remove token watch-tokens :test test :key key))
+      (push token watch-tokens))
     (start-hierarchy-watcher-thread)))
 
 (defun remove-watch-token (token &key

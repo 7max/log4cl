@@ -186,7 +186,7 @@ name"))
 
 (defmethod property-alist ((instance file-appender))
   (append (call-next-method)
-          '((:file filename string))))
+          '((:file filename :string-skip-whitespace))))
 
 (defmethod appender-filename ((appender file-appender-base))
   (slot-value appender 'filename))
@@ -254,8 +254,8 @@ day.
 
 (defmethod property-alist ((instance daily-file-appender))
   (append (call-next-method)
-          '((:name-format name-format string)
-            (:backup-name-format backup-name-format string)
+          '((:name-format name-format :string-skip-whitespace)
+            (:backup-name-format backup-name-format :string-skip-whitespace)
             (:utc utc-p boolean))))
 
 (defmethod appender-filename ((appender daily-file-appender))

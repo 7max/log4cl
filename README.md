@@ -99,7 +99,7 @@ child logger `C`, the full category name of the logger C is `A:B:C`
 ### Automatic naming of loggers
 
 When you issue a log statement such as `(log:info "whatever")` LOG4CL
-determines the logger name automatically based on surrounding content.
+determines the logger name automatically based on surrounding context.
 That's why, when you issue log statement from `REPL` with the current
 package being *CL-USER*, the logger message is logged into is also
 called `CL-USER`.

@@ -60,7 +60,8 @@ arguments to be passed to the format statement that will log the
 message.
 
 When second value returned is NIL, then logging macro will not log any
-message but will rather expand into a non-nil value if logger is"))
+message but will rather expand into a non-NIL value if logging is
+enabled on that logger."))
 
 (defgeneric resolve-default-logger-form (package env args)
   (:documentation "Is called by RESOLVE-LOGGER-FORM when logging macro
@@ -78,8 +79,8 @@ For CLOS method it is recommended that return value be a generic
 function name, followed by optional qualifier, and then followed by
 any non-T specializers, with EQL specializers flattened to their
 values, for example for the :AROUND method FOO with lambda list
-of ((OBJ1 BAR) (OPTION (EQL :BAZ)) OBJ3) the return value is
-recommended to be in the form of '(FOO AROUND BAR BAZ) "))
+of ((OBJ1 BAR) (OPTION (EQL :BAZ)) OBJ3) should strive to return
+'(FOO AROUND BAR BAZ) "))
 
 #-(or sbcl)
 (defmethod enclosing-scope-block-name (package env)

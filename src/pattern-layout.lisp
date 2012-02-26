@@ -99,7 +99,7 @@ Following pattern characters are recognized:
    %D date-time in local time, extra arguments can contain a strftime pattern
 
    %h hostname of the system (implementation dependent, obtained once
-      when pattern is parsed, and cached
+   when pattern is parsed, and cached
 
    %t Current thread name
 
@@ -108,7 +108,7 @@ Following pattern characters are recognized:
    %i Process id of the lisp process, implementation dependent.
 
    %I Two spaces repeated *log-indent* times. Different padding string
-      can be specified in an extra argument.
+   can be specified in an extra argument.
 
    %n OS-dependent newline sequence.
 
@@ -258,7 +258,7 @@ Example: For the string {one}{}{three} will return the list (14
 
 (defmethod parse-extra-args (fmt-info character pattern start)
   "Default method does not parse any extra arguments and returns INFO
-  unchanged"
+unchanged"
   (declare (ignore character pattern))
   (values start fmt-info))
 
@@ -424,7 +424,7 @@ Example: For the string {one}{}{three} will return the list (14
 
 (defun compile-pattern-format (layout pattern)
   "Parses the pattern format and returns a function with lambda-list
-of \(STREAM STREAM LOG-LEVEL LOG-FUNC\) that when called will output
+of (STREAM LOGGER LOG-LEVEL LOG-FUNC) that when called will output
 the log message to the stream with the specified format."
   (let ((idx 0)
         (str (make-array 0 :element-type 'character
@@ -518,10 +518,10 @@ the log message to the stream with the specified format."
 
 (defgeneric format-time (stream pattern universal-time utc-p)
   (:documentation "Prints UNIVERSAL-TIME to the STREAM according to
-                                                             strftime like PATTERN."))
+strftime like PATTERN."))
 
 (defun format-log-date (stream fmt-info utc-p)
-  "Output the %d or %D pattern"
+  "Helper function to print either %d or %D (date/time) pattern"
   (declare (type pattern-date-format-info fmt-info))
   (with-slots (minlen maxlen date-format universal-time) fmt-info
     (let* ((ut (or universal-time (log-event-time))))
@@ -534,13 +534,13 @@ the log message to the stream with the specified format."
   (values))
 
 (define-pattern-formatter (#\d)
-  "Output the %d pattern"
+  "Output the %d (UTC date/time) pattern"
   (declare (ignore logger log-level log-func))
   (format-log-date stream fmt-info t)
   (values))
 
 (define-pattern-formatter (#\D)
-  "Output the %D pattern"
+  "Output the %D (local date/time) pattern"
   (declare (ignore logger log-level log-func))
   (format-log-date stream fmt-info nil)
   (values))
@@ -712,7 +712,12 @@ the log message to the stream with the specified format."
 (defclass pattern-newline-format-info (format-info)
   ((width    :initarg :width)
    (continue :initarg :continue))
-  (:documentation "Extra formatting flags for %n pattern"))
+  (:documentation "Extra formatting flags for %n pattern. Currently
+this is unused, but in the future it may be implemented so that
+newline will be conditional, if underlaying stream supports
+STREAM-LINE-COLUMN, so that instead of two-line pattern layout, we can
+use conditional newline only user message does not fit on current
+line"))
 
 (defmethod parse-extra-args (fmt-info (char (eql #\n)) pattern start)
   (destructuring-bind (next-pos &optional width continue)
@@ -790,7 +795,7 @@ the log message to the stream with the specified format."
              :indent-string (or indent-string "  ")))))
 
 (define-pattern-formatter (#\I)
-  "Output %i (process id) pattern"
+  "Output %I (current WITH-LOG-INDENT) pattern"
   (declare (ignore logger log-level log-func))
   (let ((str (slot-value fmt-info 'indent-string)))
     (if (and (zerop (slot-value fmt-info 'minlen))

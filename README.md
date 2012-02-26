@@ -234,7 +234,7 @@ level from its parent again, use the log level *unset* or use the
 
     (log:config '(cl-user) :info :clear)
 
-    (log:debug :a "this is a trace")
+    (log:debug :a "this is debug)
 
 Note: *:clear* option resets the log level of all the child loggers of
 the specified logger, but not the logger itself. To do both use

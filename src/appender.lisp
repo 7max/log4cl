@@ -1,5 +1,19 @@
-(in-package #:log4cl-impl)
+;;; -*- Mode: Lisp; Syntax: ANSI-Common-Lisp; Base: 10 -*-
+;;;
+;;; Copyright (c) 2012, Max Mikhanosha. All rights reserved.
+;;;
+;;; This file is licensed to You under the Apache License, Version 2.0
+;;; (the "License"); you may not use this file except in compliance
+;;; with the License.  You may obtain a copy of the License at
+;;; http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;;; Unless required by applicable law or agreed to in writing, software
+;;; distributed under the License is distributed on an "AS IS" BASIS,
+;;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;;; See the License for the specific language governing permissions and
+;;; limitations under the License.
 
+(in-package #:log4cl-impl)
 
 (defmethod property-alist ((instance appender))
   "Abstract appender has no properties"
@@ -43,13 +57,16 @@ obtained on each output by calling APPENDER-STREAM function.
 
 Properties:
 
-  - IMMEDIATE-FLUSH :: When non-NIL will call FINISH-OUTPUT after
-    every log message
+IMMEDIATE-FLUSH
 
-  - FLUSH-INTERVAL :: When set, will only flush if previous flush was
-    earlier than FLUSH-INTERVAL seconds ago. In addition a background
-    thread will be used to flush all appenders with FLUSH-INTERVAL
-    set. See ADD-WATCH-TOKEN"))
+: When non-NIL will call FINISH-OUTPUT after every log message
+
+FLUSH-INTERVAL
+
+: When set, will only flush if previous flush was earlier than
+FLUSH-INTERVAL seconds ago. In addition a background thread will be
+used to flush all appenders with FLUSH-INTERVAL set. See
+ADD-WATCH-TOKEN"))
 
 (defmethod property-alist ((instance stream-appender))
   '((:immediate-flush immediate-flush boolean)
@@ -77,7 +94,7 @@ use FIXED-STREAM-APPENDER class"))
 #+bordeaux-threads
 (defmethod appender-added :after (logger (appender stream-appender))
   "Add appender to the watch tokens in the current hierarchy,
-unless :IMMEDAITE-FLUSH property is set."
+unless IMMEDAITE-FLUSH property is set."
   (declare (ignore logger))
   (with-slots (immediate-flush)
       appender
@@ -198,10 +215,13 @@ name"))
   "File appender that periodically checks if it needs to rollover the
 log file.
 
-Calls to MAYBE-ROLL-FILE will be made when current time advances past
-the boundary that is evenly divisible by %ROLLOVER-CHECK-PERIOD.
+Properties:
 
-%ROLLOVER-CHECK-PERIOD is specified in seconds"))
+ROLLOVER-CHECK-PERIOD
+
+: An integer, when current time advances past the boundary evenly divisible by this
+number a call to MAYBE-ROLL-FILE will be made to check if log file needs
+to be rolled over"))
 
 (defmethod property-alist ((instance rolling-file-appender-base))
   (append (call-next-method)
@@ -216,19 +236,33 @@ the boundary that is evenly divisible by %ROLLOVER-CHECK-PERIOD.
    ;; The name that the currently active file will be renamed into
    (%next-backup-name :initform nil))
   (:documentation "An appender that writes to the file named by
-expanding FILENAME pattern.  The expansion is done by the same
+expanding a pattern.  The expansion is done by the same
 converter as the %d conversion pattern of the PATTERN-LAYOUT, which is
-a subset of patterns supported by POSIX strftime function. UTC-P slot
-controls if date pattern expansion uses local or GMT time, default is
-local.
+a subset of patterns supported by strftime POSIX function.
 
-Each time an event is logged, and current time is greater or equal to
-%ROLLOVER-CHECK-PERIOD boundary, both NAME-FORMAT and
-BACKUP-NAME-FORMAT (if present) will be expanded.
+Properties:
+
+NAME-FORMAT
+   : Expanded with date formatter to get the name of the current log file
+
+BACKUP-NAME-FORMAT
+   : Expanded with date formatter to get the name of the backup log
+   file
+
+UTC-P
+   : Should be non-NIL if name and backup patterns expand the UTC time
+   instead of local. Defaults to NIL.
+
+MAYBE-ROLL-FILE method works as follows. It expands both name and
+backup format (if present).
 
 If either of them differs from their previous values, current log file
-will be closed, and a new log file named after expanding NAME-FORMAT
-will be opened. The old log file will be renamed to %NEXT-BACKUP-NAME
+will be closed, and a new current log file will be opened.
+
+The old log file will be renamed to %NEXT-BACKUP-NAME, which is a
+value of the backup format expansion remembered when original log file
+was opened.  The new value of the backup format expansion is
+remembered in the %NEXT-BACKUP-NAME slot.
 
 In below examples it is assumed that current log file was created an
 2012-02-21, and the event being logged is the first one on the next
@@ -306,13 +340,13 @@ CHECK-PERIOD seconds "
 
 (defgeneric backup-log-file (appender log-filename backup-filename)
   (:documentation "Should move or rename LOG-FILENAME into the
-  BACKUP-FILENAME. When this function is called, LOG-FILENAME is
-  already closed.
+BACKUP-FILENAME. When this function is called, LOG-FILENAME is already
+closed.
 
-  Implemented as generic function so its possible to write extensions
-  that compress the backup log files automatically, or append
-  to them. One possible extension could be having daily log file
-  and a weekly backup, that is appended to each day")
+Implemented as generic function so its possible to write extensions
+that compress the backup log files automatically, or append to
+them. One possible extension could be having daily log file and a
+weekly backup, that is appended to each day")
   (:method (appender log-filename backup-filename)
     (declare (ignore appender))
     (rename-file log-filename backup-filename)))

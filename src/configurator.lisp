@@ -1,3 +1,21 @@
+;;; -*- Mode: Lisp; Syntax: ANSI-Common-Lisp; Base: 10 -*-
+;;;
+;;; Copyright (c) 2012, Max Mikhanosha. All rights reserved.
+;;;
+;;; This file is licensed to You under the Apache License, Version 2.0
+;;; (the "License"); you may not use this file except in compliance
+;;; with the License.  You may obtain a copy of the License at
+;;; http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;;; Unless required by applicable law or agreed to in writing, software
+;;; distributed under the License is distributed on an "AS IS" BASIS,
+;;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;;; See the License for the specific language governing permissions and
+;;; limitations under the License.
+
+;;;
+;;; Contains (log-config) function and default logging initialization
+;;; 
 (in-package #:log4cl-impl)
 
 (defun clear-logging-configuration ()
@@ -38,50 +56,51 @@ If not specified, default logger will be root logger
 
 Valid options can be:
 
-|-------------+---------------------------------------------------------------|
-| :INFO       | Or any other keyword identifying a log level, which can be    |
-| :DEBUG      | shortened to its shortest unambiguous prefix, such as :D      |
-|-------------+---------------------------------------------------------------|
-| :CLEAR      | Removes log level and appenders from any child loggers,       |
-|             | appenders are not removed from non-additive loggers           |
-|-------------+---------------------------------------------------------------|
-| :ALL        | Changes :CLEAR to remove appenders from non-additive          |
-|             | loggers                                                       |
-|-------------+---------------------------------------------------------------|
-| :SANE       | Removes logger appenders, adds console appender with          |
-|             | pattern layout that makes messages look like this:            |
-|             |                                                               |
-|             | :     [11:22:25] INFO  {category.name} - message              |
-|-------------+---------------------------------------------------------------|
-| :OWN        | For :SANE and :DAILY makes logger non-additive                |
-|             | otherwise additive flag will be set                           |
-|-------------+---------------------------------------------------------------|
-| :DAILY FILE | Adds file appender logging to the named file, which will      |
-|             | be rolled over every midnight into FILE.YYYYMMDD; Removes any |
-|             | other other appenders that subclass FILE-APPENDER-BASE from   |
-|             | the logger.  If :SANE is also specified, all logger appenders |
-|             | are removed, but console appender is not added                |
-|-------------+---------------------------------------------------------------|
-| :CONSOLE    | Forces adding of console appender if :DAILY was specified     |
-|-------------+---------------------------------------------------------------|
-| :PATTERN    | For :SANE option uses specified conversion pattern instead    |
-| STRING      | of default one                                                |
-|-------------+---------------------------------------------------------------|
-| :TWOLINE    | Changes default pattern layout to print user log message      |
-|             | log message on 2nd line after the headers                     |
-|-------------+---------------------------------------------------------------|
-| :SELF       | Used for debugging LOG4CL itself. Instead of root logger,     |
-|             | make default logger LOG4CL:SELF and remember all arguments    |
-|             | in the variable *SELF-LOG-CONFIG*, so that they are restored  |
-|             | even on (CLEAR-LOGGING-CONFIGURATION). Automatically assumes  |
-|             | :OWN making the LOG4CL-IMPL:SELF logger non-additive          |
-|-------------+---------------------------------------------------------------|
-| :PROPERTIES | Configure with PROPERTY-CONFIGURATOR by parsing specified     |
-| FILE        | properties file                                               |
-|-------------+---------------------------------------------------------------|
-| :WATCH      | Used with :PROPERTIES, uses watcher thread to check           |
-|             | properites file modification time, and reloads if it changes  |
-|-------------+---------------------------------------------------------------|
+  Option     | Description
+-------------|---------------------------------------------------------------
+ :INFO       | Or any other keyword identifying a log level, which can be    
+ :DEBUG      | shortened to its shortest unambiguous prefix, such as :D      
+-------------|---------------------------------------------------------------
+ :CLEAR      | Removes log level and appenders from any child loggers,       
+             | appenders are not removed from non-additive loggers           
+-------------|---------------------------------------------------------------
+ :ALL        | Changes :CLEAR to remove appenders from non-additive          
+             | loggers                                                       
+-------------|---------------------------------------------------------------
+ :SANE       | Removes logger appenders, adds console appender with          
+             | pattern layout that makes messages look like this:            
+             |                                                               
+             | :     [11:22:25] INFO  {category.name} - message              
+-------------|---------------------------------------------------------------
+ :OWN        | For :SANE and :DAILY makes logger non-additive                
+             | otherwise additive flag will be set                           
+-------------|---------------------------------------------------------------
+ :DAILY FILE | Adds file appender logging to the named file, which will      
+             | be rolled over every midnight into FILE.YYYYMMDD; Removes any 
+             | other other appenders that subclass FILE-APPENDER-BASE from   
+             | the logger.  If :SANE is also specified, all logger appenders 
+             | are removed, but console appender is not added                
+-------------|---------------------------------------------------------------
+ :CONSOLE    | Forces adding of console appender if :DAILY was specified     
+-------------|---------------------------------------------------------------
+ :PATTERN    | For :SANE option uses specified conversion pattern instead    
+ STRING      | of default one                                                
+-------------|---------------------------------------------------------------
+ :TWOLINE    | Changes default pattern layout to print user log message      
+             | log message on 2nd line after the headers                     
+-------------|---------------------------------------------------------------
+ :SELF       | Used for debugging LOG4CL itself. Instead of root logger,     
+             | make default logger LOG4CL:SELF and remember all arguments    
+             | in the variable *SELF-LOG-CONFIG*, so that they are restored  
+             | even on (CLEAR-LOGGING-CONFIGURATION). Automatically assumes  
+             | :OWN making the LOG4CL-IMPL:SELF logger non-additive          
+-------------|---------------------------------------------------------------
+ :PROPERTIES | Configure with PROPERTY-CONFIGURATOR by parsing specified     
+ FILE        | properties file                                               
+-------------|---------------------------------------------------------------
+ :WATCH      | Used with :PROPERTIES, uses watcher thread to check           
+             | properites file modification time, and reloads if it changes  
+-------------|---------------------------------------------------------------
 
 Examples:
 

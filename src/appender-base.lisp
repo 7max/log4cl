@@ -1,7 +1,21 @@
+;;; -*- Mode: Lisp; Syntax: ANSI-Common-Lisp; Base: 10 -*-
+;;;
+;;; Copyright (c) 2012, Max Mikhanosha. All rights reserved.
+;;;
+;;; This file is licensed to You under the Apache License, Version 2.0
+;;; (the "License"); you may not use this file except in compliance
+;;; with the License.  You may obtain a copy of the License at
+;;; http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;;; Unless required by applicable law or agreed to in writing, software
+;;; distributed under the License is distributed on an "AS IS" BASIS,
+;;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;;; See the License for the specific language governing permissions and
+;;; limitations under the License.
+
 (in-package #:log4cl-impl)
 
-;; Base APPENDER class and generics that logging core needs to know
-;; about
+;; Base APPENDER class and generics that logging core needs to see
 
 (defclass appender ()
   ((layout :initform (make-instance 'simple-layout)
@@ -86,9 +100,22 @@ PROPERTY-TYPES function"))
 (defgeneric property-alist (instance)
   (:documentation "Should return list of valid object properties, each
 element of the list being (INITARG SLOT TYPE) with INITARG being the
-keyword, SLOT is the slot name for the property and TYPE one of
-(member '(NUMBER BOOLEAN STRING)). Overriding this method to add extra
-properties is the only thing needed to allow extra properties in
-custom appenders/layouts to be configurable from by property file
-configurator. See also PROPERTY-INITARG-FROM-STRING"))
+keyword, SLOT is the slot name for the property and TYPE one of:
+
+Type                    | Description
+------------------------|------------------------------------------------------
+NUMBER or :NUMBER       | Integer property, converted by (parse-integer)
+------------------------|------------------------------------------------------
+BOOLEAN or :BOOLEAN     | Boolean, accepts \"true\" \"t\" \"on\" \"false\" 
+                        | \"off\" \"nil\" and empty string
+------------------------|------------------------------------------------------
+STRING or :STRING       | Value as-is after the equal sign in NAME = <value>
+                        | Whitespace is not stripped
+------------------------|------------------------------------------------------
+:STRING-SKIP-WHITESPACE | Value with the leading whitespace removed
+
+Overriding this method to add extra properties is the only thing
+needed to allow extra properties in custom appenders/layouts to be
+configurable from by property file configurator. See also
+PROPERTY-INITARG-FROM-STRING"))
 

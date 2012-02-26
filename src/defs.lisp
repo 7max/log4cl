@@ -1,4 +1,21 @@
+;;; -*- Mode: Lisp; Syntax: ANSI-Common-Lisp; Base: 10 -*-
+;;;
+;;; Copyright (c) 2012, Max Mikhanosha. All rights reserved.
+;;;
+;;; This file is licensed to You under the Apache License, Version 2.0
+;;; (the "License"); you may not use this file except in compliance
+;;; with the License.  You may obtain a copy of the License at
+;;; http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;;; Unless required by applicable law or agreed to in writing, software
+;;; distributed under the License is distributed on an "AS IS" BASIS,
+;;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;;; See the License for the specific language governing permissions and
+;;; limitations under the License.
+
 (in-package #:log4cl-impl)
+;;
+;; Global variables and constants
 ;;
 ;; Define the log levels. Similar to Log4J, except that we add extra
 ;; nice log levels named "user1" through "user9" with "trace" log
@@ -6,8 +23,13 @@
 ;;
 ;; Reasoning behind extra levels is: 
 ;;
-;;  1. Unlike log4j the design of log4cl allows for mulitple log levels
-;;     to be enabled simultaneously.
+;; Unlike log4j the design of log4cl allows for mulitple log levels to
+;; be enabled simultaneously. This is currently not used, but may be
+;; used in the future
+;;
+;; This will allow for more fine grained control of logging in the
+;; future where it would be possible to enable TRACE but not DEBUG or
+;; INFO
 ;;     
 (defconstant +log-level-unset+  16)
 (defconstant +log-level-user9+  15)

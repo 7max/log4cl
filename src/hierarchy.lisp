@@ -1,3 +1,18 @@
+;;; -*- Mode: Lisp; Syntax: ANSI-Common-Lisp; Base: 10 -*-
+;;;
+;;; Copyright (c) 2012, Max Mikhanosha. All rights reserved.
+;;;
+;;; This file is licensed to You under the Apache License, Version 2.0
+;;; (the "License"); you may not use this file except in compliance
+;;; with the License.  You may obtain a copy of the License at
+;;; http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;;; Unless required by applicable law or agreed to in writing, software
+;;; distributed under the License is distributed on an "AS IS" BASIS,
+;;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;;; See the License for the specific language governing permissions and
+;;; limitations under the License.
+
 (in-package #:log4cl-impl)
 
 #+sbcl
@@ -57,6 +72,15 @@ package"
 (defun add-watch-token (token &key
                               (test #'equal) key
                               (hierarchy (current-hierarchy)))
+  "Add unique watch token to the HIERARCHY, uniqueness is determined
+by TEST and KEY arguments which are passed to FIND and REMOVE. Any
+matching token is already present, the old token is removed and new
+one is inserted.
+
+The per-hierarchy lock is held doing the operation.
+
+Automatically starts hierarchy watcher thread, if it was not already started
+"
   (with-slots (watch-tokens) hierarchy
     (with-hierarchy-lock (hierarchy)
       ;; remove first, in case caller got the test wrong initially,
@@ -68,6 +92,9 @@ package"
 (defun remove-watch-token (token &key
                                  (test #'equal) key
                                  (hierarchy (current-hierarchy)))
+  "Removes the watch token from the hierarchy, that matches the
+specified KEY and TEST arguments, which are passed to REMOVE
+function. Holds per-hierarchy lock doing its operation"
   (with-slots (watch-tokens) hierarchy
     (with-hierarchy-lock (hierarchy)
       (setf watch-tokens (remove token watch-tokens :test test :key key)))))

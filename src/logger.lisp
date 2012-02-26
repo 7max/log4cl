@@ -1,21 +1,42 @@
+;;; -*- Mode: Lisp; Syntax: ANSI-Common-Lisp; Base: 10 -*-
 ;;;
+;;; Copyright (c) 2012, Max Mikhanosha. All rights reserved.
+;;;
+;;; This file is licensed to You under the Apache License, Version 2.0
+;;; (the "License"); you may not use this file except in compliance
+;;; with the License.  You may obtain a copy of the License at
+;;; http://www.apache.org/licenses/LICENSE-2.0
+;;;
+;;; Unless required by applicable law or agreed to in writing, software
+;;; distributed under the License is distributed on an "AS IS" BASIS,
+;;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+;;; See the License for the specific language governing permissions and
+;;; limitations under the License.
+
 ;;; Most of the logger internals.
 ;;;
 ;;; Note this file can not use any of the logging functions, as
 ;;; logging-macros.lisp had not yet complied.
 ;;;
-;;; So any code that uses self-logging to log4cl:self logger, needs to be
-;;; in the files that are later in the system definition file
+;;; So any code that uses self-logging to log4cl:self logger, needs to
+;;; be in the files that are later in the system definition file
 ;;; 
 (in-package #:log4cl-impl)
 
-;; these needs to be in separate file from the their definitions
+;;
+;; These needs to be in separate file from the their definitions. I'm
+;; actually unable to see SBCL generating code any differently with
+;; these present, maybe even with speed 3 safety 0
+;; 
 #+sbcl
 (declaim (sb-ext:always-bound
           *log-indent*
           *ndc-context* *log-event-time*
           *inside-user-log-function*))
 
+;; Circularity, *root-logger* needs to be referenced by logger
+;; creation function which we need to be defined so we can defvar the
+;; root logger
 (declaim (special *root-logger*)
          (type logger *root-logger*)
 	 (type fixnum *log-indent*)
@@ -24,6 +45,7 @@
                  log-level-to-lc-string
                  log-event-time))
 
+;; Per-hierarchy logger state
 (defstruct logger-state
   ;; List of appenders attached to this logger
   (appenders nil :type list)
@@ -38,7 +60,7 @@
   ;; ADJUST-LOGGER recalculates this value
   (mask 0 :type fixnum))
 
-;; actual logger
+;; Actual logger object
 (defstruct (logger (:constructor create-logger)
                    (:print-function 
                     (lambda  (logger stream depth)
@@ -63,7 +85,7 @@
   (depth     0   :type fixnum)
   ;; Child loggers. Only set when any child loggers are present
   (child-hash  nil :type (or null hash-table))
-  ;; Per-hierarchy configuration
+  ;; Per-hierarchy state array
   (state (map-into (make-array *hierarchy-max*) #'make-logger-state)
    :type (simple-array logger-state *)))
 

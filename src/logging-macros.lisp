@@ -24,8 +24,8 @@
 (defmacro deflog-macros (levels)
   (let (list)
     (dolist (level levels)
-      (let ((log-macro-name (intern (format nil "LOG-~a" level)))
-            (level-name (intern (format nil "+LOG-LEVEL-~a+" level))))
+      (let ((log-macro-name (intern (format nil "~a-~a" '#:log level)))
+            (level-name (intern (format nil "+~a-~a+" '#:log-level level))))
         (push `(defmacro ,log-macro-name (&rest args &environment env)
                  "
 Submit log message to the logging system. Whenever

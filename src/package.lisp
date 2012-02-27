@@ -22,7 +22,10 @@
                       (level-expr-syms ()
                         ;; make SEXP-<LEVEL> symbols for all debug levels
                         (loop for sym in +log-level-macro-symbols+
-                              collect (make-symbol (format nil "~a-~a" '#:sexp sym)))))
+                              collect (make-symbol (format nil "~a-~a" '#:sexp sym))))
+                      (shadow-and-export (syms)
+                        `((:shadow ,@syms)
+                          (:export ,@syms))))
                `(defpackage #:log4cl
                   (:use)
                   (:nicknames #:log)
@@ -36,8 +39,6 @@
                        #:property-configurator
                        #:simple-layout
                        #:pattern-layout
-                       #:with-log-hierarchy
-                       #:with-package-log-hierarchy
                        #:clear-logging-configuration
                        #:reset-logging-configuration
                        ;; utility stuff
@@ -52,8 +53,13 @@
                        #:logger-parent
                        #:log-sexp-with-level))
                   (:import-from :cl #:in-package)
-                  (:shadow #:sexp #:expr #:config #:make ,@+log-level-symbols+ ,@(level-expr-syms))
-                  (:export #:sexp #:expr #:config #:make ,@+log-level-symbols+ ,@(level-expr-syms))
+                  ,@(shadow-and-export
+                     `(#:sexp #:expr #:config #:make ,@+log-level-symbols+ ,@(level-expr-syms)
+                              #:with-hierarchy
+                              #:with-package-hierarchy
+                              #:in-package-hierarchy
+                              #:in-hierarchy
+                              #:with-indent))
                   ;; one letter logging macro forwarders
                   (:shadow #:f #:e #:w #:i #:d #:u1 #:u2 #:u3 #:u4 #:t #:u5 #:u6 #:u7 #:u8 #:u9 #:c #:s)
                   (:export #:f #:e #:w #:i #:d #:u1 #:u2 #:u3 #:u4 #:t #:u5 #:u6 #:u7 #:u8 #:u9 #:c #:s)))))
@@ -115,3 +121,9 @@
 (forward-logging-macro log:c log4cl-impl:log-config)
 (forward-logging-macro log:s log4cl-impl:log-sexp)
 
+
+(forward-logging-macro log:with-hierarchy log4cl-impl:with-log-hierarchy)
+(forward-logging-macro log:with-package-hierarchy log4cl-impl:with-package-log-hierarchy)
+(forward-logging-macro log:in-hierarchy log4cl-impl:in-log-hierarchy)
+(forward-logging-macro log:in-package-hierarchy log4cl-impl:in-package-log-hierarchy)
+(forward-logging-macro log:with-indent log4cl-impl:with-log-indent)

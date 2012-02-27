@@ -46,7 +46,9 @@ quickly debug values of variables and expressions:
 
     [14:54:39] [debug] <cl-user> - A=1 B=2 (+ A B)=3
 
-This function also has two aliases: `(log:sexp)` and `(log:s)`
+This function also has two aliases: `(log:sexp)` and `(log:s)`. For completeness
+there are also `(log:sexp-trace)`, `(log:sexp-info)` and so on, to allow for
+same expression logging with any log level
 
 ### Log severity levels 
 LOG4CL has all the same log levels that Log4J does, and some

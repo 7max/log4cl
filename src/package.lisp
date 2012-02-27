@@ -18,7 +18,11 @@
 (macrolet ((log4cl-defpackage ()
              (labels ((reexport-from (name names)
                         `((:import-from ,name ,@names)
-                          (:export ,@names))))
+                          (:export ,@names)))
+                      (level-expr-syms ()
+                        ;; make SEXP-<LEVEL> symbols for all debug levels
+                        (loop for sym in +log-level-macro-symbols+
+                              collect (make-symbol (format nil "~a-~a" '#:sexp sym)))))
                `(defpackage #:log4cl
                   (:use)
                   (:nicknames #:log)
@@ -45,10 +49,11 @@
                        #:logger-additivity
                        #:logger-category
                        #:logger-name
-                       #:logger-parent))
+                       #:logger-parent
+                       #:log-sexp-with-level))
                   (:import-from :cl #:in-package)
-                  (:shadow #:sexp #:expr #:config #:make ,@+log-level-symbols+)
-                  (:export #:sexp #:expr #:config #:make ,@+log-level-symbols+)
+                  (:shadow #:sexp #:expr #:config #:make ,@+log-level-symbols+ ,@(level-expr-syms))
+                  (:export #:sexp #:expr #:config #:make ,@+log-level-symbols+ ,@(level-expr-syms))
                   ;; one letter logging macro forwarders
                   (:shadow #:f #:e #:w #:i #:d #:u1 #:u2 #:u3 #:u4 #:t #:u5 #:u6 #:u7 #:u8 #:u9 #:c #:s)
                   (:export #:f #:e #:w #:i #:d #:u1 #:u2 #:u3 #:u4 #:t #:u5 #:u6 #:u7 #:u8 #:u9 #:c #:s)))))
@@ -63,17 +68,28 @@
   (let ((defs
           (loop for level in levels
                 as macro-name = (intern (symbol-name level) :log4cl)
-                as forward-name = (or (find-symbol (format nil "~A-~A"
-                                                           (symbol-name 'log)
-                                                           (symbol-name level))
+                as forward-name = (or (find-symbol (format nil "~A-~A" '#:log level)
                                                    :log4cl-impl)
                                       (error "Unable to find logging macro for ~S" level))
                 collect `(forward-logging-macro ,macro-name ,forward-name))))
     `(progn
        ,@defs)))
 
+(defmacro forward-sexp-levels (levels)
+  (let ((defs
+          (loop for level in levels
+                ;; sexp-debug, sexp-info etc
+                as sexp-macro-name = (intern (format nil "~A-~A" '#:sexp level) :log4cl)
+                ;; in impl package they are called LOG-SEXP-DEBUG LOG-SEXP-INFO ETC
+                as sexp-forward-name = (or (find-symbol (format nil "~A-~A" '#:log-sexp level)
+                                                   :log4cl-impl)
+                                      (error "Unable to find logging macro for ~S" level))
+                collect `(forward-logging-macro ,sexp-macro-name ,sexp-forward-name))))
+    `(progn
+       ,@defs)))
 
 (forward-levels #.+log-level-macro-symbols+)
+(forward-sexp-levels #.+log-level-macro-symbols+)
 (forward-levels (#:sexp #:config))
 
 ;; make (log:expr) same as (log:sexp) and (log:make) shortcut for (log:make-logger)

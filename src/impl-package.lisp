@@ -35,7 +35,11 @@
    ;; logging macros
    #:log-fatal #:log-error #:log-warn #:log-info #:log-debug #:log-trace
    #:log-user1 #:log-user2 #:log-user3 #:log-user4 #:log-user5 #:log-user6
-   #:log-user7 #:log-user8 #:log-user9 #:log-sexp #:log-trace-sexp
+   #:log-user7 #:log-user8 #:log-user9 #:log-sexp #:log-sexp-with-level
+   ;; sexp version of logging macros
+   #:log-sexp-fatal #:log-sexp-error #:log-sexp-warn #:log-sexp-info #:log-sexp-debug #:log-sexp-trace
+   #:log-sexp-user1 #:log-sexp-user2 #:log-sexp-user3 #:log-sexp-user4 #:log-sexp-user5 #:log-sexp-user6
+   #:log-sexp-user7 #:log-sexp-user8 #:log-sexp-user9 
    #:log-indented
    ;; logger access functions
    #:make-log-level #:make-logger

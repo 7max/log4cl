@@ -67,8 +67,9 @@ any appenders.
 
 (defvar +make-logger-symbols+ '(make-logger))
 
-(defmacro log-sexp (&rest sexps &environment env) 
-  "Expands into DEBUG log statement that will print each element of SEXPS
+
+(defmacro log-sexp-with-level (level &rest sexps &environment env) 
+  "Expands into LOG-<LEVEL> log statement that will print each element of SEXPS
 in the form of ELEMENT=VALUE where ELEMENT will be the literal argument
 without evaluating it, and VALUE will be the result of evaluation. For constant
 string elements, it is output literally without printing its value.
@@ -109,19 +110,39 @@ will produce log message:
                            else
                            do (format t "~s=~~s" arg)
                            and collect arg)))))
-      `(log-debug ,logger-form ,format ,@args))))
+      `(,level ,logger-form ,format ,@args))))
 
-(defmacro log-trace-sexp (&rest args) 
-  (let ((format 
-          (with-output-to-string (*standard-output*)  
-            (let ((first t))
-              (dolist (arg args)
-                (unless first
-                  (write-string " "))
-                (setf first nil)
-                (format t "~s=~~s" arg))))))
-    `(log-trace ,format ,@args)))
+(defmacro deflog-sexp-macros (levels)
+  (let (list)
+    (dolist (level levels)
+      (let ((log-sexp-macro-name (intern (format nil "~a-~a" '#:log-sexp level)))
+            (log-macro-name (intern (format nil "~a-~a" '#:log level))))
+        (push `(defmacro ,log-sexp-macro-name (&rest args)
+                 "Expands into the log statement that will print each
+element of ARGS in the form of ELEMENT=VALUE where ELEMENT will be the
+literal argument without evaluating it, and VALUE will be the result
+of evaluation. For constant string elements, it is output literally
+without printing its value.
 
+Example:
+
+     (let ((a 1) (b '(two three)))  
+       (log-sexp \"values are\" a b))
+
+will produce log message:
+
+    [debug] - values are A=1 B=(TWO THREE)
+
+       "
+                 `(log-sexp-with-level ,',log-macro-name ,@args))
+              list)))
+    `(progn
+       ,@(reverse list)
+       ,(let ((debug (copy-list (find 'log-sexp-debug list :key 'second))))
+          (setf (second debug) 'log-sexp)
+          debug))))
+
+(deflog-sexp-macros #.+log-level-macro-symbols+)
 
 (defmacro with-log-hierarchy ((hierarchy) &body body)
   "Binds the *CURRENT-HIERARCHY* to the specified hierarchy for the

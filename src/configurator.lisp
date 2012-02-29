@@ -101,6 +101,11 @@ Valid options can be:
  :WATCH      | Used with :PROPERTIES, uses watcher thread to check           
              | properites file modification time, and reloads if it changes  
 -------------|---------------------------------------------------------------
+ :IMMEDIATE- | Used with :SANE, :DAILY or :CONSOLE to create new appenders
+  FLUSH      | with :IMMEDIATE-FLUSH T option, which prevents automatic
+             | startup of hierarchy watcher thread, which is used for
+             | auto-flushing. 
+-------------|---------------------------------------------------------------
 
 Examples:
 
@@ -125,6 +130,7 @@ Examples:
         twoline level layout console
         orig-args
         self appenders
+        immediate-flush
         properties watch)
     (cond ((logger-p (car args))
            (setq logger (pop args)))
@@ -149,6 +155,7 @@ Examples:
           (:clear (setq clear t))
           (:all (setq all t))
           (:own (setq own t))
+          (:immediate-flush (setq immediate-flush t))
           ((:twoline :two-line) (setq twoline t))
           (:console (setq console t))
           (:watch (setq watch t))
@@ -211,6 +218,8 @@ Examples:
         (push (make-instance 'console-appender :layout layout)
               appenders))
       (dolist (a appenders)
+        (when immediate-flush
+          (setf (slot-value a 'immediate-flush) t))
         (add-appender-internal logger a nil))
       (set-additivity logger (not own) nil))
     (when properties
@@ -379,6 +388,6 @@ Example output:
   (unless *default-init-done-p*
     (setq *default-init-done-p* t)
     (clear-logging-configuration)
-    (log-config :i :sane)))
+    (log-config :i :sane :immediate-flush)))
 
 (perform-default-init)

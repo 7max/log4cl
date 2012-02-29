@@ -20,7 +20,7 @@
   (if explitic-p categories
       `(log4cl-impl self ,@categories)))
 
-(defvar *self-log-config* '(:sane :warn :own :two-line))
+(defvar *self-log-config* '(:sane :warn :own :two-line :immediate-flush))
 
 (defvar +self-logger+
   (let ((logger (make-logger '(:log4cl-impl :self))))

@@ -50,9 +50,16 @@
                        #:remove-appender
                        #:remove-all-appenders
                        #:logger-additivity
+                       #:logger-appenders
+                       #:effective-appenders
+                       #:effective-log-level
                        #:logger-category
                        #:logger-name
                        #:logger-parent
+                       #:logger-children
+                       #:logger-descendants
+                       #:logger-depth
+                       #:logger-log-level
                        #:log-sexp-with-level
                        ;; customization
                        #:naming-option
@@ -63,7 +70,16 @@
                        #:reset-logging-configuration
                        #:clear-logging-configuration
                        #:naming-option
-                       #:package-wrapper))
+                       #:package-wrapper
+                       #:map-logger-children
+                       #:map-logger-descendants
+                       #:start-hierarchy-watcher-thread 
+                       #:stop-hierarchy-watcher-thread
+                       #:add-watch-token
+                       #:remove-watch-token
+                       #:watch-token-check
+                       #:log4cl-error
+                       #:log4cl-error))
                   (:import-from :cl #:in-package)
                   ,@(shadow-and-export
                      `(#:sexp #:expr #:config #:make ,@+log-level-symbols+ ,@(level-expr-syms)

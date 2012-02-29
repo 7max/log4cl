@@ -120,7 +120,14 @@
    #:configure
    #:logger-children
    #:logger-descendants
-   #:map-logger-descendants))
+   #:map-logger-children
+   #:map-logger-descendants
+   #:start-hierarchy-watcher-thread 
+   #:stop-hierarchy-watcher-thread
+   #:add-watch-token
+   #:remove-watch-token
+   #:watch-token-check
+   #:log4cl-error))
 
 
 

@@ -228,9 +228,7 @@ on the strings in configuration file:
                           (not force-string-case))
                      cat
                      (with-output-to-string (s)
-                       (if cat-case
-                           (write-string-modify-case (string cat) s cat-case)
-                           (princ cat s)))))
+                       (write-string-modify-case (string cat) s cat-case))))
            (hash (logger-child-hash logger)))
       (vector-push-extend name names)
       (setq logger

@@ -22,7 +22,9 @@
                       (level-expr-syms ()
                         ;; make SEXP-<LEVEL> symbols for all debug levels
                         (loop for sym in +log-level-macro-symbols+
-                              collect (make-symbol (format nil "~a-~a" '#:sexp sym))))
+                              collect (make-symbol (format nil "~a-~a"
+                                                           (string '#:sexp)
+                                                           (string sym)))))
                       (shadow-and-export (syms)
                         `((:shadow ,@syms)
                           (:export ,@syms))))
@@ -84,8 +86,10 @@
   (let ((defs
           (loop for level in levels
                 as macro-name = (intern (symbol-name level) :log4cl)
-                as forward-name = (or (find-symbol (format nil "~A-~A" '#:log level)
-                                                   :log4cl-impl)
+                as forward-name = (or (find-symbol (format nil "~A-~A"
+                                                           (string '#:log)
+                                                           (string level))
+                                                   :log4cl-impl) 
                                       (error "Unable to find logging macro for ~S" level))
                 collect `(forward-logging-macro ,macro-name ,forward-name))))
     `(progn
@@ -95,10 +99,15 @@
   (let ((defs
           (loop for level in levels
                 ;; sexp-debug, sexp-info etc
-                as sexp-macro-name = (intern (format nil "~A-~A" '#:sexp level) :log4cl)
+                as sexp-macro-name = (intern (format nil "~A-~A"
+                                                     (string '#:sexp)
+                                                     (string level))
+                                             :log4cl)
                 ;; in impl package they are called LOG-SEXP-DEBUG LOG-SEXP-INFO ETC
-                as sexp-forward-name = (or (find-symbol (format nil "~A-~A" '#:log-sexp level)
-                                                   :log4cl-impl)
+                as sexp-forward-name = (or (find-symbol (format nil "~A-~A"
+                                                                (string'#:log-sexp)
+                                                                (string level))
+                                                        :log4cl-impl) 
                                       (error "Unable to find logging macro for ~S" level))
                 collect `(forward-logging-macro ,sexp-macro-name ,sexp-forward-name))))
     `(progn

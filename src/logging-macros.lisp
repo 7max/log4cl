@@ -24,8 +24,12 @@
 (defmacro deflog-macros (levels)
   (let (list)
     (dolist (level levels)
-      (let ((log-macro-name (intern (format nil "~a-~a" '#:log level)))
-            (level-name (intern (format nil "+~a-~a+" '#:log-level level))))
+      (let ((log-macro-name (intern (format nil "~a-~a"
+                                            (string '#:log)
+                                            (string level))))
+            (level-name (intern (format nil "+~a-~a+"
+                                        (string '#:log-level)
+                                        (string level)))))
         (push `(defmacro ,log-macro-name (&rest args &environment env)
                  "
 Submit log message to the logging system. Whenever
@@ -115,8 +119,12 @@ will produce log message:
 (defmacro deflog-sexp-macros (levels)
   (let (list)
     (dolist (level levels)
-      (let ((log-sexp-macro-name (intern (format nil "~a-~a" '#:log-sexp level)))
-            (log-macro-name (intern (format nil "~a-~a" '#:log level))))
+      (let ((log-sexp-macro-name (intern (format nil "~a-~a"
+                                                 (string '#:log-sexp)
+                                                 (string level))))
+            (log-macro-name (intern (format nil "~a-~a"
+                                            (string '#:log)
+                                            (string level)))))
         (push `(defmacro ,log-sexp-macro-name (&rest args)
                  "Expands into the log statement that will print each
 element of ARGS in the form of ELEMENT=VALUE where ELEMENT will be the

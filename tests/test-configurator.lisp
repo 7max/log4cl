@@ -18,10 +18,24 @@
 (in-suite test)
 (defsuite* test-configurator)
 
+(defclass ignore-extra-stuff-parser (property-parser)
+  ())
+
+(defmethod log4cl-impl::parse-property-keyword ((parser ignore-extra-stuff-parser)
+                                   keyword
+                                   tokens
+                                   value)
+  (declare (ignore parser keyword tokens value)))
+
+(defclass ignore-extra-stuff-configurator
+    (property-configurator ignore-extra-stuff-parser) ()
+  (:documentation "Property configurator that ignores lines not starting with log4cl"))
+
+
 (deftest test-property-configurator-whitespace-and-comments ()
   (with-package-log-hierarchy
     (clear-logging-configuration)
-    (let ((c (make-instance 'property-configurator)))
+    (let ((c (make-instance 'ignore-extra-stuff-configurator)))
       (finishes (with-input-from-string (s "") (configure c s)))
       (finishes
         (with-input-from-string
@@ -48,7 +62,7 @@ one.two=three
         (is (equal 0 (length (effective-appenders (make-logger)))))
         ;; configure
         (with-input-from-string
-            (s "log4cl:rootLogger=DEBUG, A1
+            (s "log4cl:rootlogger=DEBUG, A1
                 log4cl:appender:A1=console-appender")
           (configure
            config s))
@@ -84,7 +98,7 @@ one.two=three
         (clear-logging-configuration)
         (with-input-from-string
             (s " log4cl:logger:one:two:three = DEBUG, a1
-                 log4cl:appender:a1 = Console-Appender")
+                 log4cl:appender:a1 = console-appender")
           (configure config s))
         ;; see that changes were made
         (is (equal (effective-log-level logger) +log-level-debug+))
@@ -259,16 +273,16 @@ done via property configurator, rather then directly"
                  (is (not (equal fname1 fname2)))
                  (with-open-file (s fname1)
                    (is (equal (read-line s)
-                              (format nil "INFO ~s:~s Hey"
-                                      'bar
-                                      'baz))))
+                              (format nil "INFO ~a:~a Hey"
+                                      (string 'bar)
+                                      (string 'baz)))))
                  (remove-all-appenders logger)
                  ;; verify it got closed
                  (with-open-file (s fname2)
                    (is (equal (read-line s) 
-                              (format nil "DEBUG ~s:~s Hey again"
-                                      'bar
-                                      'baz)))))
+                              (format nil "DEBUG ~a:~a Hey again"
+                                      (string 'bar)
+                                      (string 'baz))))))
             (ignore-errors (delete-file fname1))
             (ignore-errors (delete-file fname2))))))))
 

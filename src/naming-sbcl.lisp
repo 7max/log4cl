@@ -56,9 +56,9 @@ will be: package.foo.bar.baz
         (labels (include-block-debug-name? (second debug-name)))
         (flet (include-block-debug-name? (second debug-name)))
         ;; (lambda 'lambda)
-        (SB-PCL::FAST-METHOD (rest debug-name))
-        (SB-C::HAIRY-ARG-PROCESSOR (include-block-debug-name? (second debug-name)))
-        (SB-C::VARARGS-ENTRY (include-block-debug-name? (second debug-name))))))
+        (sb-pcl::fast-method (rest debug-name))
+        (sb-c::hairy-arg-processor (include-block-debug-name? (second debug-name)))
+        (sb-c::varargs-entry (include-block-debug-name? (second debug-name))))))
 
 (defun sbcl-get-block-name  (env)
   "Return a list naming SBCL lexical environment. For example when

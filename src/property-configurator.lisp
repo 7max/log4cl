@@ -54,8 +54,10 @@
   "Ignores anything that does not start with LOG4CL prefix, otherwise
 calls PARSE-PROPERTY-TOKENS again (which will convert 2nd level of the
 token name into the keyword and call this function again"
-  (when (eq keyword :log4cl)
-    (parse-property-tokens parser tokens value)))
+  (log-sexp keyword)
+  (if (eq keyword :log4cl)
+      (parse-property-tokens parser tokens value)
+      (call-next-method)))
 
 
 (defun parse-logger-helper (parser keyword tokens value)
@@ -64,7 +66,7 @@ token name into the keyword and call this function again"
   (with-slots (name-token-separator name-token-read-case loggers)
       parser
     (let ((logger
-            (cond ((eq keyword :rootLogger)
+            (cond ((eq keyword :rootlogger)
                    (or (null tokens)
                        (log4cl-error "Root logger cannot have any sub-properties"))
                    *root-logger*)
@@ -81,13 +83,16 @@ token name into the keyword and call this function again"
                    :level (log-level-from-object (first value-tokens) *package*)
                    :appender-names
                    (mapcar (lambda (name)
+                             (log-sexp name
+                                       (convert-read-case
+                                        name name-token-read-case))
                              (convert-read-case
                               name name-token-read-case))
                            (rest value-tokens))))
             loggers))))
 
 (defmethod parse-property-keyword ((parser property-configurator)
-                                   (keyword (eql :rootLogger))
+                                   (keyword (eql :rootlogger))
                                    tokens
                                    value)
   (parse-logger-helper parser keyword tokens value))
@@ -122,7 +127,7 @@ token name into the keyword and call this function again"
     (or tokens
         (log4cl-error "Missing logger name"))
     (let* ((logger
-             (if (equalp tokens '("rootLogger"))
+             (if (equalp tokens '("rootlogger"))
                  *root-logger*
                  (get-logger-internal
                   tokens name-token-separator name-token-read-case))))
@@ -174,9 +179,7 @@ token name into the keyword and call this function again"
       parser
     (when (null tokens)
       (log4cl-error "appender should be followed by appender name"))
-    (let* ((name (convert-read-case
-                  (strip-whitespace (pop tokens))
-                  name-token-read-case))
+    (let* ((name (strip-whitespace (pop tokens)))
            (appender (or (cdr (assoc name appenders :test 'equal))
                          (cdar (push (cons
                                       name

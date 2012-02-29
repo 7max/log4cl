@@ -43,7 +43,7 @@ Note that pattern layout offers similar facility that changes how
 logger category is printed on the output side."))
 
 
-(defgeneric package-log-category (package categories explicit-p)
+(defgeneric package-wrapper (package categories explicit-p)
   (:documentation
    "Allows packages to optionally massage logger names in their
 namespace. CATEGORIES will be a list of of category names from parent
@@ -56,9 +56,9 @@ package shortest nickname.
 Example:
 
     ;; Some package wishes to always wrap their logger names in weird prefix and suffix
-    (DEFMETHOD package-log-category ((PKG (EQL *PACKAGE*)) CATEGORIES EXPLICIT-P)
-      (IF EXPLICIT-P CATEGORIES
-        (APPEND '(FOO BAR) CATEGORIES '(BAZ))))
+    (defmethod package-wrapper ((pkg (eql *package*)) categories explicit-p)
+      (if explicit-p categories
+        (append '(foo bar) categories '(baz))))
 
 Will result in the macro (MAKE-LOGGER :NAME) returning logger named
 FOO:BAR:NAME:BAZ"))
@@ -146,14 +146,14 @@ Supported values for ARG are:
 (defmethod resolve-default-logger-form (package env args)
   "Returns the logger named after the enclosing lexical environment"
   (values (get-logger-internal
-           (package-log-category package
-                                 (enclosing-scope-block-name package env)
-                                 nil)
+           (package-wrapper package
+                            (enclosing-scope-block-name package env)
+                            nil)
            (naming-option package :category-separator)
            (naming-option package :category-case))
           args))
 
-(defmethod package-log-category (package categories explicit-p)
+(defmethod package-wrapper (package categories explicit-p)
   "Find the PACKAGES shortest name or nickname, and prefix category
 list with it and prefix CATEGORIES list with it"
   (if explicit-p categories
@@ -204,7 +204,7 @@ SEPARATOR"
      (resolve-default-logger-form package env args))
     ((keywordp (first args))
      (values (get-logger-internal
-              (package-log-category
+              (package-wrapper
                package
                (split-into-categories (symbol-name (first args))
                                       package)
@@ -217,7 +217,7 @@ SEPARATOR"
        (cond ((symbolp value)
               (values
                (get-logger-internal
-                (package-log-category
+                (package-wrapper
                  package
                  (split-into-categories (symbol-name value) package)
                  nil)
@@ -226,7 +226,7 @@ SEPARATOR"
                (rest args)))
              ((listp value)
               (values
-               (get-logger-internal (package-log-category package value t)
+               (get-logger-internal (package-wrapper package value t)
                                     (naming-option package :category-separator)
                                     (naming-option package :category-case))
                (rest args)))

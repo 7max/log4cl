@@ -60,6 +60,10 @@
    #:logger-category
    #:logger-depth
    #:naming-option
+   #:log-level-from-object
+   #:resolve-logger-form
+   #:resolve-default-logging-form
+   #:enclosing-scope-block-name
    #:reset-logging-configuration
    #:clear-logging-configuration
    ;; special variables
@@ -106,7 +110,7 @@
    #:appender-filename
    #:daily-file-appender
    #:+self-logger+
-   #:package-log-category
+   #:package-wrapper
    #:logger-categories
    #:property-parser
    #:parse-property-stream

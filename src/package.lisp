@@ -51,7 +51,17 @@
                        #:logger-category
                        #:logger-name
                        #:logger-parent
-                       #:log-sexp-with-level))
+                       #:log-sexp-with-level
+                       ;; customization
+                       #:naming-option
+                       #:log-level-from-object
+                       #:resolve-logger-form
+                       #:resolve-default-logging-form
+                       #:enclosing-scope-block-name
+                       #:reset-logging-configuration
+                       #:clear-logging-configuration
+                       #:naming-option
+                       #:package-wrapper))
                   (:import-from :cl #:in-package)
                   ,@(shadow-and-export
                      `(#:sexp #:expr #:config #:make ,@+log-level-symbols+ ,@(level-expr-syms)

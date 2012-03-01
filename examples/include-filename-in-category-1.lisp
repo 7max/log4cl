@@ -1,20 +1,20 @@
 ;;
-;; Some projects put "like" functionality that in other languages would have
-;; been in their own sub-package, into separate files instead
-;;
-;; If a project has two files, module-one.lisp and module-two.lisp its desirable
-;; that logging can be configured independently for all log statements
-;; in either-of these file.
+;; Some projects separate out the functionality into separate lisp
+;; files, rather then separate sub-packages.
+;; 
+;; If a project has two logical modules foo and baz, and places them
+;; in the source files "foo.lisp" and "baz.lisp", its desirable that
+;; logging could be configured separately for foo and baz
 ;; 
 ;; This example shows how to customize PACKAGE-WRAPPER method, so that
 ;; all loggers will be children of '(PACKAGE FILENAME) category rather
-;; then simply '(PACKAGE)
+;; then simply '(PACKAGE), which would accomplish the above goal
 ;;
 ;; If you load this file and then run (EXAMPLE1:TEST) the output should be
+;; something similar to:
 ;;
-;; [11:53:33] [ info] <example-1:filename-in-logger-name:test>
-;; * Hello World
-;;
+;; [11:53:33] [ info] <example-1:include-file-name-in-category-1:test>
+;;   * Hello World
 
 (defpackage :example-1
   (:use :cl)

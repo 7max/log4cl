@@ -3,7 +3,7 @@
 ;; if you use SLIME C-c C-c key to recompile the TEST function, the category name
 ;; that it logs to changes from
 ;; 
-;; [11:53:33] [ info] <example-1:filename-in-logger-name:test>
+;; [11:53:33] [ info] <example-1:include-file-name-in-category-1:test>
 ;;   * Hello World
 ;;
 ;; to something like
@@ -11,16 +11,19 @@
 ;; [11:58:04] [ info] <example-1:fileny25yx:test>
 ;;   * Hello World
 ;;
-;; This is because C-c C-c puts the form into a temporary file,
-;; /tmp/fileny25yx and compiles that.
+;; This is because on SBCL when you press C-c C-c, Slime puts the form
+;; into a temporary file, such as /tmp/fileny25yx and compiles that.
 ;;
-;; Its possible to fix that, by patching Slime's COMPILE-STRING-FOR-EMACS function
-;; to bind the filename the form comes from to a variable, and reference that
-;; in our PACKAGE-WRAPPER method
+;; Its possible to fix it, by patching Slime's
+;; COMPILE-STRING-FOR-EMACS function to bind the filename the form
+;; comes from to a variable, and reference that in our PACKAGE-WRAPPER
+;; method
 ;;
-;; The code between the (IN-PACKAGE :SWANK) and (IN-PACKAGE :EXAMPLE-2) can
-;; be put into ~/.swank.lisp initialization file, so it can be reused
-;; in multiple systems and packages
+;; Below example shows how to do it.
+;;
+;; The code between the (IN-PACKAGE :SWANK) and (IN-PACKAGE
+;; :EXAMPLE-2) can be put into ~/.swank.lisp initialization file, so
+;; it can be reused in multiple systems and packages
 ;; 
 
 (defpackage :example-2

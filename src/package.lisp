@@ -79,7 +79,9 @@
                        #:remove-watch-token
                        #:watch-token-check
                        #:log4cl-error
-                       #:log4cl-error))
+                       #:log4cl-error
+                       ;; variables
+                       #:*root-logger*))
                   (:import-from :cl #:in-package)
                   ,@(shadow-and-export
                      `(#:sexp #:expr #:config #:make ,@+log-level-symbols+ ,@(level-expr-syms)

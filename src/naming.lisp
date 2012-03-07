@@ -24,23 +24,34 @@ function"))
 
 (defgeneric naming-option (package option)
   (:documentation "Return the automatic logger naming option
-for the specified package. Valid options are:
+for the specified package. Valid options are keywords:
 
-  :CATEGORY-SEPARATOR - String that separates category names, default
-  method returns \":\"
+  :CATEGORY-SEPARATOR
+    : String that separates category names, default method returns
+      \":\"
 
-  :CATEGORY-CASE - Determining how logger naming converts symbols to
-  in the category name.
+  :CATEGORY-CASE
+    : Determining how logger naming converts symbols to in the
+      category name.
 
-  Valid values are: 
+    Valid values are: 
     - NIL        :  As printed by PRINC (ie affected by active *READTABLE*)
     - :UPCASE    :  Convert to upper case
     - :DOWNCASE  :  Convert to lower case
     - :INVERT    :  Invert in the same way inverted READTABLE-CASE does it
     - :PRESERVE  :  Do not change
 
-Note that pattern layout offers similar facility that changes how
-logger category is printed on the output side."))
+    Note that pattern layout offers similar facility that changes how
+    logger category is printed on the output side
+
+  :EXPR-VALUE-SEPARATOR
+    : A string that separates expression and value printed
+      by (LOG-SEXP). Default is equal sign
+
+  :EXPR-VALUE-SUFFIX
+    : A string inserted into the format statement after each
+      expression and value pair printed by (LOG-SEXP). Default is
+      \" ~:_\" (a space followed by conditional newline)"))
 
 
 (defgeneric package-wrapper (package categories explicit-p)
@@ -185,7 +196,9 @@ SEPARATOR"
     :CATEGORY-SEPARATOR \":\""
   (declare (ignore package))
   (case option
-    (:category-separator ":")))
+    (:category-separator ":")
+    (:expr-value-separator "=")
+    (:expr-value-suffix " ~:_")))
 
 (defmethod resolve-logger-form (package env args)
   "- When first element of args is NIL or a constant string, calls

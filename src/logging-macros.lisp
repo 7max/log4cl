@@ -71,23 +71,32 @@ any appenders.
 
 (defvar +make-logger-symbols+ '(make-logger))
 
-
 (defmacro log-sexp-with-level (level &rest sexps &environment env) 
-  "Expands into LOG-<LEVEL> log statement that will print each element of SEXPS
-in the form of ELEMENT=VALUE where ELEMENT will be the literal argument
-without evaluating it, and VALUE will be the result of evaluation. For constant
-string elements, it is output literally without printing its value.
+  "Expands into LOG-<LEVEL> log statement that will print each element
+of SEXPS in the form of ELEMENT=VALUE where ELEMENT will be the
+literal argument without evaluating it, and VALUE will be the result
+of evaluation. Constant string elements will be output directly.
+
+A pretty printer (pprint-newline :fill) format will be used as a
+separator between expressions, so that long expressions start
+on a new line, if *PRINT-PRETTY* is non-NIL
 
 Example:
 
-     (let ((a 1) (b '(two three)))  
-       (log-sexp \"values are\" a b))
+     (let ((a 1) (b '(two three))
+           (c (loop for i from 1 to 15 collect i)))
+       (log:sexp \"values are\" a b c))
 
 will produce log message:
 
     [debug] - values are A=1 B=(TWO THREE)
+              C=(1 2 3 4 5 6 7 8 9 10 11 12 13 14 15)
 
-       "
+Separator between expression and value, which defaults to equal sign,
+and a suffix after each value, which defaults to \" ~:_\" (a space
+followed by conditional newline) can be customized per package via
+NAMING-OPTION generic function
+"
   (multiple-value-bind (logger-form sexps)
       (resolve-logger-form *package* env
                            (cond
@@ -101,19 +110,24 @@ will produce log message:
                                                     +make-logger-symbols+))))
                               `((make-logger) ,@sexps))
                              (t sexps)))
-    (let* (args
+    (let* ((args nil)
            (format 
              (with-output-to-string (*standard-output*)  
+               (princ "~@<~;")
                (setq args
-                     (loop with first = t
-                           for arg in sexps
-                           do (if first (setf first nil)
-                                  (write-char #\Space))
-                           if (stringp arg)
-                           do (write-string arg)
-                           else
-                           do (format t "~s=~~s" arg)
-                           and collect arg)))))
+                     (loop 
+                       for arg in sexps
+                       if (stringp arg)
+                       do (format t "~a " arg)
+                       else
+                       do (format t "~A~A~A~A"
+                                  "~W"
+                                  (naming-option *package* :expr-value-separator)
+                                  "~W"
+                                  (naming-option *package* :expr-value-suffix))
+                       and collect `(quote ,arg)
+                       and collect arg))
+               (princ "~:>"))))
       `(,level ,logger-form ,format ,@args))))
 
 (defmacro deflog-sexp-macros (levels)

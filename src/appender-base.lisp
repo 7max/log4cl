@@ -42,7 +42,7 @@ the (CALL-NEXT-METHOD) needs to be called."))
 
 (defgeneric appender-removed (logger appender)
   (:documentation "Called when appender is removed from a logger
-logger. Default method is used to keep logger refcount, and calls
+ Default method is used to keep logger refcount, and calls
 CLOSE-APPENDER when it reaches zero. If re-implemented
 the (CALL-NEXT-METHOD) needs to be called"))
 
@@ -95,7 +95,7 @@ Return value of this function is ignored"))
   (:documentation "Called on appenders and layouts to possibly convert
 property value from a string into whatever its supposed to be. Default
 method will handle numeric, boolean and string properties, by calling
-PROPERTY-TYPES function"))
+PROPERTY-ALIST function"))
 
 (defgeneric property-alist (instance)
   (:documentation "Should return list of valid object properties, each

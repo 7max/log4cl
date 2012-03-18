@@ -1,15 +1,29 @@
 # Quickstart
 ## Installation and loading
 
-The easiest way to install LOG4CL is to use
-[QuickLisp](http://www.quicklisp.org) local-projects feature.
+### From [QuickLisp](http://www.quicklisp.org) 
+
+LOG4CL is now included in [QuickLisp](http://www.quicklisp.org). To
+load it use the command `(ql:quickload :log4cl)` from `REPL`. If
+QuickLisp can't find it, you need to update your QuickLisp
+distribution.
+
+### Latest GIT version
+
+To use the latest GIT version, which may contain improvements and bug
+fixes not yet available in [QuickLisp](http://www.quicklisp.org), you
+can use [QuickLisp's](http://www.quicklisp.org) local-projects feature.
 
     $ cd ~/quicklisp/local-projects
     $ git clone git://github.com/7max/log4cl.git 
 
-Then use the `(ql:quickload :log4cl)` from `REPL` to load it. Do
-not try to include LOG4CL into your package's *:use* list. LOG4CL package is
-designed to be used by referencing its symbols with the package prefix.
+Then use the `(ql:quickload :log4cl)` from `REPL` to load it.
+
+### Log4CL packages
+
+Do not try to include LOG4CL into your package's *:USE* list. LOG4CL
+is designed to be used by referencing its symbols with the `log:`
+package prefix.
 
 ## The Basics
 
@@ -145,13 +159,13 @@ As a shortcut you can omit the `(log:make-logger`) and specify a
 function, with exception of `(log:expr)`, with which you have to
 always use explicit call to `(log:make-logger)`.
 
-    (log:info '(one two three) "also goes to logger ONE:TWO:THREE")
+    (log:info '(one two three) "goes to logger ONE:TWO:THREE")
 
-    [15:18:02] [info] <one:two:three> - also goes to logger ONE:TWO:THREE
+    [15:18:02] [info] <one:two:three> - goes to logger ONE:TWO:THREE
 
-    (log:info :b "also goes to logger CL-USER:B")
+    (log:info :b "goes to logger CL-USER:B")
 
-    [15:18:15] [info] <cl-user:b> - also goes to logger CL-USER:B
+    [15:18:15] [info] <cl-user:b> - goes to logger CL-USER:B
 
 ### Automatic naming inside a function
 

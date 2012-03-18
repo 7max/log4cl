@@ -339,7 +339,7 @@ description, below are a few examples:
                 * test
 
 
-- `:DAILY` option adds a `LOG:DAILY-FILE-APPENDER` appender, logging
+- `:DAILY` option adds a `LOG:DAILY-FILE-APPENDER`, logging
   into the specified file. The file will be switched at midnight, with
   the log renamed by adding `<year><mon><day>` suffix to its name.
 

@@ -568,7 +568,6 @@ strftime like PATTERN."))
   (multiple-value-bind (sec min hour day mon year wday dst-p tz)
       (if utc-p (decode-universal-time ut 0)
           (decode-universal-time ut))
-    (declare (ignore dst-p))
     (let ((state :normal)
           (idx 0)
           (c #\Space)
@@ -696,10 +695,13 @@ strftime like PATTERN."))
                ((char= c #\P) (output-string (if (< hour 12) "am" "pm")))
                ((char= c #\z)
                 (multiple-value-bind (tz-hours tz-mins)
-                    (floor tz)
+                    (floor (if dst-p
+                               (+ tz (/ (- ut (encode-universal-time sec min hour day mon year tz))
+                                        (* 60 60)))
+                               tz))
                   (pad 5)
                   (format stream "~:[+~;-~]~2,'0d~2,'0d"
-                          (minusp tz-hours) (abs tz-hours) 
+                          (plusp tz-hours) (abs tz-hours) 
                           (round (* 60 (coerce tz-mins 'float)))))))
              (setq flag-uppercase nil
                    flag-numeric-no-pad nil

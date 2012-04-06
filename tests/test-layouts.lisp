@@ -455,7 +455,7 @@ two asserts "
             (multiple-value-bind (tz-hours tz-mins)
                 (floor tz)
               (format nil "Tue 21 Feb 2012 03:02:01 ~:[+~;-~]~2,'0d~2,'0d"
-                      (minusp tz-hours) (abs tz-hours) 
+                      (plusp tz-hours) (abs tz-hours) 
                       (round (* 60 (coerce tz-mins 'float)))))))
       (test-pattern-layout
        (format nil "%D{%c}{~d}" ut-loc)
@@ -498,3 +498,26 @@ two asserts "
       (test-pattern-layout "%I%p - %m" "  INFO - message")
       (with-log-indent ()
         (test-pattern-layout "%I{>}%p - %m" ">>INFO - message")))))
+
+(deftest test-pattern-date-timezone ()
+  "Test that date pattern %z timezone changes when DST is effect"
+  (let* ((ut-winter (encode-universal-time 1 2 3 15 01 2012))
+         (ut-summer (encode-universal-time 1 2 3 15 6 2012))
+         (had-dst-in-summer-p (nth-value 7 (decode-universal-time ut-summer)))
+         (winter-tz (nth-value 8 (decode-universal-time ut-winter)))
+         (summer-tz (nth-value 8 (decode-universal-time ut-summer))))
+    ;; CL decode-universal-time returns timezone without taking TZ
+    ;; into consideration so just sanity check
+    (is (equal winter-tz summer-tz))
+    (if had-dst-in-summer-p
+        ;; If dst is in effect in the summer, test that %z is
+        ;; different from winter one
+        (is (not (equal (with-output-to-string (s)
+                            (log4cl-impl::format-time s "%z" ut-winter nil))
+                        (with-output-to-string (s)
+                            (log4cl-impl::format-time s "%z" ut-summer nil)))))
+        ;; Otherwise should be same
+        (is (equal (with-output-to-string (s)
+                       (log4cl-impl::format-time s "%z" ut-winter nil))
+                   (with-output-to-string (s)
+                       (log4cl-impl::format-time s "%z" ut-summer nil)))))))

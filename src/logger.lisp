@@ -180,6 +180,8 @@ non-NIL strip whitespace from the string first"
   (if (not skip-whitespace-p)
       (loop for start = 0 then (+ pos (length separator))
             as pos = (search separator string :start2 start)
+            if (or (plusp start)
+                   (< start (length string)))
             collect (substr string start pos)
             while pos)
       (split-string (strip-whitespace string) separator)))

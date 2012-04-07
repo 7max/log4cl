@@ -371,6 +371,53 @@ works correctly with it"
                                      (- (length expected) i)))
                 :logger logger)))))
 
+(deftest test-pattern-category-extended-precision ()
+  "Test the category precision in the form of %c{<from>,<count>}"
+  (test-pattern-layout "%c{0,0}" (make-expected '(one two three) ":"))
+  (test-pattern-layout "%c{0,20}" (make-expected '(one two three) ":"))
+  (test-pattern-layout "%c{3,20}" "")
+  (test-pattern-layout "%c{3,-1}" "")
+  (test-pattern-layout "%c{2,1}" (make-expected '(three) ":"))
+  (test-pattern-layout "%c{1,1}" (make-expected '(two) ":"))
+  (test-pattern-layout "%c{0,2}" (make-expected '(one two) ":"))
+  (test-pattern-layout "%c{1,2}" (make-expected '(two three) ":"))
+
+  ;; repeat above with different separator
+
+  (test-pattern-layout "%c{0,0}{----}" (make-expected '(one two three) "----"))
+  (test-pattern-layout "%c{0,20}{----}" (make-expected '(one two three) "----"))
+  (test-pattern-layout "%c{3,20}{----}" "")
+  (test-pattern-layout "%c{3,-1}{----}" "")
+  (test-pattern-layout "%c{2,1}{----}" (make-expected '(three) "----"))
+  (test-pattern-layout "%c{1,1}{----}" (make-expected '(two) "----"))
+  (test-pattern-layout "%c{0,2}{----}" (make-expected '(one two) "----"))
+  (test-pattern-layout "%c{1,2}{----}" (make-expected '(two three) "----"))
+  ;; 0134567890123456789
+  ;; one---two---three
+  (let ((expected (make-expected '(two three four) "----"))
+        (logger (make-logger '(one two three four five))))
+    (loop for i from (length expected)
+          downto 1
+          do (test-pattern-layout
+              (format nil "%.~dc{1,3}{----}" i)
+              (subseq expected
+                      (- (length expected) i))
+              :logger logger)
+          do (test-pattern-layout
+              (format nil "%~d.~dc{1,3}{----}" (+ i 5) i)
+              (concatenate 'string
+                           (subseq expected
+                                   (- (length expected) i))
+                           "     ")
+              :logger logger)
+          do (test-pattern-layout
+              (format nil "%-~d.~dc{1,3}{----}" (+ i 5) i)
+              (concatenate 'string
+                           "     "
+                           (subseq expected
+                                   (- (length expected) i)))
+              :logger logger))))
+
 (deftest test-pattern-date-1 ()
   "Test %d pattern. This test may fail if second changes doing the 1st
 two asserts "

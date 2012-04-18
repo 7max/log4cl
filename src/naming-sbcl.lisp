@@ -67,11 +67,14 @@ return \(FOOBAR FOO\)"
   (let* ((names-from-lexenv
            (nreverse
             (loop
-              as lambda = (sb-c::lexenv-lambda env)
-              then (sb-c::lambda-parent lambda)
-              while lambda
-              as debug-name = (include-block-debug-name? (sb-c::leaf-debug-name lambda))
-              if debug-name collect debug-name)))
+               with last = nil
+               as lambda = (sb-c::lexenv-lambda env)
+               then (sb-c::lambda-parent lambda)
+               while lambda
+               as debug-name = (include-block-debug-name? (sb-c::leaf-debug-name lambda))
+               if (and debug-name (not (eq last debug-name)))
+               collect debug-name
+               and do (setq last debug-name))))
          (name (or names-from-lexenv sb-pcl::*method-name*)))
     (when (and (consp (car name))
                (equal (length name) 1))

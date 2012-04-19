@@ -146,6 +146,8 @@ Following pattern characters are recognized:
 
    %n OS-dependent newline sequence.
 
+   %& Optional newline, issues FRESH-LINE on the stream
+
    %m Actual user log message.
 
    "))
@@ -797,6 +799,12 @@ line"))
   "Output the %n (newline) pattern"
   (declare (ignore fmt-info logger log-level log-func))
   (terpri stream)
+  (values))
+
+(define-pattern-formatter (#\&)
+  "Output the optional new line"
+  (declare (ignore fmt-info logger log-level log-func))
+  (fresh-line stream)
   (values))
 
 (define-pattern-formatter (#\t)

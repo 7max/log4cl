@@ -183,8 +183,8 @@ Examples:
     (or (not properties)
         (not (or sane daily pattern console level))
         (log4cl-error ":PROPERTIES can't be used with :SANE :DAILY :PATTERN or log level"))
-    (when (or level sane)
-      (set-log-level logger (or level +log-level-info+) nil))
+    (when level
+      (set-log-level logger level nil))
     (when clear
       (map-logger-descendants
        (lambda (l)

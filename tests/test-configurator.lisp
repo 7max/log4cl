@@ -296,6 +296,7 @@ done via property configurator, rather then directly"
           (one (make-logger '(one))))
       (add-appender three (make-instance 'console-appender))
       (log-config one :sane)
+      (log-config one :i)
       (is (log-info one))
       (is (log-info four))
       (is (not (log-debug four)))

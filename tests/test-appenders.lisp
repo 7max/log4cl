@@ -214,11 +214,10 @@ user log statement, its raised and does not disable the appender"
     (setq dir (parse-namestring dir))
     (let ((file (merge-pathnames (rand-filename) dir))
           ok)
-      (ignore-errors
-       (handler-case
-           (with-open-file (s file :direction :output :if-does-not-exist :create)
-             (print "test" s)
-             (setq ok dir))))
+      (handler-case
+          (with-open-file (s file :direction :output :if-does-not-exist :create)
+            (print "test" s)
+            (setq ok dir)))
       (ignore-errors (delete-file file))
       ok)))
 

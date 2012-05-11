@@ -1,3 +1,18 @@
+## 0.9.2
+* (Bugfix) When logger is specified at runtime, check that it has the correct type
+
+* Do not reset log level to info with :sane when no log level was
+  specified. I had found that `(log:config :sane)` resetting log level
+  back to info, when it used to be debug seems surprising. If you want
+  old behavior, use `(log:config :sane :i)`
+
+* (Feature): Added %& pattern format, which does FRESH-LINE, that is
+  outputs a newline only if output position is not already at the
+  beginning of a new line
+
+* On some complicated functions inside of LOOP inside of LABELS, the
+  automatic logger naming was duplicating the function name.
+
 ## 0.9.1
 
 * (Doc): Added examples directory which shows how to customize the

@@ -277,13 +277,20 @@ context of the current application."
   (multiple-value-bind (logger-form args)
       (resolve-logger-form *package* env args)
     (let* ((logger-symbol (gensym "logger"))
-           (log-stmt (gensym "log-stmt")))
+           (log-stmt (gensym "log-stmt"))
+           (const-logger (when (constantp logger-form)
+                           (let ((logger (eval logger-form)))
+                             (when (typep logger 'logger)
+                               logger))))
+           (check-type (unless const-logger 
+                         `(or (typep ,logger-symbol 'logger)
+                              (error 'type-error :expected-type 'logger :datum ,logger-symbol)))))
       (if args 
           `(let ((,logger-symbol ,logger-form))
              #+sbcl(declare (sb-ext:muffle-conditions sb-ext:compiler-note))
-             (when
-                 (locally (declare (optimize (safety 0) (debug 0) (speed 3)))
-                   (is-enabled-for ,logger-symbol ,level))
+             (when (locally (declare (optimize (safety 0) (debug 0) (speed 3)))
+                     ,@(when check-type (list check-type))
+                     (is-enabled-for ,logger-symbol ,level)) 
                (flet ((,log-stmt (stream)
                         (declare (type stream stream))
                         (format stream ,@args)))
@@ -295,6 +302,7 @@ context of the current application."
           ;; in the (when (log-debug) ... complicated debug ... ) way
           `(let ((,logger-symbol ,logger-form))
              (locally (declare (optimize (safety 0) (debug 0) (speed 3)))
+               ,@(when check-type (list check-type))
                (is-enabled-for ,logger-symbol ,level)))))))
 
 (defun substr (seq start &optional end)

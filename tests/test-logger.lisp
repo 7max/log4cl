@@ -154,3 +154,16 @@ situation"
       (log-info "hey again")
       (is (equal 2 (slot-value a 'count))))))
 
+(defun test-runtime-logger-of-wrong-type-helper (&optional arg)
+  arg)
+
+(deftest test-runtime-logger-of-wrong-type ()
+  "Test that specifying logger at run time checks its type"
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (log:config :i)
+    (let ((e (test-runtime-logger-of-wrong-type-helper)))
+      (signals type-error (log:info e))
+      (setq e (test-runtime-logger-of-wrong-type-helper (make-condition 'error)))
+      (signals type-error (log:info e))))
+  (values))

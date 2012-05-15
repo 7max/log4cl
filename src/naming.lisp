@@ -165,8 +165,8 @@ Supported values for ARG are:
           args))
 
 (defmethod package-wrapper (package categories explicit-p)
-  "Find the PACKAGES shortest name or nickname, and prefix category
-list with it and prefix CATEGORIES list with it"
+  "Find the PACKAGES shortest name or nickname, and prefix CATEGORIES
+list with it"
   (if explicit-p categories
       (append (split-into-categories (shortest-package-name package)
                                      package)

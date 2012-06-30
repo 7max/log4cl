@@ -104,10 +104,15 @@
                   (:export #:f #:e #:w #:i #:d #:u1 #:u2 #:u3 #:u4 #:t #:u5 #:u6 #:u7 #:u8 #:u9 #:c #:s)))))
   (log4cl-defpackage))
 
-(defmacro forward-logging-macro (name from-name)
-  `(defmacro ,name (&rest args)
-     ,(documentation from-name 'function)
-     `(,',from-name ,@args)))
+(defmacro forward-macro (name from-name)
+  `(progn
+     (setf (documentation ',name 'function) (documentation ',from-name 'function))
+     (setf (macro-function ',name) (macro-function ',from-name))))
+
+(defmacro forward-function (name from-name)
+  `(progn
+     (setf (documentation ',name 'function) (documentation ',from-name 'function))
+     (setf (fdefinition ',name) (fdefinition ',from-name))))
 
 (defmacro forward-levels (levels)
   (let ((defs
@@ -118,7 +123,7 @@
                                                            (string level))
                                                    :log4cl-impl) 
                                       (error "Unable to find logging macro for ~S" level))
-                collect `(forward-logging-macro ,macro-name ,forward-name))))
+                collect `(forward-macro ,macro-name ,forward-name))))
     `(progn
        ,@defs)))
 
@@ -136,47 +141,46 @@
                                                                 (string level))
                                                         :log4cl-impl) 
                                       (error "Unable to find logging macro for ~S" level))
-                collect `(forward-logging-macro ,sexp-macro-name ,sexp-forward-name))))
+                collect `(forward-macro ,sexp-macro-name ,sexp-forward-name))))
     `(progn
        ,@defs)))
 
-(forward-levels #.+log-level-macro-symbols+)
-(forward-sexp-levels #.+log-level-macro-symbols+)
-(forward-levels (#:sexp #:config))
+(forward-levels #.+log-level-macro-symbols+) 
+(forward-sexp-levels #.+log-level-macro-symbols+) 
+(forward-macro log:sexp log-sexp) 
 
 ;; make (log:expr) same as (log:sexp) and (log:make) shortcut for (log:make-logger)
-(forward-logging-macro log:expr log4cl-impl:log-sexp)
-(forward-logging-macro log:make log4cl-impl:make-logger)
+(forward-macro log:expr log4cl-impl:log-sexp)
+(forward-macro log:make log4cl-impl:make-logger) 
 
 ;; one letter logging macros
-(forward-logging-macro log:f log4cl-impl:log-fatal)
-(forward-logging-macro log:e log4cl-impl:log-error)
-(forward-logging-macro log:w log4cl-impl:log-warn)
-(forward-logging-macro log:i log4cl-impl:log-info)
-(forward-logging-macro log:d log4cl-impl:log-debug)
-(forward-logging-macro log:u1 log4cl-impl:log-user1)
-(forward-logging-macro log:u2 log4cl-impl:log-user2)
-(forward-logging-macro log:u3 log4cl-impl:log-user3)
-(forward-logging-macro log:u4 log4cl-impl:log-user4)
-(forward-logging-macro log:t log4cl-impl:log-trace)
-(forward-logging-macro log:u5 log4cl-impl:log-user5)
-(forward-logging-macro log:u6 log4cl-impl:log-user6)
-(forward-logging-macro log:u7 log4cl-impl:log-user7)
-(forward-logging-macro log:u8 log4cl-impl:log-user8)
-(forward-logging-macro log:u9 log4cl-impl:log-user9)
-(forward-logging-macro log:c log4cl-impl:log-config)
-(forward-logging-macro log:s log4cl-impl:log-sexp)
+(forward-macro log:f log4cl-impl:log-fatal)
+(forward-macro log:e log4cl-impl:log-error)
+(forward-macro log:w log4cl-impl:log-warn)
+(forward-macro log:i log4cl-impl:log-info)
 
+(forward-macro log:d log4cl-impl:log-debug)
+(forward-macro log:u1 log4cl-impl:log-user1)
+(forward-macro log:u2 log4cl-impl:log-user2)
+(forward-macro log:u3 log4cl-impl:log-user3)
+(forward-macro log:u4 log4cl-impl:log-user4)
+(forward-macro log:t log4cl-impl:log-trace)
+(forward-macro log:u5 log4cl-impl:log-user5)
+(forward-macro log:u6 log4cl-impl:log-user6)
+(forward-macro log:u7 log4cl-impl:log-user7)
+(forward-macro log:u8 log4cl-impl:log-user8)
+(forward-macro log:u9 log4cl-impl:log-user9)
+(forward-macro log:s log4cl-impl:log-sexp)
 
-(forward-logging-macro log:with-hierarchy log4cl-impl:with-log-hierarchy)
-(forward-logging-macro log:with-package-hierarchy log4cl-impl:with-package-log-hierarchy)
-(forward-logging-macro log:in-hierarchy log4cl-impl:in-log-hierarchy)
-(forward-logging-macro log:in-package-hierarchy log4cl-impl:in-package-log-hierarchy)
-(forward-logging-macro log:with-indent log4cl-impl:with-log-indent)
+(forward-macro log:with-hierarchy log4cl-impl:with-log-hierarchy)
+(forward-macro log:with-package-hierarchy log4cl-impl:with-package-log-hierarchy)
+(forward-macro log:in-hierarchy log4cl-impl:in-log-hierarchy)
+(forward-macro log:in-package-hierarchy log4cl-impl:in-package-log-hierarchy)
+(forward-macro log:with-indent log4cl-impl:with-log-indent)
+(forward-macro log:push save)
 
-(setf (documentation 'log4cl:pop 'function) (documentation 'log4cl-impl:restore 'function))
-(setf (fdefinition 'log4cl:pop) (fdefinition 'log4cl-impl:restore))
+(forward-function log:config log-config)
+(forward-function log:c log-config)
+(forward-function log:pop restore)
 
-(setf (documentation 'log4cl:push 'function) (documentation 'log4cl-impl:save 'function))
-(setf (macro-function 'log4cl:push) (macro-function 'log4cl-impl:save))
 

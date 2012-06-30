@@ -474,7 +474,7 @@ configurations to a *CONFIGURATIONS-FILE*")
 (defun logging-configuration= (c1 c2)
   "Compare two logging configurations and return T if they have
 exactly same loggers and levels"
-  (declare (logging-configuration c1 c2))
+  (declare (type logging-configuration c1 c2))
   (or (eq c1 c2)
       (not (flet ((test (e1 e2) 
                     (and (eq (logger-of e1) (logger-of e2))
@@ -595,7 +595,7 @@ swap last two configurations"
 (defun save-configuration (cnf)
   "Save CNF logging configuration into *CONFIGURATIONS* list,
 overwriting the previous one by the same name."
-  (declare (logging-configuration cnf))
+  (declare (type logging-configuration cnf))
   (let ((old (find (name-of cnf) *configurations* :key #'name-of :test #'equal)))
     ;; only keep configuration with the same name if they are different
     (when (and old (logging-configuration= old cnf))

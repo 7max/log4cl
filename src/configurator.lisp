@@ -471,6 +471,16 @@ configurations to a *CONFIGURATIONS-FILE*")
 
 (defvar *configurations-file* ".log4cl-configurations.lisp-expr")
 
+(defun logging-configuration= (c1 c2)
+  "Compare two logging configurations and return T if they have
+exactly same loggers and levels"
+  (declare (logging-configuration c1 c2))
+  (or (eq c1 c2)
+      (not (flet ((test (e1 e2) 
+                    (and (eq (logger-of e1) (logger-of e2))
+                         (eq (level-of e1) (level-of e2)))))
+             (set-exclusive-or (elements-of c1) (elements-of c2) :test #'test)))))
+
 (defmacro save (&optional name (scope *default-logging-configuration-scope*))
   "Save current logging configuration into *CONFIGURATIONS* list
 
@@ -510,39 +520,70 @@ home directory. File name can be customized via *CONFIGURATIONS-FILE*"
           (elements-of cnf))
     (adjust-logger root)))
 
-(defun restore (&optional (configuration nil confp))
-  "Restore logging configuration CONFIGURATION, which can be a name,
-or LOGGING-CONFIGURATION instance. Before restoring the configuration,
-the current logging configuration is automatically saved under the
-name \"Autosave <timestamp>\".
+(defun make-current-configuration ()
+  (make-instance 'logging-configuration
+                   :name (with-output-to-string (s)
+                           (format-time s "Autosave on %Y-%m-%d %H:%M:%S"
+                                        (get-universal-time) nil))))
 
-If CONFIGURATION is NIL restores first element of *CONFIGURATIONS*, which is the last
-saved configuration."
+(defun restore (&optional configuration)
+  "Restore logging configuration CONFIGURATION, which can be a name,
+a LOGGING-CONFIGURATION instance, or a number indicating Nth configuration
+in the *CONFIGURATIONS* list.
+
+Before restoring the configuration, the current logging configuration
+is automatically saved under the name \"Autosave <timestamp>\", unless
+an equivalent configuration is already in the list
+
+If CONFIGURATION is NIL restores first element of *CONFIGURATIONS* that is
+not equivalent to the current configuration. So successive (RESTORE) will
+swap last two configurations"
   (when (and (null *configurations*)
              (probe-file (merge-pathnames *configurations-file*
                                           (user-homedir-pathname))))
     (setq *configurations* (read-configurations-from-file)))
-  (setq configuration
-        (or configuration (first *configurations*) 
-            (error "There were no previously saved configurations")))
-  (let* ((cnf (if (typep configuration 'logging-configuration) configuration
-                  (find configuration *configurations* :key #'name-of :test #'equal))))
-    (or cnf (error "Logging configuration ~S not found in ~S"
-                   configuration '*configurations*))
-    (let ((save (make-instance 'logging-configuration
-                 :name (with-output-to-string (s)
-                         (format-time s "Autosave on %Y-%m-%d %H:%M:%S"
-                                      (get-universal-time) nil)))))
-      (setf *configurations* (remove cnf *configurations*))
-      (push cnf *configurations*)
-      (push save *configurations*)
-      (when confp
-        (rotatef (first *configurations*) (second *configurations*)))
-      (trim-configuration-list '*configurations*)
-      (apply-logging-configuration cnf)
-      (when *save-configurations-to-file*
-        (save-configurations-to-file))
-      (first *configurations*))))
+  
+  (let* ((current (make-current-configuration))
+         (current-dup (find current *configurations* :test #'logging-configuration=))
+         (cnf 
+           (cond ((null configuration)
+                  ;; restore the first configuration not equivalent to the current one
+                  (or (find current *configurations* :test-not #'logging-configuration=)
+                      (error (if *configurations*
+                                 "All stored configurations are equivalent to the current one"
+                                 "There are no stored configurations to restore"))))
+                 ((typep configuration 'logging-configuration)
+                  configuration)
+                 ((integerp configuration)
+                  (or (<= 0 configuration (length *configurations*))
+                      (error "Invalid configuration index ~D" configuration))
+                  (or (find current *configurations* :test-not #'logging-configuration=
+                                                     :start configuration)
+                      (error "All configurations starting from ~D are equivalent to the current one"
+                             configuration)))
+                 (t (or (find configuration *configurations* :key #'name-of :test #'equal)
+                        (error "Logging configuration ~S not found" configuration)))))
+         (same-as-current-p (logging-configuration= cnf current)))
+    ;; (log-sexp save save-dup (find save *configurations* :test #'logging-configuration=))
+    (cond (same-as-current-p
+           ;; simply move to the top
+           (setq *configurations* (remove cnf *configurations*))
+           (setq *configurations* (remove current-dup *configurations*))
+           (push cnf *configurations*))
+          (t 
+           ;; When we have equivalent configuration to the current one,
+           ;; move it to the top rather then overwriting it with "Autosave" entry
+           (when current-dup
+             (setq *configurations* (remove current-dup *configurations*))
+             (setq current current-dup))
+           (setf *configurations* (remove cnf *configurations*)) 
+           (push current *configurations*) 
+           (push cnf *configurations*) 
+           (apply-logging-configuration cnf))) 
+    (trim-configuration-list '*configurations*) 
+    (when *save-configurations-to-file*
+      (save-configurations-to-file)) 
+    (first *configurations*)))
 
 (defun trim-configuration-list (&optional (var '*configurations*))
   "Trim the list in global variable VAR to at most
@@ -555,6 +596,10 @@ saved configuration."
   "Save CNF logging configuration into *CONFIGURATIONS* list,
 overwriting the previous one by the same name."
   (declare (logging-configuration cnf))
+  (let ((old (find (name-of cnf) *configurations* :key #'name-of :test #'equal)))
+    ;; only keep configuration with the same name if they are different
+    (when (and old (logging-configuration= old cnf))
+      (setq *configurations* (remove old *configurations*))))
   (push cnf *configurations*)
   (trim-configuration-list '*configurations*)
   (when *save-configurations-to-file*

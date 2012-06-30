@@ -391,3 +391,185 @@ Example output:
     (log-config :i :sane :immediate-flush)))
 
 (perform-default-init)
+
+;;;
+;;; Logging configuration quick save / restore
+;;; 
+
+(defclass logging-configuration-element ()
+  ((logger :initarg :logger :type logger
+           :initform (error "Required argument ~s missing" :logger)
+           :reader logger-of)
+   (level :initarg :level
+          :type keyword
+          :initform (error "Required argument ~s missing" :level)
+          :reader level-of))
+  (:documentation "Holds logger and its log level"))
+
+(defclass logging-configuration ()
+  ((name :type atom :initarg :name 
+         :initform (error "Required argument ~s missing" :name)
+         :accessor name-of)
+   (elements :initarg :elements
+             :accessor elements-of
+             :initform (remember-logging-configuration)))
+  (:documentation "Used to remember log levels for a set of loggers"))
+
+(defun remember-logging-configuration (&optional (logger *root-logger*))
+  (flet ((make-element (logger level)
+           (make-instance 'logging-configuration-element
+            :logger logger
+            :level (if level (aref +log-level-to-keyword+ level) :unset))))
+    (cons (make-element logger (logger-log-level logger)) 
+          (loop for logger in (logger-descendants logger)
+                for level = (logger-log-level logger)
+                if level collect (make-element logger level)))))
+
+(defmethod print-object ((elem logging-configuration-element) stream)
+  (with-slots (logger level) elem
+    (if (not *print-readably*)
+        (print-unreadable-object (elem stream :type t)
+          (princ (if (logger-parent logger) (logger-category logger)
+                     "+ROOT+") stream)
+          (princ #\Space stream)
+          (prin1 level stream))
+        (format stream  "#.~S"
+                `(make-instance 'logging-configuration-element
+                  :logger
+                  (get-logger-internal ',(logger-categories logger)
+                                       ,(logger-category-separator logger)
+                                       nil)
+                  :level ,level)))))
+
+(defmethod print-object ((cnf logging-configuration) stream)
+  (with-slots (name elements) cnf
+    (if (not *print-readably*)
+        (print-unreadable-object (cnf stream :type t)
+          (format stream "~S (~d)"
+                  name (count :unset elements :key #'level-of :test-not #'eq)))
+        (format stream  "#.~S"
+                `(make-instance 'logging-configuration
+                  :name ',name
+                  :elements ',elements)))))
+
+
+(defvar *configurations* nil
+  "List of unique LOGGER-CONFIGURATION objects")
+
+(defvar *max-configurations* 30
+  "Maximum number of configurations in *CONFIGURATIONS* list.")
+
+(defvar *default-logging-configuration-scope* :root
+  "Default scope for (log:save). Should be one of
+  :ROOT -- save configuration starting from root logger
+  :CONTEXT -- save configuration starting from default logger as made by (LOG:MAKE)
+  <logger> -- logger object or a form that when evaluated returns a logger")
+
+(defvar *save-configurations-to-file* t
+  "When non-NIL SAVE-CONFIGURATION function will also write
+configurations to a *CONFIGURATIONS-FILE*")
+
+(defvar *configurations-file* ".log4cl-configurations.lisp-expr")
+
+(defmacro save (&optional name (scope *default-logging-configuration-scope*))
+  "Save current logging configuration into *CONFIGURATIONS* list
+
+NAME--specifies the name of this logging configuration, if NAME is not
+specified, one is automatically provided as \"Saved on <timestamp>\".
+
+SCOPE--Specifies the logger to start from. When :ROOT start from root logger
+and when :CONTEXT start from the default logger as returned by (LOG:MAKE).
+Default can be specified in *DEFAULT-LOGGING-CONFIGURATION-SCOPE*
+
+The configuration will be pushed on top of *CONFIGURATIONS* list,
+which then will be trimmed to *MAX-CONFIGURATIONS* elements.
+
+When *SAVE-CONFIGURATIONS-TO-FILE* is T (default) the *CONFIGURATIONS*
+list will also be saved to a file \".log4cl-configurations.lisp-expr\" in user
+home directory. File name can be customized via *CONFIGURATIONS-FILE*"
+  (unless name
+    (setq name (with-output-to-string (s)
+                 (format-time s "Saved on %Y-%m-%d %H:%M:%S" (get-universal-time) nil))))
+  (let* ((logger-expr (cond
+                        ((member scope '(:context t)) `(make-logger))
+                        ((eql scope :root) '*root-logger*)
+                        (t scope))))
+    `(save-configuration
+      (make-instance 'logging-configuration :name ,name
+       :elements (remember-logging-configuration ,logger-expr)))))
+
+
+(defun apply-logging-configuration (cnf)
+  "Restores logging configuration"
+  (let ((root (logger-of (first (elements-of cnf)))))
+    (map-logger-descendants (lambda (logger)
+                              (set-log-level logger +log-level-unset+ nil))
+                            root)
+    (mapc (lambda (elem)
+            (set-log-level (logger-of elem) (level-of elem) nil))
+          (elements-of cnf))
+    (adjust-logger root)))
+
+(defun restore (&optional (configuration nil confp))
+  "Restore logging configuration CONFIGURATION, which can be a name,
+or LOGGING-CONFIGURATION instance. Before restoring the configuration,
+the current logging configuration is automatically saved under the
+name \"Autosave <timestamp>\".
+
+If CONFIGURATION is NIL restores first element of *CONFIGURATIONS*, which is the last
+saved configuration."
+  (when (and (null *configurations*)
+             (probe-file (merge-pathnames *configurations-file*
+                                          (user-homedir-pathname))))
+    (setq *configurations* (read-configurations-from-file)))
+  (setq configuration
+        (or configuration (first *configurations*) 
+            (error "There were no previously saved configurations")))
+  (let* ((cnf (if (typep configuration 'logging-configuration) configuration
+                  (find configuration *configurations* :key #'name-of :test #'equal))))
+    (or cnf (error "Logging configuration ~S not found in ~S"
+                   configuration '*configurations*))
+    (let ((save (make-instance 'logging-configuration
+                 :name (with-output-to-string (s)
+                         (format-time s "Autosave on %Y-%m-%d %H:%M:%S"
+                                      (get-universal-time) nil)))))
+      (setf *configurations* (remove cnf *configurations*))
+      (push cnf *configurations*)
+      (push save *configurations*)
+      (when confp
+        (rotatef (first *configurations*) (second *configurations*)))
+      (trim-configuration-list '*configurations*)
+      (apply-logging-configuration cnf)
+      (when *save-configurations-to-file*
+        (save-configurations-to-file))
+      (first *configurations*))))
+
+(defun trim-configuration-list (&optional (var '*configurations*))
+  "Trim the list in global variable VAR to at most
+*MAX-CONFIGURATIONS* elements"
+  (let ((value (symbol-value var))) 
+    (set var
+         (subseq value 0 (min *max-configurations* (length value))))))
+
+(defun save-configuration (cnf)
+  "Save CNF logging configuration into *CONFIGURATIONS* list,
+overwriting the previous one by the same name."
+  (declare (logging-configuration cnf))
+  (push cnf *configurations*)
+  (trim-configuration-list '*configurations*)
+  (when *save-configurations-to-file*
+    (save-configurations-to-file))
+  (first *configurations*))
+
+(defun save-configurations-to-file (&optional (file *configurations-file*))
+  (let ((file (merge-pathnames file (user-homedir-pathname))))
+    (with-open-file (out file :direction :output :if-exists :supersede
+                              :if-does-not-exist :create)
+      (write *configurations* :stream out :length nil :readably t :circle nil :pretty nil))))
+
+(defun read-configurations-from-file (&optional (file *configurations-file*))
+  (let ((file (merge-pathnames file (user-homedir-pathname))))
+    (with-open-file (input file)
+      (read input))))
+
+

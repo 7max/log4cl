@@ -81,11 +81,20 @@
                        #:log4cl-error
                        #:log4cl-error
                        ;; variables
-                       #:*root-logger*))
+                       #:*root-logger*
+                       ;; quick save/restore of configurations
+                       #:save
+                       #:restore
+                       #:*configurations-file*
+                       #:*save-configurations-to-file*
+                       #:*default-logging-configuration-scope*
+                       #:*max-configurations*
+                       #:*configurations*))
                   (:import-from :cl #:in-package)
                   ,@(shadow-and-export
                      `(#:sexp #:expr #:config #:make ,@+log-level-symbols+ ,@(level-expr-syms)
                               #:with-hierarchy
+                              #:push #:pop
                               #:with-package-hierarchy
                               #:in-package-hierarchy
                               #:in-hierarchy
@@ -164,3 +173,10 @@
 (forward-logging-macro log:in-hierarchy log4cl-impl:in-log-hierarchy)
 (forward-logging-macro log:in-package-hierarchy log4cl-impl:in-package-log-hierarchy)
 (forward-logging-macro log:with-indent log4cl-impl:with-log-indent)
+
+(setf (documentation 'log4cl:pop 'function) (documentation 'log4cl-impl:restore 'function))
+(setf (fdefinition 'log4cl:pop) (fdefinition 'log4cl-impl:restore))
+
+(setf (documentation 'log4cl:push 'function) (documentation 'log4cl-impl:save 'function))
+(setf (macro-function 'log4cl:push) (macro-function 'log4cl-impl:save))
+

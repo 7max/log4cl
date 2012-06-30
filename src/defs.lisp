@@ -67,14 +67,17 @@
   (mapcar 'string-upcase (mapcar 'symbol-name +log-level-symbols+)))
 
 ;; For converting level to string
-(defparameter +log-level-to-string+
-  (coerce '("OFF" "FATAL" "ERROR" "WARN" "INFO" "DEBUG" 
-            "USER1" "USER2" "USER3" "USER4" "TRACE" "USER5" "USER6"
-            "USER7" "USER8" "USER9")
+(defparameter +log-level-to-keyword+
+  (coerce '(:off :fatal :error :warn :info :debug 
+            :user1 :user2 :user3 :user4 :trace :user5 :user6
+            :user7 :user8 :user9)
           'simple-vector))
 
+(defparameter +log-level-to-string+
+  (map 'simple-vector #'string-upcase +log-level-to-keyword+))
+
 (defparameter +log-level-to-lc-string+
-  (map 'simple-vector #'string-downcase +log-level-to-string+))
+  (map 'simple-vector #'string-downcase +log-level-to-keyword+))
 
 (defvar *log-indent* 0
   "Indent level can be used to indent logging info, is printed by %I

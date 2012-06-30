@@ -127,7 +127,14 @@
    #:add-watch-token
    #:remove-watch-token
    #:watch-token-check
-   #:log4cl-error))
+   #:log4cl-error
+   #:save
+   #:*configurations-file*
+   #:*save-configurations-to-file*
+   #:*default-logging-configuration-scope*
+   #:*max-configurations*
+   #:*configurations*
+   #:restore))
 
 
 

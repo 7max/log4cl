@@ -156,7 +156,7 @@ Supported values for ARG are:
 
 (defmethod resolve-default-logger-form (package env args)
   "Returns the logger named after the enclosing lexical environment"
-  (values (get-logger-internal
+  (values (%get-logger
            (package-wrapper package
                             (enclosing-scope-block-name package env)
                             nil)
@@ -216,7 +216,7 @@ SEPARATOR"
          (stringp (first args)))
      (resolve-default-logger-form package env args))
     ((keywordp (first args))
-     (values (get-logger-internal
+     (values (%get-logger
               (package-wrapper
                package
                (split-into-categories (symbol-name (first args))
@@ -229,7 +229,7 @@ SEPARATOR"
      (let ((value (eval (first args))))
        (cond ((symbolp value)
               (values
-               (get-logger-internal
+               (%get-logger
                 (package-wrapper
                  package
                  (split-into-categories (symbol-name value) package)
@@ -239,7 +239,7 @@ SEPARATOR"
                (rest args)))
              ((listp value)
               (values
-               (get-logger-internal (package-wrapper package value t)
+               (%get-logger (package-wrapper package value t)
                                     (naming-option package :category-separator)
                                     (naming-option package :category-case))
                (rest args)))

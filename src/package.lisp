@@ -85,11 +85,14 @@
                        ;; quick save/restore of configurations
                        #:save
                        #:restore
+                       #:logging-configuration-element
+                       #:logging-configuration
+                       #:same-configuration-p
+                       #:all-configurations
+                       #:list-configurations
                        #:*configurations-file*
                        #:*save-configurations-to-file*
-                       #:*default-logging-configuration-scope*
-                       #:*max-configurations*
-                       #:*configurations*))
+                       #:*max-configurations*))
                   (:import-from :cl #:in-package)
                   ,@(shadow-and-export
                      `(#:sexp #:expr #:config #:make ,@+log-level-symbols+ ,@(level-expr-syms)
@@ -177,10 +180,10 @@
 (forward-macro log:in-hierarchy log4cl-impl:in-log-hierarchy)
 (forward-macro log:in-package-hierarchy log4cl-impl:in-package-log-hierarchy)
 (forward-macro log:with-indent log4cl-impl:with-log-indent)
-(forward-macro log:push save)
 
 (forward-function log:config log-config)
 (forward-function log:c log-config)
 (forward-function log:pop restore)
+(forward-function log:push save)
 
 

@@ -131,10 +131,13 @@
    #:save
    #:*configurations-file*
    #:*save-configurations-to-file*
-   #:*default-logging-configuration-scope*
    #:*max-configurations*
-   #:*configurations*
-   #:restore))
+   #:restore
+   #:logging-configuration-element
+   #:logging-configuration
+   #:same-configuration-p
+   #:all-configurations
+   #:list-configurations))
 
 
 

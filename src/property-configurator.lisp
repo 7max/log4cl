@@ -71,7 +71,7 @@ token name into the keyword and call this function again"
                        (log4cl-error "Root logger cannot have any sub-properties"))
                    *root-logger*)
                   (t (or tokens (log4cl-error "Logger name missing"))
-                     (get-logger-internal
+                     (%get-logger
                       tokens name-token-separator name-token-read-case))))
           (value-tokens (split-string value "," t)))
       (unless (plusp (length value-tokens))
@@ -129,7 +129,7 @@ token name into the keyword and call this function again"
     (let* ((logger
              (if (equalp tokens '("rootlogger"))
                  *root-logger*
-                 (get-logger-internal
+                 (%get-logger
                   tokens name-token-separator name-token-read-case))))
       (setf additivity (delete logger additivity :key #'car))
       (push (cons logger (intern-boolean value))

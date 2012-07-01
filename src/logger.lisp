@@ -191,18 +191,21 @@ non-NIL strip whitespace from the string first"
 child. Uses NAMING-OPTION to determine category separator"
   (split-string category (naming-option package :category-separator)))
 
-(defun get-logger-internal (categories cat-sep cat-case
-                            &optional force-string-case)
+(defun %get-logger (categories cat-sep cat-case
+                    &optional force-string-case
+                              (createp t))
   "Retrieve or create a logger.
 
-  - CATEGORIES : List of category names.
-  - SEPARATOR  : Category separator. Will only be used if logger did not exist before.
-  - CAT-CASE   : How each category case is treated. See NAMING-OPTION
-                 generic function for description
+CATEGORIES -- List of category names.
+SEPARATOR  -- Category separator. Will only be used if logger did not
+              exist before.
+CAT-CASE   -- How each category case is treated. See NAMING-OPTION
+              generic function for description
 
-  - FORCE-STRING-CASE : Whenever elements of category which are
-                        strings, should also undergo case conversion
-                        according to CAT-CASE
+FORCE-STRING-CASE -- Whenever elements of category which are strings,
+should also undergo case conversion according to CAT-CASE
+
+CREATEP    -- Create the logger if it does not exist
 
 Note that its possible to receive a logger with different \"official\"
 category name then expected. For example if logger ONE:TWO:THREE was
@@ -236,6 +239,7 @@ on the strings in configuration file:
       (setq logger
             (or
              (and hash (gethash name hash))
+             (unless createp (return-from %get-logger nil))
              (setf (gethash name (or hash
                                      (setf (logger-child-hash logger)
                                            (make-hash-table :test #'equal))))
@@ -536,7 +540,7 @@ consed list of strings"
   "Creates the logger when a logger constant is being loaded from a
 compiled file"
   (declare (ignore env))
-  `(get-logger-internal ',(logger-categories log)
+  `(%get-logger ',(logger-categories log)
                         (naming-option *package* :category-separator)
                         (naming-option *package* :category-case)))
 

@@ -181,7 +181,7 @@ the logger after the current package:
 
     [16:47:09] [debug] <cl-user:foo:baz> - X=3 (1+ X)=4
 
-It also handles with methods:
+It also handles methods:
 
     (defmethod bar ((x number) y)
       (flet ((baz ()

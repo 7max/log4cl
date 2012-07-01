@@ -1,6 +1,6 @@
 ## 0.9.3
 
-* (Feature): Added ability to quick save/restore of logging named
+* (Feature): Added ability to quick save/restore of named logging
   configurations, with the list of 30 most recently used
   configurations saved in a file in user home directory. See next to
   last section in README.md QuickStart quide describing new

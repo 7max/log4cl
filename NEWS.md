@@ -1,3 +1,15 @@
+## 0.9.3
+
+* (Feature): Added ability to quick save/restore of logging named
+  configurations, with the list of 30 most recently used
+  configurations saved in a file in user home directory. See next to
+  last section in README.md QuickStart quide describing new
+  functionality
+
+* (Bugfix): Change log4cl package to forward functions and macros from the
+  log4cl-impl package by setf'ing fdefinition or macro-function. This allows
+  Slime M-. key to correctly locate sources of "nicknamed" functions or macros.
+
 ## 0.9.2
 * (Bugfix) When logger is specified at runtime, check that it has the correct type
 

@@ -21,9 +21,8 @@ Then use the `(ql:quickload :log4cl)` from `REPL` to load it.
 
 ### Log4CL packages
 
-Do not try to include LOG4CL into your package's *:USE* list. LOG4CL
-is designed to be used by referencing its symbols with the `log:`
-package prefix.
+Do not try to include LOG4CL into your package's *:USE* list, instead use
+`log:` package prefix with your log statements.
 
 ## The Basics
 
@@ -39,7 +38,7 @@ package prefix.
 
 As you can see package contains one letter shortcuts for all the log
 levels, for the lazy amongst us. Also note that debug log statement
-did not produce any output. Changing the log level is done like this:
+did not produce any output. Changing the log level is easy:
 
     (log:config :debug)
 
@@ -47,10 +46,8 @@ did not produce any output. Changing the log level is done like this:
 
     [14:41:44] [debug] <cl-user> - something
 
-As with the log statements, both the log level and the `config`
-function can also be abbreviated to just a letter, for
-example one could have typed `(log:c :d`) to change log level
-to `debug`
+As with the log statements, you can abbreviate `config` and
+`:debug` to one letter, for example: `(log:c :d)`
 
 One additional logging utility function `(log:expr)`, helps you to
 quickly debug values of variables and expressions:
@@ -60,7 +57,7 @@ quickly debug values of variables and expressions:
 
     [14:54:39] [debug] <cl-user> - A=1 B=2 (+ A B)=3
 
-This function also has two aliases: `(log:sexp)` and `(log:s)`. For completeness
+It function also has two aliases: `(log:sexp)` and `(log:s)`. For completeness
 there are also `(log:sexp-trace)`, `(log:sexp-info)` and so on, to allow for
 same expression logging with any log level
 
@@ -70,20 +67,18 @@ additional ones. They are in the order of decreasing severity:
 *fatal*, *error*, *warn*, *info*, *debug*, *user1* through *user4*,
 *trace*, and finally *user5* through *user9*
 
-There is also two special log levels *off* and *unset*, which are used
-to turn the logging off, and to inherit the log level from the parent
+There is also two special log levels *off* and *unset*, which 
+turn the logging off, and inherit the log level from the parent
 logger. The default log level for all loggers is *unset*.
 
-When logging is enabled for a level, it is also enabled for levels
-with more severity. For example if *debug* level is enabled, then
-log messages with *info* and *error* level will also be enabled.
+When a logging is on for a log level, it is also enabled for levels
+with more severity. For example if *debug* level is on, then *info*
+and *error* are also on.
 
-### How to determine of logging is enabled?
------------------------------------------------------------------
-Sometimes its useful to figure out if logging is enabled for a particular
-level, to conditionally execute log statements. The logging function
-without any arguments, will return `T` or `NIL` depending if logging
-on that level is enabled.
+### How to determine if logging is on programatically?
+
+Sometimes its useful to conditionally execute log statements. The
+logging macro without any arguments, will return `T` if logging is on:
 
     (when (log:debug)
       (print-detailed-debugging-info))
@@ -95,8 +90,8 @@ the log message, its severity level and the actual log message,
 contains the string `<cl-user>`, which corresponds to the current
 package.
 
-That string is called a category of the log message, and can also be
-referred to as *logger's category*, or simply a logger.
+That string is the category of the log message, and is also referred
+to as *logger's category*, or simply a logger.
 
 *Logger* is an object, that acts as source of the log message, and
 also as a configuration point, which can have its own log level and
@@ -117,8 +112,8 @@ child logger `C`, the full category name of the logger C is `A:B:C`
 When you issue a log statement such as `(log:info "whatever")` LOG4CL
 determines the logger name automatically based on surrounding context.
 That's why, when you issue log statement from `REPL` with the current
-package being *CL-USER*, the logger message is logged into is also
-called `CL-USER`.
+package being *CL-USER*, the logger message went to was also called
+`CL-USER`.
 
 You can directly instantiate logger objects, by using
 the `(log:make-logger)` function:
@@ -136,7 +131,7 @@ the `(log:make-logger)` function:
     #<LOGGER ONE:TWO:THREE>
 
 In the first example, the logger name is automatically determined from
-context, just as with the default log statement. In the second
+context, as with the default log statement. In the second
 example, specifying a keyword as the logger name, will create a
 sub-logger of such default logger. And finally the most generic syntax
 is using a quoted list, where each element names a logger starting
@@ -153,11 +148,9 @@ first argument:
 
     [15:15:04] [info] <one:two:three> - goes to logger ONE:TWO:THREE
 
-
 As a shortcut you can omit the `(log:make-logger`) and specify a
 `(make-logger)` argument directly as a first argument of a logging
-function, with exception of `(log:expr)`, with which you have to
-always use explicit call to `(log:make-logger)`.
+function, with exception of `(log:expr)` and friends.
 
     (log:info '(one two three) "goes to logger ONE:TWO:THREE")
 
@@ -169,7 +162,7 @@ always use explicit call to `(log:make-logger)`.
 
 ### Automatic naming inside a function
 
-Under SBCL automatic logger naming goes farther then just naming
+Under SBCL automatic logger naming goes farther then naming
 the logger after the current package:
 
     (defun foo (x)
@@ -188,7 +181,7 @@ the logger after the current package:
 
     [16:47:09] [debug] <cl-user:foo:baz> - X=3 (1+ X)=4
 
-It also works with methods:
+It also handles with methods:
 
     (defmethod bar ((x number) y)
       (flet ((baz ()
@@ -209,7 +202,7 @@ It also works with methods:
 
 ### Configuring a specific logger category
 
-By default a call to `(log:config`) function configures the root
+By default a call to `(log:config)` function configures the root
 logger. All the rest of the loggers in the system inherit the log
 level from their parent loggers, and eventually from the root logger.
 
@@ -259,10 +252,10 @@ the specified logger, but not the logger itself. To do both use
 ### Displaying logger hierarchy configuration
 
 Without any arguments, `(log:config)` will display logging hierarchy
-and its configuration on the standard output. Only "interesting"
-loggers will be displayed, "interesting" defined as having either an
-explicit log level, or having any appenders, or being non-additive
-(meaning they don't propagate messages to the ancestor's appenders)
+and its configuration on the standard output. It only prints
+"interesting" loggers, that have either an explicit log level, have
+any appenders, or are non-additive (meaning they don't propagate
+messages to the ancestor's appenders)
 
     CL-USER> (log:config)
     ROOT, DEBUG
@@ -339,9 +332,9 @@ description, below are a few examples:
                 * test
 
 
-- `:DAILY` option adds a `LOG:DAILY-FILE-APPENDER`, logging
-  into the specified file. The file will be switched at midnight, with
-  the log renamed by adding `<year><mon><day>` suffix to its name.
+- `:DAILY` option adds a `LOG:DAILY-FILE-APPENDER`, logging into the
+  specified file. The file will switch at midnight, with the old file
+  renamed by adding `<year><mon><day>` suffix to its name.
 
               (log:config :daily "log.txt")
 
@@ -398,8 +391,8 @@ description, below are a few examples:
   pattern property, but is stripped from the beginning of the
   file-name property.
 
-- `:WATCH` option is used together with *:PROPERTIES* option, and will make
-  LOG4CL watch the file modification time, and reload it when it changes.
+- `:WATCH` option together with *:PROPERTIES* option, will make LOG4CL
+  watch the file modification time, and reload it when it changes.
 
               (log:config :properties "tests/log4cl.properties" :watch)
 
@@ -420,6 +413,64 @@ description, below are a few examples:
               Error at line 6:
               Unknown property :CONVERSION-PATTER for class #<PATTERN-LAYOUT
                                                               {10761F4841}>
+
+## Quick save/restore
+
+  Once you added extensive logging to the your application, it may become bothersome
+  to reconfigure log levels each time you work on a separate part of a big system.
+
+  For example, when focusing one module A, you need detailed debugging for it, but
+  when focusing on module B, the debug statements coming from A flood your screen
+  are unhelpful. Of course one can use separate log4cl.properties file for each part
+  of theh system that you are developing, or have a separate .lisp
+  file with `(log:config)` statemements, but LOG4CL now provides a more intuitive
+  and agile facility.
+
+    LTR> (log:save :config-1)
+
+    #<log4cl-impl:logging-configuration :config-1 (18)>
+
+    LTR> (log:config :clear :info)
+    LTR> (log:save)
+
+    #<log4cl-impl:configuration "Saved on 2012-07-01 12:51:02" (1)>
+
+    LTR> (log:restore)
+
+    #<log4cl-impl:configuration :config-1 (18)>
+    
+    LTR> (log:restore)
+
+    #<log4cl-impl:configuration "Saved on 2012-07-01 11:44:18" (1)>
+
+    LTR> (log:list-configurations)
+      0. #<CONFIGURATION "Saved on 2012-07-01 11:44:18" (1)>
+      1. #<CONFIGURATION :CONFIG-1 (18)>
+
+    (log:restore 1)
+
+    #<log4cl-impl:configuration :config-1 (18)>
+
+    LTR> (log:config '(ltr scaling.lisp) :trace)
+    LTR> (log:save :config2)
+
+    #<log4cl-impl:configuration :config2 (19)>
+
+    LTR> (log:list-configurations)
+      0. #<CONFIGURATION :CONFIG2 (19)>
+      1. #<CONFIGURATION :CONFIG-1 (18)>
+      2. #<CONFIGURATION "Saved on 2012-07-01 11:44:18" (1)>
+
+The `(log:save)` function saves the logging configuration
+and `(log:restore)` restores last saved configuration.. There are up to 30
+configuration saved, and they are automatically persisted into the
+`~/.log4cl-configurations.lisp-expr` file, so they survive lisp
+restarts.  When restore function notices that current configuration is
+not in the configuration list, it will automatically create a
+"Autosave on <timestamp>" configuration, so you can recover from
+accidents.
+
+`log:save` and `log:restore` are also aliased to `log:push` and `log:pop`.
 
 ## More documentation
 

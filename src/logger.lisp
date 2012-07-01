@@ -262,6 +262,8 @@ on the strings in configuration file:
                        (adjust-logger logger))
                      logger)))))))
 
+(setf (fdefinition 'get-logger-internal) (fdefinition '%get-logger))
+
 (defun current-state (logger)
   (svref (logger-state logger) *hierarchy*))
 

@@ -85,8 +85,8 @@
                        ;; quick save/restore of configurations
                        #:save
                        #:restore
-                       #:logging-configuration-element
-                       #:logging-configuration
+                       #:configuration-element
+                       #:configuration
                        #:same-configuration-p
                        #:all-configurations
                        #:list-configurations

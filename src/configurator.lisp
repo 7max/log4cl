@@ -396,7 +396,7 @@ Example output:
 ;;; Logging configuration quick save / restore
 ;;; 
 
-(defclass logging-configuration-element ()
+(defclass configuration-element ()
   ((logger :initarg :logger :type logger
            :initform (error "Required argument ~s missing" :logger)
            :reader logger-of)
@@ -406,7 +406,7 @@ Example output:
           :reader level-of))
   (:documentation "Holds logger and its log level"))
 
-(defclass logging-configuration ()
+(defclass configuration ()
   ((name :type atom :initarg :name 
          :initform (error "Required argument ~s missing" :name)
          :accessor name-of)
@@ -417,9 +417,9 @@ Example output:
 
 (defun remember-logging-configuration (&optional (logger *root-logger*))
   "Utility method to make a list of logging configuration starting from LOGGER. 
-Returns a list of LOGGING-CONFIGURATION-ELEMENT objects"
+Returns a list of CONFIGURATION-ELEMENT objects"
   (flet ((make-element (logger level)
-           (make-instance 'logging-configuration-element
+           (make-instance 'configuration-element
             :logger logger
             :level (if level (aref +log-level-to-keyword+ level) :unset))))
     (cons (make-element logger (logger-log-level logger)) 
@@ -427,7 +427,7 @@ Returns a list of LOGGING-CONFIGURATION-ELEMENT objects"
                 for level = (logger-log-level logger)
                 if level collect (make-element logger level)))))
 
-(defmethod print-object ((elem logging-configuration-element) stream)
+(defmethod print-object ((elem configuration-element) stream)
   (with-slots (logger level) elem
     (if (not *print-readably*)
         (print-unreadable-object (elem stream :type t)
@@ -436,23 +436,21 @@ Returns a list of LOGGING-CONFIGURATION-ELEMENT objects"
           (princ #\Space stream)
           (prin1 level stream))
         (format stream  "#.~S"
-                `(make-instance 'logging-configuration-element
+                `(make-instance 'configuration-element
                   :logger
                   (%get-logger ',(logger-categories logger)
-                                       ,(logger-category-separator logger)
-                                       nil)
+                               ,(logger-category-separator logger)
+                               nil)
                   :level ,level)))))
 
-(defmethod print-object ((cnf logging-configuration) stream)
+(defmethod print-object ((cnf configuration) stream)
   (with-slots (name elements) cnf
     (if (not *print-readably*)
         (print-unreadable-object (cnf stream :type t)
           (format stream "~S (~d)"
                   name (count :unset elements :key #'level-of :test-not #'eq)))
         (format stream  "#.~S"
-                `(make-instance 'logging-configuration
-                  :name ',name
-                  :elements ',elements)))))
+                `(make-instance 'configuration :name ',name :elements ',elements)))))
 
 (defvar *configurations* nil
   "List of all LOGGER-CONFIGURATION objects")
@@ -471,7 +469,7 @@ of USER-HOMEDIR-PATHNAME")
 (defun same-configuration-p (c1 c2)
   "Compare two logging configurations and return T if they have
 exactly same loggers and levels"
-  (declare (type logging-configuration c1 c2))
+  (declare (type configuration c1 c2))
   (or (eq c1 c2)
       (not (flet ((test (e1 e2) 
                     (and (eq (logger-of e1) (logger-of e2))
@@ -493,7 +491,7 @@ list list will also be saved to a file
 \".log4cl-configurations.lisp-expr\" in user home directory. File name
 can be customized by changing *CONFIGURATIONS-FILE* variable"
   (save-configuration
-   (make-instance 'logging-configuration
+   (make-instance 'configuration
     :name (or name
               (with-output-to-string (s)
                 (format-time s "Saved on %Y-%m-%d %H:%M:%S"
@@ -512,14 +510,14 @@ can be customized by changing *CONFIGURATIONS-FILE* variable"
     (adjust-logger root)))
 
 (defun make-autosave-configuration ()
-  (make-instance 'logging-configuration
+  (make-instance 'configuration
    :name (with-output-to-string (s)
            (format-time s "Autosave on %Y-%m-%d %H:%M:%S"
                         (get-universal-time) nil))))
 
 (defun restore (&optional configuration from-end)
   "Restore logging configuration CONFIGURATION, which can be a name,
-a LOGGING-CONFIGURATION instance, or a number indicating Nth (zero
+a CONFIGURATION instance, or a number indicating Nth (zero
 based) configuration in the *CONFIGURATIONS* list. NIL is treated as
 zero.
 
@@ -549,7 +547,7 @@ swap last two configurations"
                       (error (if *configurations*
                                  "All stored configurations are equivalent to the current one"
                                  "There are no stored configurations to restore"))))
-                 ((typep configuration 'logging-configuration)
+                 ((typep configuration 'configuration)
                   configuration)
                  ((integerp configuration)
                   (or (<= 0 configuration (length *configurations*))
@@ -610,7 +608,7 @@ swap last two configurations"
   "Save CNF logging configuration into *CONFIGURATIONS* list. If its equivalent
 to some other configuration, save it only if it had a different name, otherwise
 lift the older equivalent configuration to the top of the list"
-  (declare (type logging-configuration cnf))
+  (declare (type configuration cnf))
   (let ((old (find cnf *configurations* :test #'same-configuration-p)))
     (cond
       ;; If new configuration has user-given name, and equivalent old
@@ -634,13 +632,15 @@ lift the older equivalent configuration to the top of the list"
 
 (defun save-configurations-to-file (&optional (file *configurations-file*))
   (let ((file (merge-pathnames file (user-homedir-pathname)))
-        (*package* (find-package :keyword)))
+        (*package* (find-package :cl)))
     (with-open-file (out file :direction :output :if-exists :supersede
                               :if-does-not-exist :create)
       (write *configurations* :stream out :length nil :readably t :circle nil :pretty nil))))
 
 (defun read-configurations-from-file (&optional (file *configurations-file*))
-  (let ((file (merge-pathnames file (user-homedir-pathname))))
+  (let ((file (merge-pathnames file (user-homedir-pathname)))
+        (*package* (find-package :cl))
+        (*read-eval* t))
     (with-open-file (input file)
       (read input))))
 

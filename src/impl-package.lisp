@@ -133,11 +133,11 @@
    #:*save-configurations-to-file*
    #:*max-configurations*
    #:restore
-   #:logging-configuration-element
-   #:logging-configuration
    #:same-configuration-p
    #:all-configurations
-   #:list-configurations))
+   #:list-configurations
+   #:configuration-element
+   #:configuration))
 
 
 

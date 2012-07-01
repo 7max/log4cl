@@ -420,7 +420,7 @@ description, below are a few examples:
   to reconfigure log levels each time you work on a separate part of a big system.
 
   For example, when focusing one module A, you need detailed debugging for it, but
-  when focusing on module B, the debug statements coming from A flood your screen
+  when focusing on module B, the debug statements coming from A flooding your screen
   are unhelpful. Of course one can use separate log4cl.properties file for each part
   of theh system that you are developing, or have a separate .lisp
   file with `(log:config)` statemements, but LOG4CL now provides a more intuitive

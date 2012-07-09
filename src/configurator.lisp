@@ -549,6 +549,14 @@ can be customized by changing *CONFIGURATIONS-FILE* variable"
            (format-time s "Autosave on %Y-%m-%d %H:%M:%S"
                         (get-universal-time) nil))))
 
+(defun maybe-restore-configurations ()
+  "If configurations list empty and *CONFIGURATIONS-FILE* exists in
+home directory restore configuration list from it"
+  (when (and (null *configurations*)
+             (probe-file (merge-pathnames *configurations-file*
+                                          (user-homedir-pathname))))
+    (setq *configurations* (read-configurations-from-file))))
+
 (defun restore (&optional configuration from-end)
   "Restore logging configuration CONFIGURATION, which can be a name,
 a CONFIGURATION instance, or a number indicating Nth (zero
@@ -566,10 +574,8 @@ an equivalent configuration is already in the list
 If CONFIGURATION is NIL restores first element of *CONFIGURATIONS* that is
 not equivalent to the current configuration. So successive (RESTORE) will
 swap last two configurations"
-  (when (and (null *configurations*)
-             (probe-file (merge-pathnames *configurations-file*
-                                          (user-homedir-pathname))))
-    (setq *configurations* (read-configurations-from-file)))
+
+  (maybe-restore-configurations)
   
   (let* ((current (make-autosave-configuration))
          (current-dup (find current *configurations* :test #'same-configuration-p))
@@ -684,6 +690,7 @@ lift the older equivalent configuration to the top of the list"
 
 (defun list-configurations (&optional (stream *standard-output*))
   "Prints the *CONFIGURATIONS* list"
+  (maybe-restore-configurations)
   (loop for cnt from 0 
         for cnf in *configurations*
         do (format stream "~4:<~d.~> ~A~%" cnt cnf)))

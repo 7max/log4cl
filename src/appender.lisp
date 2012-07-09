@@ -83,6 +83,10 @@ ADD-WATCH-TOKEN"))
   ((stream :initarg :stream :accessor appender-stream))
   (:documentation "Appender that writes message to the stream in STREAM slot"))
 
+(defmethod property-alist ((instance fixed-stream-appender))
+  (append (call-next-method)
+          '((:stream stream :symbol-value))))
+
 (defclass console-appender (stream-appender) () 
   (:documentation "A stream appender that writes messages to
 *debug-io* stream.  The *debug-io* is late-binding, that is its the

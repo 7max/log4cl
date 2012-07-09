@@ -44,86 +44,94 @@ appender"
 
     (LOG-CONFIG [LOGGER-IDENTIFIER] OPTION1 OPTION2...)
 
-Logger can be one of:
+LOGGER-IDENTIFIER can be one of:
 
-- Logger instance ie result of (make-logger) expansion, or any form
+* Logger instance ie result of (make-logger) expansion, or any form
   that returns a logger.
 
-- A list of logger categories, basically a shortcut for (MAKE-LOGGER
-  '(CAT1 CAT2 CAT3))
+* A list of logger categories, basically a shortcut for (MAKE-LOGGER
+  '(CAT1 CAT2 CAT3)). An error will be given if logger does not exist. If you want
+  to ensure logger is created, even if it did not exist before, use
+  (LOG-CONFIG (MAKE-LOGGER ...) ...)
 
 If not specified, default logger will be root logger
 
 Valid options can be:
 
-  Option     | Description
--------------|---------------------------------------------------------------
- :INFO       | Or any other keyword identifying a log level, which can be    
- :DEBUG      | shortened to its shortest unambiguous prefix, such as :D      
--------------|---------------------------------------------------------------
- :CLEAR      | Removes log level and appenders from any child loggers,       
-             | appenders are not removed from non-additive loggers           
--------------|---------------------------------------------------------------
- :ALL        | Changes :CLEAR to remove appenders from non-additive          
-             | loggers                                                       
--------------|---------------------------------------------------------------
- :SANE       | Removes logger appenders, adds console appender with          
-             | pattern layout that makes messages look like this:            
-             |                                                               
-             | :     [11:22:25] INFO  {category.name} - message              
--------------|---------------------------------------------------------------
- :OWN        | For :SANE and :DAILY makes logger non-additive                
-             | otherwise additive flag will be set                           
--------------|---------------------------------------------------------------
- :DAILY FILE | Adds file appender logging to the named file, which will      
-             | be rolled over every midnight into FILE.YYYYMMDD; Removes any 
-             | other other appenders that subclass FILE-APPENDER-BASE from   
-             | the logger.  If :SANE is also specified, all logger appenders 
-             | are removed, but console appender is not added                
--------------|---------------------------------------------------------------
- :CONSOLE    | Forces adding of console appender if :DAILY was specified     
--------------|---------------------------------------------------------------
- :PATTERN    | For :SANE option uses specified conversion pattern instead    
- STRING      | of default one                                                
--------------|---------------------------------------------------------------
- :TWOLINE    | Changes default pattern layout to print user log message      
-             | log message on 2nd line after the headers                     
--------------|---------------------------------------------------------------
- :SELF       | Used for debugging LOG4CL itself. Instead of root logger,     
-             | make default logger LOG4CL:SELF and remember all arguments    
-             | in the variable *SELF-LOG-CONFIG*, so that they are restored  
-             | even on (CLEAR-LOGGING-CONFIGURATION). Automatically assumes  
-             | :OWN making the LOG4CL-IMPL:SELF logger non-additive          
--------------|---------------------------------------------------------------
- :PROPERTIES | Configure with PROPERTY-CONFIGURATOR by parsing specified     
- FILE        | properties file                                               
--------------|---------------------------------------------------------------
- :WATCH      | Used with :PROPERTIES, uses watcher thread to check           
-             | properites file modification time, and reloads if it changes  
--------------|---------------------------------------------------------------
- :IMMEDIATE- | Used with :SANE, :DAILY or :CONSOLE to create new appenders
-  FLUSH      | with :IMMEDIATE-FLUSH T option, which prevents automatic
-             | startup of hierarchy watcher thread, which is used for
-             | auto-flushing. 
--------------|---------------------------------------------------------------
+  Option       | Description
+---------------|---------------------------------------------------------------
+ :INFO         | Or any other keyword identifying a log level, which can be    
+ :DEBUG        | shortened to its shortest unambiguous prefix, such as :D      
+---------------|---------------------------------------------------------------
+ :CLEAR        | Removes log level and appenders from any child loggers,       
+               | appenders are not removed from non-additive loggers           
+---------------|---------------------------------------------------------------
+ :ALL          | Changes :CLEAR to remove appenders from non-additive          
+               | loggers                                                       
+---------------|---------------------------------------------------------------
+ :SANE         | Removes logger appenders, adds console appender with          
+               | pattern layout that makes messages look like this:            
+               |                                                               
+               | [11:22:25] INFO  {category.name} - message
+               |
+               | If used with :DAILY then console appender is not added, unless
+               | :CONSOLE or :THIS-CONSOLE is explicitly used
+---------------|---------------------------------------------------------------
+ :DAILY FILE   | Adds file appender logging to the named file, which will      
+               | be rolled over every midnight into FILE.YYYYMMDD; Removes any 
+               | other FILE-APPENDER-BASE'ed appenders from the logger
+---------------|---------------------------------------------------------------
+ :CONSOLE      | Adds CONSOLE-APPENDER to the logger. Console appender logs
+               | into the *DEBUG-IO* at the call site.
+               |
+ :THIS-CONSOLE | Adds FIXED-STREAM-APPENDER to the logger, with :stream argument
+               | taken from the current value of *DEBUG-IO*
+---------------|---------------------------------------------------------------
+:STREAM stream | Adds FIXED-STREAM-APPENDER logging to specified stream
+---------------|---------------------------------------------------------------
+ :PATTERN      | For any new appenders added, specifies the conversion pattern for the
+               | PATTERN-LAYOUT
+---------------|---------------------------------------------------------------
+ :TWOLINE      | Changes default pattern layout to print user log message      
+  or :2LINE    | log message on 2nd line after the headers                     
+---------------|---------------------------------------------------------------
+ :PROPERTIES   | Configure with PROPERTY-CONFIGURATOR by parsing specified     
+ FILE          | properties file                                               
+---------------|---------------------------------------------------------------
+ :WATCH        | Used with :PROPERTIES, uses watcher thread to check           
+               | properties file modification time, and reloads if it changes  
+---------------|---------------------------------------------------------------
+ :IMMEDIATE-   | Used with :SANE, :DAILY or :CONSOLE to create new appenders
+  FLUSH        | with :IMMEDIATE-FLUSH T option, which prevents automatic
+               | startup of hierarchy watcher thread, which is used for
+               | auto-flushing. 
+---------------|---------------------------------------------------------------
+ :OWN          | For :SANE and :DAILY makes logger non-additive                
+               | otherwise additive flag will be set                           
+---------------|---------------------------------------------------------------
 
 Examples:
 
-  - (LOG-CONFIG :D) :: Changes root logger level to debug
+* (LOG-CONFIG :D) -- Changes root logger level to debug
 
-  - (LOG-CONFIG :SANE) :: Changes root logger level to info, removes its
-    appenders, adds console appender with pattern layout
+* (LOG-CONFIG :SANE) -- Changes root logger level to info, removes its
+   appenders, adds console appender with pattern layout
 
-  - (LOG-CONFIG :SANE :WARN :CLEAR :ALL) :: Changes root logger level to
-    warnings, removes its appenders, adds console appender with
-    pattern layout; then resets all child loggers log levels, and
-    removes their appenders.
+* (LOG-CONFIG :SANE :THIS-CONSOLE) -- Same as above but adds fixed
+   stream appender logging to current value of *DEBUG-IO* instead of
+   regular console appender..
 
-  - (LOG-CONFIG (MAKE-LOGGER :FOOBAR) :SANE :OWN :D :DAILY
-    \"debug.log\") :: Configures the specified logger with debug log
-    level, logging into file debug.log which will be rolled over
-    daily, and makes it non-additive ie any messages will not be
-    propagated to logger parents.
+* (LOG-CONFIG :WARN :SANE :CLEAR :ALL) -- Changes root logger level to
+  warnings, removes its appenders, adds console appender with pattern
+  layout; then resets all child loggers log levels, and removes their
+  appenders.
+
+* (LOG-CONFIG (MAKE-LOGGER :FOOBAR) :SANE :OWN :D :DAILY \"debug.log\")
+
+  Configures the specified logger with debug log level, logging into
+  file debug.log which will be rolled over daily, and makes it
+  non-additive ie any messages will not be propagated to logger
+  parents.
 " 
   (let ((logger nil)
         sane clear all own daily pattern 
@@ -131,7 +139,10 @@ Examples:
         orig-args
         self appenders
         immediate-flush
-        properties watch)
+        properties watch
+        this-console
+        stream)
+    (declare (type (or null stream) stream))
     (cond ((logger-p (car args))
            (setq logger (pop args)))
           ((consp (car args))
@@ -158,6 +169,8 @@ Examples:
           (:immediate-flush (setq immediate-flush t))
           ((:twoline :two-line) (setq twoline t))
           (:console (setq console t))
+          (:this-console (setq this-console t
+                               console t))
           (:watch (setq watch t))
           (:daily
            (setq daily (or (pop args)
@@ -165,6 +178,11 @@ Examples:
           (:properties
            (setq properties (or (pop args)
                                 (log4cl-error ":PROPERTIES missing argument"))))
+          (:stream
+           (setq stream (or (pop args)
+                            (log4cl-error ":STREAM missing argument"))
+                 console t
+                 this-console t))
           (:pattern
            (setq pattern (or (pop args)
                              (log4cl-error ":PATTERN missing argument"))))
@@ -178,8 +196,8 @@ Examples:
                      (t (log4cl-error
                          "Don't know what do with argument ~S" arg))))))))
     (or logger (setq logger *root-logger*))
-    (or level sane clear daily properties own
-        (log4cl-error "A log level or one of :SANE :CLEAR :OWN :DAILY or :PROPERTIES must be specified"))
+    (or level sane clear daily properties own console
+        (log4cl-error "A log level or one of :SANE :CLEAR :OWN :DAILY :CONSOLE or :PROPERTIES must be specified"))
     (or (not properties)
         (not (or sane daily pattern console level))
         (log4cl-error ":PROPERTIES can't be used with :SANE :DAILY :PATTERN or log level"))
@@ -194,7 +212,7 @@ Examples:
        logger))
     (when own
       (set-additivity logger nil nil))
-    (when (or daily sane)
+    (when (or daily sane console)
       (let ((default-pattern "[%D{%H:%M:%S}] [%P] <%c{}{}{:downcase}> - %m%n")
             (twoline-pattern "[%D{%H:%M:%S}] [%-5P] <%c{}{}{:downcase}>%n  *%I{>} %m%n"))
         (setq layout (make-instance 'pattern-layout
@@ -202,21 +220,28 @@ Examples:
                       (or pattern
                           (if twoline twoline-pattern
                               default-pattern)))))
-      (cond
-        (daily (if sane (remove-all-appenders-internal logger nil)
-                   (dolist (a (logger-appenders logger))
-                     (when (or (typep a 'file-appender-base)
-                               (and console (typep a 'console-appender)))
-                       (remove-appender-internal logger a nil))))
-               (push (make-instance 'daily-file-appender
-                      :name-format daily
-                      :backup-name-format (format nil "~a.%Y%m%d" daily)
-                      :layout layout)
-                     appenders))
-        (t (remove-all-appenders-internal logger nil)))
-      (when (or console (and sane (not daily)))
-        (push (make-instance 'console-appender :layout layout)
-              appenders))
+      (if sane (remove-all-appenders-internal logger nil))
+      ;; create daily appender
+      (when daily
+        (dolist (a (logger-appenders logger))
+          (when (typep a 'file-appender-base)
+            (remove-appender-internal logger a nil)))
+        (push (make-instance 'daily-file-appender
+               :name-format daily
+               :backup-name-format (format nil "~a.%Y%m%d" daily)
+               :layout layout)
+            appenders))
+      ;; create console appender
+      (when (or (and sane (not daily))
+                console)
+        (push
+            (if this-console
+                (make-instance 'fixed-stream-appender
+                 :stream (or stream *debug-io*)
+                 :layout layout)
+                (make-instance 'console-appender :layout layout))
+            appenders))
+      ;; now add all of them to the logger
       (dolist (a appenders)
         (when immediate-flush
           (setf (slot-value a 'immediate-flush) t))
@@ -226,7 +251,9 @@ Examples:
       (configure (make-instance 'property-configurator) properties
                  :auto-reload watch))
     (when self
-      ;; This is special adhoc case of configuring the LOG4CL-iMPL:SELF
+      ;; This is special adhoc case of configuring the LOG4CL-iMPL:SELF.  We need
+      ;; special processing, because we want self-logging to survive
+      ;; the (clear-logging-configuration), which is done doing tests
       (let ((config (cons :own
                           ;; we don't remember these
                           (remove-if (lambda (x)
@@ -352,15 +379,22 @@ Example output:
                        (print-one-logger l))))
                  (pop indents)))
              (print-properties (obj)
-               (let* ((props (property-alist obj))
-                      (name-width (loop for prop in props maximize
-                                           (length (format nil "~s" (car prop))))))
-                 (loop for (initarg slot nil) in props
-                       do (print-indent)
-                       do (format t "~v<~(~s~)~;~> ~s~%"
-                                  name-width
-                                  initarg
-                                  (slot-value obj slot)))))
+               (let* ((prop-alist (property-alist obj))
+                      (name-width (loop for prop in prop-alist maximize
+                                           (length (format nil "~s" (first prop)))))
+                      (indent (with-output-to-string (*standard-output*)
+                                (print-indent)))
+                      (*print-pretty* t))
+                 (loop
+                   for (initarg slot nil) in prop-alist
+                   do (pprint-logical-block (nil nil :per-line-prefix indent)
+                        (pprint-indent :block 0)
+                        (write initarg :case :downcase)
+                        (pprint-tab :section-relative 1 (1+ name-width))
+                        (pprint-newline :miser)
+                        (pprint-indent :block 0)
+                        (write (slot-value obj slot)))
+                   do (terpri))))
              (print-one-appender (a)
                ;; empty line for spacing
                (print-indent) (terpri)

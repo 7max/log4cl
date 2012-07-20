@@ -82,12 +82,38 @@
   (parent    nil :type (or null logger))
   ;; How many parents up and including the root logger this logger
   ;; has. Root logger has depth of zero
-  (depth     0   :type fixnum)
+  (flags     0   :type (unsigned-byte 24))
   ;; Child loggers. Only set when any child loggers are present
   (child-hash  nil :type (or null hash-table))
   ;; Per-hierarchy state array
   (state (map-into (make-array *hierarchy-max*) #'make-logger-state)
-   :type (simple-array logger-state *)))
+   :type (simple-array logger-state *))
+  ;; Logger at which depth represents the file name
+  )
+
+;; package-start/end, file, own depth  -> 3 * 6 = 18
+(defmacro define-category-depth-accessor (name num)
+  (let ((shift (* -1 num +logger-category-depth-bits+))
+        (mask (1- (expt 2 +logger-category-depth-bits+)))) 
+    `(progn
+       (declaim (inline ,name)
+                (ftype (function (logger) logger-cat-idx) ,name))
+       (defun ,name (logger)
+         (logand (ash (logger-flags logger) ,shift) ,mask)))))
+
+
+(define-category-depth-accessor logger-depth 0)
+(define-category-depth-accessor logger-file-idx 1)
+(define-category-depth-accessor logger-pkg-idx-start 2)
+(define-category-depth-accessor logger-pkg-idx-end 3)
+
+(defun make-logger-flags (depth &optional file-idx pkg-idx-start pkg-idx-end)
+  (declare (type logger-cat-idx depth)
+           (type (or null logger-cat-idx) file-idx pkg-idx-start pkg-idx-end))
+  (logior depth
+          (ash (or file-idx 0) (* 1 +logger-category-depth-bits+))
+          (ash (or pkg-idx-start 0) (* 2 +logger-category-depth-bits+))
+          (ash (or pkg-idx-end 0) (* 3 +logger-category-depth-bits+))))
 
 (defun log-level-to-string (level)
   "Return log-level string for the level"
@@ -193,10 +219,11 @@ child. Uses NAMING-OPTION to determine category separator"
 
 (defun %get-logger (categories cat-sep cat-case
                     &optional force-string-case
-                              (createp t))
+                              (createp t)
+                              flags)
   "Retrieve or create a logger.
 
-CATEGORIES -- List of category names.
+CATEGORIES -- List of category names
 SEPARATOR  -- Category separator. Will only be used if logger did not
               exist before.
 CAT-CASE   -- How each category case is treated. See NAMING-OPTION
@@ -207,13 +234,13 @@ should also undergo case conversion according to CAT-CASE
 
 CREATEP    -- Create the logger if it does not exist
 
-Note that its possible to receive a logger with different \"official\"
-category name then expected. For example if logger ONE:TWO:THREE was
-originally instantiated in a package which had custom category
-separator of \"--\", then LOGGER-CATEGORY of the returned logger will
-be ONE--TWO--THREE. But if a logger ONE:TWO:THREE:FOUR then the newly
-created logger FOUR will have official category name as
-\"ONE--TWO--THREE:FOUR\"
+CAT-FILE-POS -- If category list includes a file name, this should be
+                the position of the category named after the file name
+                in the category list.
+
+                When this information is available for the logger, the
+                LOGGER-FILE will be able to return the file name, and
+                pattern layout file function will work.
 
 FORCE-STRING-CASE should be used only when trying to create/find a logger,
 with its category name represented by a string entered by a user, since
@@ -221,9 +248,7 @@ user would expect that any logger name he types, would get same treatment
 as symbol names he types.
 
 For example PROPERTY-CONFIGURATOR uses this to retrieve loggers based
-on the strings in configuration file:
-
-"
+on the strings in configuration file."
   (do ((logger *root-logger*)
        (first t nil)
        (names (make-array 0 :adjustable t :fill-pointer t)))
@@ -243,21 +268,33 @@ on the strings in configuration file:
              (setf (gethash name (or hash
                                      (setf (logger-child-hash logger)
                                            (make-hash-table :test #'equal))))
-                   (let ((logger
-                           (create-logger
-                            :category
+                   (let* ((parent-depth (logger-depth logger))
+                          (category
                             (coerce (with-output-to-string (s)
                                       (dotimes (i (length names))
                                         (when (plusp i)
                                           (write-string cat-sep s))
                                         (write-string (aref names i) s)))
-                                    'simple-string)
-                            :category-separator (coerce cat-sep 'simple-string)
-                            :parent logger
-                            :name-start-pos
-                            (if first 0 (+ (length (logger-category logger))
-                                           (length cat-sep)))
-                            :depth (1+ (logger-depth logger)))))
+                                    'simple-string))
+                          (flags
+                            (if (numberp flags) flags 
+                                (destructuring-bind (&optional cat-file-pos
+                                                               cat-package-start
+                                                               cat-package-end)
+                                    flags
+                                  (make-logger-flags
+                                   (1+ parent-depth)
+                                   (if cat-file-pos
+                                       (if (<= cat-file-pos parent-depth) 
+                                           (1+ cat-file-pos)))))))
+                          (logger
+                            (create-logger
+                             :category category
+                             :category-separator (coerce cat-sep 'simple-string)
+                             :parent logger
+                             :name-start-pos
+                             (if first 0 (- (length category) (length name)))
+                             :flags flags)))
                      (dotimes (*hierarchy* *hierarchy-max*)
                        (adjust-logger logger))
                      logger)))))))
@@ -498,6 +535,17 @@ will be called if appender was removed"
       (substr (logger-category logger)
               (logger-name-start-pos logger))
       "ROOT"))
+
+(defun logger-file (logger)
+  "Return LOGGER-NAME of the logger representing the file name where logger
+was instantiated if it exists among logger's ancestors"
+  (let ((file-idx (logger-file-idx logger))) 
+    (when (plusp file-idx)
+      (loop
+        (cond ((> (logger-depth logger) file-idx)
+               (setq logger (logger-parent logger)))
+              ((= (logger-depth logger) file-idx)
+               (return (logger-name logger))))))))
 
 (defun logger-name-length (logger)
   "Return length of logger itself (without parent loggers)"

@@ -137,7 +137,9 @@
    #:all-configurations
    #:list-configurations
    #:configuration-element
-   #:configuration))
+   #:configuration
+   #:*logger-truename*
+   #:logger-file))
 
 
 

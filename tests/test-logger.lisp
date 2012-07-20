@@ -15,9 +15,9 @@
 
 (cl:defpackage :log4cl-test
   (:use :cl :log4cl-impl :stefil)
-  (:export :test :speed
-           :handle-appender-error)
-  (:shadow :speed))
+  (:export :test :test-speed
+           :test-pattern-layout
+           :make-expected))
 
 (in-package #:log4cl-test)
 

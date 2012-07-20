@@ -16,7 +16,7 @@
 (in-package #:log4cl-test)
 
 (in-root-suite)
-(defsuite* speed)
+(defsuite* test-speed)
 
 ;; Logging case, with default optimizations
 ;;

@@ -131,7 +131,7 @@ message")
       (dolist (s list)
         (if sep (princ sep)
             (setq sep separator))
-        (princ (symbol-name s))))))
+        (princ (if (stringp s) s (symbol-name s)))))))
 
 (deftest test-make-expected ()
   "Test function for making expected results"

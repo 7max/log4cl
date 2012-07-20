@@ -94,6 +94,10 @@ pattern format")
 errors that are signaled the log statement itself, vs errors in layout
 or appender.")
 
+(defvar *logger-truename* nil
+  "Will be used instead of *COMPILE-FILE-TRUENAME* or *LOAD-TRUENAME*
+when non-NIL to determine logger's parent file logger.")
+
 (define-condition log4cl-error (simple-error program-error) ()
   (:documentation "Base class for all LOG4CL errors"))
 
@@ -101,3 +105,7 @@ or appender.")
   (error 'log4cl-error
          :format-control message
          :format-arguments args))
+
+(defconstant +logger-category-depth-bits+ 6)
+(deftype logger-cat-idx () `(unsigned-byte ,+logger-category-depth-bits+))
+

@@ -110,6 +110,9 @@
 (defun make-logger-flags (depth &optional file-idx pkg-idx-start pkg-idx-end)
   (declare (type logger-cat-idx depth)
            (type (or null logger-cat-idx) file-idx pkg-idx-start pkg-idx-end))
+  (assert (or (and (null pkg-idx-start)
+                   (null pkg-idx-end))
+              (< pkg-idx-start pkg-idx-end)))
   (logior depth
           (ash (or file-idx 0) (* 1 +logger-category-depth-bits+))
           (ash (or pkg-idx-start 0) (* 2 +logger-category-depth-bits+))
@@ -234,21 +237,18 @@ should also undergo case conversion according to CAT-CASE
 
 CREATEP    -- Create the logger if it does not exist
 
-CAT-FILE-POS -- If category list includes a file name, this should be
-                the position of the category named after the file name
-                in the category list.
+FLAGS      -- a number or a list, only used if logger did not exist before.
 
-                When this information is available for the logger, the
-                LOGGER-FILE will be able to return the file name, and
-                pattern layout file function will work.
+When a number, will be directly used as flags, this should only happen
+when logger is restored by the LOAD-FORM expression from an an .fasl
+file
 
-FORCE-STRING-CASE should be used only when trying to create/find a logger,
-with its category name represented by a string entered by a user, since
-user would expect that any logger name he types, would get same treatment
-as symbol names he types.
+Otherwise should be a list in the form of (&optional CAT-FILE-IDX
+PKG-IDX-START PKG-IDX-END) with the fields being zero based indexes in
+the CATEGORIES list, of the category representing the file name where
+logger is instantiated, and the start and end (exclusive) of the
+category that represents the package name."
 
-For example PROPERTY-CONFIGURATOR uses this to retrieve loggers based
-on the strings in configuration file."
   (do ((logger *root-logger*)
        (first t nil)
        (names (make-array 0 :adjustable t :fill-pointer t)))
@@ -277,16 +277,22 @@ on the strings in configuration file."
                                         (write-string (aref names i) s)))
                                     'simple-string))
                           (flags
-                            (if (numberp flags) flags 
-                                (destructuring-bind (&optional cat-file-pos
-                                                               cat-package-start
-                                                               cat-package-end)
+                            (if (numberp flags) flags
+                                (destructuring-bind (&optional file-idx
+                                                               pkg-idx-start
+                                                               pkg-idx-end)
                                     flags
                                   (make-logger-flags
                                    (1+ parent-depth)
-                                   (if cat-file-pos
-                                       (if (<= cat-file-pos parent-depth) 
-                                           (1+ cat-file-pos)))))))
+                                   (if file-idx
+                                       (if (<= file-idx parent-depth) 
+                                           (1+ file-idx)))
+                                   (if (and pkg-idx-start pkg-idx-end 
+                                            (<= pkg-idx-end (1+ parent-depth))) 
+                                       (1+ pkg-idx-start))
+                                   (if (and pkg-idx-start pkg-idx-end 
+                                            (<= pkg-idx-end (1+ parent-depth))) 
+                                       (1+ pkg-idx-end))))))
                           (logger
                             (create-logger
                              :category category

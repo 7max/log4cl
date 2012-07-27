@@ -350,6 +350,14 @@ unchanged"
                              pattern start)
   (parse-category-extra-args fmt-info char pattern start))
 
+(defmethod parse-extra-args (fmt-info (char (eql #\g))
+                             pattern start)
+  (parse-category-extra-args fmt-info char pattern start))
+
+(defmethod parse-extra-args (fmt-info (char (eql #\G))
+                             pattern start)
+  (parse-category-extra-args fmt-info char pattern start))
+
 (defclass pattern-date-format-info (format-info)
   ((date-format :initarg :date-format)
    (universal-time :initarg :universal-time)
@@ -381,171 +389,263 @@ unchanged"
 (defmethod parse-extra-args (fmt-info (char (eql #\D)) pattern start)
   (parse-date-format-extra-args fmt-info nil pattern start))
 
-(defun format-category (stream fmt-info logger type)
+(defun format-categories (stream fmt-info cats num-cats separator)
   (declare (type pattern-category-format-info fmt-info) 
            (type stream stream)
-           (type logger logger))
-  (with-slots (precision start separator case minlen maxlen right-justify)
+           (type simple-vector cats)
+           (type simple-string separator)
+           (type fixnum num-cats))
+  (with-slots (start precision minlen maxlen case right-justify)
       fmt-info
-    (let* ((start start)
-           (precision precision)
-           (separator separator)
+    (let* ((precision precision)
            (case case)
            (minlen minlen)
            (maxlen maxlen)
            (right-justify right-justify)
-           ;; Below variables are zero based, so start-depth = 0 means
-           ;; start from the 1st level logger after root, while the
-           ;; (logger-depth logger) counts the root logger, so 1st
-           ;; level loggers have depth 1.
-           (start-depth (or start 0))
-           (end-depth (logger-depth logger))
-           (file-depth (if (typep type '(member :nofile :rest)) 
-                           (logger-file-idx logger) 0)))
-      (cond ((null start)
-             ;; single precision {n}, means display an most {n} categories from end
-             (setq start-depth (max 0 (- end-depth precision)))
-             ;; If we have to skip a file category, move 1 extra category back
-             (cond ((and (plusp file-depth)
-                         (plusp start-depth)
-                         (< start-depth file-depth))
-                    (decf start-depth))
-                   ((and (plusp file-depth)
-                         (= start-depth (1- file-depth)))
-                    (incf start-depth))))
-            ((plusp file-depth)
-             ;; We are given {start,count} and we have to skip file
-             ;; category, so start/count refer to categories as if
-             ;; file-category was not there in the middle
-
-             ;; if we have (a b file.lisp c d e) user expects index 2
-             ;; to refer to c
-             (when (>= start-depth (1- file-depth)) 
-               (incf start-depth))
-             (when (and precision (plusp precision))
-               (setq end-depth (min end-depth (+ start-depth precision)))
-               ;; if start is before the file, adjust the end, to account
-               ;; for skipping the file after file
-               (when (and (< start-depth (1- file-depth))
-                          (>= end-depth file-depth))
-                 (if (< end-depth (logger-depth logger))
-                     (incf end-depth)))))
-            ((plusp precision)
-             ;; We are given {start,count} and don't have to skip the
-             ;; file category, so just adjust the end
-             (setq end-depth (min end-depth (+ start precision)))))
-      ;; (format t "here start-depth=~d file-depth=~d end-depth=~d~%"
-      ;;         start-depth file-depth end-depth)
-
-      ;; Have to output category piece by piece, due to case
-      ;; conversion, custom separator or skipping the file
-      ;; category
-      (when (and (plusp file-depth)
-                 (= start-depth (1- file-depth)))
-        (incf start-depth))
-      (if (or case separator
-              (and
-               (plusp file-depth)
-               (< start-depth (1- file-depth) end-depth)))
-          (let ((loggers '())
-                (num-loggers 0)
-                (field-len 0)
-                (padlen 0)
-                (skip-at-start 0))
-            (declare (type list loggers)
-                     (dynamic-extent loggers)
-                     (type fixnum num-loggers field-len skip-at-start
-                           padlen))
-            ;; (format t "here start-depth=~d file-depth=~d end-depth=~d~%"
-            ;;         start-depth file-depth end-depth)
-            (unless separator
-              (setq separator (logger-category-separator logger)))
-            ;; skip the categories from the end, will only happen
-            ;; for %c{<from>,<count>} situation
-            (loop while (< end-depth (logger-depth logger))
-                  do (setq logger (logger-parent logger)))
-            ;; collect all the loggers starting from parent one
-            ;; that we need to display. Since we starting from
-            ;; child and then advancing to parent, the loggers
-            ;; end up in the right order without using nreverse
-            (loop
-              for lgr = logger then (logger-parent lgr)
-              while (< start-depth (logger-depth lgr))
-              unless (eql file-depth (logger-depth lgr))
-              do (progn (incf field-len (logger-name-length lgr))
-                        (incf num-loggers)
-                        (push lgr loggers)))
-            ;; add length of separators between loggers
-            (incf field-len (* (length separator)
-                               (max 0 (1- num-loggers))))
-            (setq skip-at-start
-                  (max 0 (- field-len
-                            (or maxlen field-len))))
-            (decf field-len skip-at-start)
-            (setq padlen (- minlen field-len))
-            (labels
-                ((write-string-or-skip (string start end case)
-                   (let* ((len (- end start))
-                          (skip (min len skip-at-start)))
-                     (decf skip-at-start skip)
-                     (when (< (incf start skip) end)
-                       (write-string-modify-case
-                        string stream case start end))))
-                 (doit ()
-                   (dotimes (cnt num-loggers)
-                     (let ((logger (pop loggers)))
-                       (write-string-or-skip (logger-category logger)
-                                             (logger-name-start-pos logger)
-                                             (length (logger-category logger))
-                                             case)
-                       (when (< cnt (1- num-loggers))
-                         (write-string-or-skip separator 0
-                                               (length separator) nil)))))
-                 (pad ()
-                   (loop repeat padlen do (write-char #\Space stream))))
-              (cond ((and (plusp padlen) right-justify)
-                     (pad) (doit))
-                    ((plusp padlen)
-                     (doit) (pad))
-                    (t (doit)))))
-          ;; Can output entire category in one piece
-          (let ((start nil)
-                (end nil)
-                (cat (logger-category logger)))
-            (declare (type (or fixnum null) start end))
-            (loop while (< end-depth (logger-depth logger))
-                  do (setq end (1- (logger-name-start-pos logger))
-                           logger (logger-parent logger)))
-            (loop while (< start-depth (logger-depth logger))
-                  do (setq start (logger-name-start-pos logger)
-                           logger (logger-parent logger)))
-            (when start (format-string cat stream fmt-info
-                                       start (or end (length cat))))))))
+           (fmt-start start)
+           (start 0)
+           (end num-cats))
+      (declare (type fixnum start end))
+      (if fmt-start
+          (progn
+            (setq start fmt-start)
+            (if (and precision (plusp precision)) (setq end (min num-cats (+ start precision)))))
+          (if precision
+              (setq start (max 0 (- num-cats precision)))))
+      ;; make end inclusive
+      (decf end)
+      ;; (format t "here1 fmt-start ~d precision ~d start ~d end ~d num-cats ~d ~%"
+      ;;         fmt-start precision start end num-cats)
+      (let ((field-len 0)
+            (padlen 0)
+            (skip-at-start 0))
+        (declare (type fixnum field-len skip-at-start padlen))
+        ;; sum logger names length
+        (loop for i fixnum from start to end
+              as logger = (svref cats i)
+              do (incf field-len (logger-name-length logger)))
+        ;; add length of separators between loggers
+        (if (< start end)
+            (incf field-len (* (length separator) (- end start))))
+        (setq skip-at-start
+              (max 0 (- field-len
+                        (or maxlen field-len))))
+        (decf field-len skip-at-start)
+        (setq padlen (- minlen field-len))
+        (labels
+            ((write-string-or-skip (string start end case)
+               (let* ((len (- end start))
+                      (skip (min len skip-at-start)))
+                 (decf skip-at-start skip)
+                 (when (< (incf start skip) end)
+                   (write-string-modify-case
+                    string stream case start end))))
+             (doit ()
+               (loop for i fixnum from start to end
+                     as logger = (svref cats (- num-cats i 1))
+                     ;; do (format t "doing logger ~s ~s ~s ~%" logger (logger-name logger) (logger-name-start-pos logger))
+                     do (write-string-or-skip (logger-category logger)
+                                              (logger-name-start-pos logger)
+                                              (length (logger-category logger))
+                                              case)
+                     if (/= i end) 
+                     do (write-string-or-skip separator 0
+                                              (length separator) nil)))
+             (pad ()
+               (loop repeat padlen do (write-char #\Space stream))))
+          (cond ((and (plusp padlen) right-justify)
+                 (pad) (doit))
+                ((plusp padlen)
+                 (doit) (pad))
+                (t (doit)))))))
   (values))
 
+(defun simple-format-catogories (stream fmt-info logger start-depth end-depth)
+  (declare (type pattern-category-format-info fmt-info) 
+           (type stream stream)
+           (type logger logger)
+           (type logger-cat-idx start-depth end-depth))
+  (with-slots (start precision minlen maxlen case right-justify)
+      fmt-info
+    (let* ((precision precision)
+           (fmt-start start))
+      (if fmt-start
+          (progn
+            (setq start (+ start-depth fmt-start))
+            (if precision (setq end-depth (min end-depth (+ start precision)))))
+          (if precision
+              (setq start-depth (max start-depth (- end-depth precision))))) 
+      (let ((start nil)
+            (end nil)
+            (cat (logger-category logger)))
+        (declare (type (or fixnum null) start end))
+        (loop while (< end-depth (logger-depth logger))
+              do (setq end (1- (logger-name-start-pos logger))
+                       logger (logger-parent logger)))
+        (loop while (< start-depth (logger-depth logger))
+              do (setq start (logger-name-start-pos logger)
+                       logger (logger-parent logger)))
+        (when start (format-string cat stream fmt-info
+                                   start (or end (length cat))))))))
+
+(defmacro with-small-dynamic-extent-vector ((name len len-expr &optional (limit 32))
+                                            &body body)
+  (let ((foo (gensym)))
+    `(flet ((,foo (,name ,len) 
+              (declare (type simple-vector ,name)
+                       (type fixnum ,len))
+              ,@body))
+       (declare (dynamic-extent #',foo))
+       (locally (declare (optimize (speed 3) (space 3)))
+         (let ((,len ,len-expr))
+           (declare (type fixnum ,len))
+           (if (<= ,len ,limit)
+               (let ((,name (make-array ,limit)))
+                 (declare (dynamic-extent ,name))
+                 (,foo ,name ,len))
+               (let ((,name (make-array ,len)))
+                 (declare (dynamic-extent ,name))
+                 (,foo ,name ,len))))))))
+
+(defmacro with-small-dynamic-extent-vector ((name len len-expr &optional (limit 32))
+                                            &body body)
+  (let ((foo (gensym)))
+    `(flet ((,foo (,name ,len) 
+              (declare (type simple-vector ,name)
+                       (type fixnum ,len))
+              ,@body))
+       (declare (dynamic-extent #',foo))
+       (locally (declare (optimize (speed 3) (space 3)))
+         (let ((,len ,len-expr))
+           (declare (type fixnum ,len))
+           (if (<= ,len ,limit)
+               (let ((,name (make-array ,limit)))
+                 (declare (dynamic-extent ,name))
+                 (,foo ,name ,len))
+               (let ((,name (make-array ,len)))
+                 (declare (dynamic-extent ,name))
+                 (,foo ,name ,len))))))))
+
+
+(defun format-categories-range (stream fmt-info logger start-depth end-depth)
+  (declare (type pattern-category-format-info fmt-info) 
+           (type stream stream)
+           (type logger logger)
+           (type logger-cat-idx start-depth end-depth))
+  (let ((ccase (slot-value fmt-info 'case))
+        (sep (slot-value fmt-info 'separator)))
+    (if (or sep ccase)
+        (with-small-dynamic-extent-vector
+            (cats num-cats (- end-depth start-depth))
+          (declare (ignore num-cats))
+          (let ((cnt 0))
+            (declare (type fixnum cnt)) 
+            (loop with lgr = logger
+                  for i fixnum downfrom (1- (logger-depth logger))
+                  to start-depth
+                  do (progn
+                       ;; (format t "here1 i = ~d logger = ~s file-idx = ~s ~%" i lgr file-idx)
+                       (when (< i end-depth)
+                         (setf (svref cats cnt) lgr)
+                         (incf cnt))
+                       (setf lgr (logger-parent lgr)))) 
+            (format-categories stream fmt-info cats cnt (or sep (logger-category-separator logger)))))
+        (simple-format-catogories stream fmt-info logger
+                                  start-depth end-depth)))
+  (values))
+
+
 (define-pattern-formatter (#\c)
-  "Format the %c or %C (log category) pattern"
+  "Format the %c (log category) pattern"
   (declare (ignore log-level log-func))
-  (format-category stream fmt-info logger :all)
+  (format-categories-range stream fmt-info logger 0 (logger-depth logger))
   (values))
 
 (define-pattern-formatter (#\C)
-  "Format the %c or %C (log category) pattern"
+  "Format the %C (log category excluding filename) pattern"
   (declare (ignore log-level log-func))
-  (format-category stream fmt-info logger :nofile)
+  (let ((ccase (slot-value fmt-info 'case))
+        (sep (slot-value fmt-info 'separator))
+        (file-idx (logger-file-idx logger)))
+    (if (or sep ccase (plusp file-idx))
+        (with-small-dynamic-extent-vector (cats num-cats (logger-depth logger))
+          (let ((cnt 0))
+            (declare (type fixnum cnt)) 
+            (loop with lgr = logger
+                  for i fixnum downfrom (1- num-cats) to 0
+                  do (progn
+                       ;; (format t "here1 i = ~d logger = ~s file-idx = ~s ~%" i lgr file-idx)
+                       (when (/= i (1- file-idx))
+                         (setf (svref cats cnt) lgr)
+                         (incf cnt))
+                       (setf lgr (logger-parent lgr)))) 
+            (format-categories stream fmt-info cats cnt (or sep (logger-category-separator logger)))))
+        (simple-format-catogories stream fmt-info logger
+                                  0 (logger-depth logger))))
   (values))
 
 (define-pattern-formatter (#\g)
-  "Format the %c or %C (log category) pattern"
+  "Format the %g (log category representing the package) pattern"
   (declare (ignore log-level log-func))
-  (format-category stream fmt-info logger :package)
+  (let* ((start-depth (logger-pkg-idx-start logger))
+         (end-depth (logger-pkg-idx-end logger)))
+    (if (zerop start-depth)
+        (simple-format-catogories stream fmt-info logger 0 0)
+        (format-categories-range stream fmt-info logger (1- start-depth) (1- end-depth))))
   (values))
 
 (define-pattern-formatter (#\G)
-  "Format the %c or %C (log category) pattern"
+  "Format the %g (log category representing the package) pattern"
   (declare (ignore log-level log-func))
-  (format-category stream fmt-info logger :rest)
+  (let* ((pkg-start (logger-pkg-idx-start logger))
+         (pkg-end (logger-pkg-idx-end logger))
+         (file-idx (logger-file-idx logger))) 
+    ;; Package followed by file?
+    (cond ((and (= 1 pkg-start) (= pkg-end file-idx))
+           ;; (format t "@@@ here1 logger ~s pkg-start ~d pkg-end ~d file-idx ~d~%" logger pkg-start pkg-end file-idx)
+           (format-categories-range stream fmt-info logger pkg-end (logger-depth logger)))
+          ((and (= 1 pkg-start) (= 0 file-idx))
+           ;; (format t "@@@ here2 ~%")
+           (format-categories-range stream fmt-info logger (1- pkg-end) (logger-depth logger)))
+          (t 
+           ;; (format t "@@@ here3 ~%")
+           (let ((sep (slot-value fmt-info 'separator)))
+             (with-small-dynamic-extent-vector
+                 (cats num-cats (logger-depth logger))
+               (let ((cnt 0))
+                 (declare (type fixnum cnt)) 
+                 (loop with lgr = logger
+                       for i fixnum downfrom (1- num-cats) to 0
+                       do (progn
+                            (when (and (/= i (1- file-idx))
+                                       (or (zerop pkg-start)
+                                           (< i (1- pkg-start))
+                                           (>= i (1- pkg-end))))
+                              ;; (format t "here1 i = ~d logger = ~s file-idx = ~s pkg-start ~d pkg-end ~d /= ~s ~%" i lgr file-idx
+                              ;;         pkg-start pkg-end
+                              ;;         (/= i (1- file-idx)))
+                              (setf (svref cats cnt) lgr)
+                              (incf cnt))
+                            (setf lgr (logger-parent lgr)))) 
+                 ;; (format t "here2 cats are ~s ~%" cats)
+                 (format-categories stream fmt-info cats cnt (or sep (logger-category-separator logger)))))))))
   (values))
+
+(define-pattern-formatter (#\F)
+  (declare (ignore log-func log-level))
+  (let ((file-idx (logger-file-idx logger)))
+    (declare (type logger-cat-idx file-idx))
+    (when (plusp file-idx) 
+      (do ((depth (logger-depth logger)
+                  (1- depth)))
+          ((= depth file-idx))
+        (declare (type logger-cat-idx depth))
+        (setq logger (logger-parent logger)))
+      (format-string (logger-category logger)
+                     stream
+                     fmt-info
+                     (logger-name-start-pos logger)))))
+
 
 (define-pattern-formatter (#\m)
   "Output the %m pattern layout info"

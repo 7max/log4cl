@@ -87,25 +87,26 @@
   (child-hash  nil :type (or null hash-table))
   ;; Per-hierarchy state array
   (state (map-into (make-array *hierarchy-max*) #'make-logger-state)
-   :type (simple-array logger-state *))
-  ;; Logger at which depth represents the file name
-  )
+   :type (simple-array logger-state *)))
 
 ;; package-start/end, file, own depth  -> 3 * 6 = 18
-(defmacro define-category-depth-accessor (name num)
+(defmacro define-category-depth-accessor (name1 name2 num)
   (let ((shift (* -1 num +logger-category-depth-bits+))
-        (mask (1- (expt 2 +logger-category-depth-bits+)))) 
+        (mask (1- (expt 2 +logger-category-depth-bits+))))
     `(progn
-       (declaim (inline ,name)
-                (ftype (function (logger) logger-cat-idx) ,name))
-       (defun ,name (logger)
-         (logand (ash (logger-flags logger) ,shift) ,mask)))))
+       (declaim (inline ,name1 ,name2)
+                (ftype (function (logger) logger-cat-idx) ,name1))
+       (defun ,name1 (logger)
+         (logand (ash (logger-flags logger) ,shift) ,mask))
+       (defun ,name2 (flags)
+         (let ((tmp (logand (ash flags ,shift) ,mask)))
+           (if (plusp tmp) (1- tmp)))))))
 
 
-(define-category-depth-accessor logger-depth 0)
-(define-category-depth-accessor logger-file-idx 1)
-(define-category-depth-accessor logger-pkg-idx-start 2)
-(define-category-depth-accessor logger-pkg-idx-end 3)
+(define-category-depth-accessor logger-depth logger-flags-depth 0)
+(define-category-depth-accessor logger-file-idx logger-flags-file-idx 1)
+(define-category-depth-accessor logger-pkg-idx-start logger-flags-pkg-idx-start 2)
+(define-category-depth-accessor logger-pkg-idx-end logger-flags-pkg-idx-end 3)
 
 (defun make-logger-flags (depth &optional file-idx pkg-idx-start pkg-idx-end)
   (declare (type logger-cat-idx depth)
@@ -277,22 +278,24 @@ category that represents the package name."
                                         (write-string (aref names i) s)))
                                     'simple-string))
                           (flags
-                            (if (numberp flags) flags
-                                (destructuring-bind (&optional file-idx
-                                                               pkg-idx-start
-                                                               pkg-idx-end)
-                                    flags
-                                  (make-logger-flags
-                                   (1+ parent-depth)
-                                   (if file-idx
-                                       (if (<= file-idx parent-depth) 
-                                           (1+ file-idx)))
-                                   (if (and pkg-idx-start pkg-idx-end 
-                                            (<= pkg-idx-end (1+ parent-depth))) 
-                                       (1+ pkg-idx-start))
-                                   (if (and pkg-idx-start pkg-idx-end 
-                                            (<= pkg-idx-end (1+ parent-depth))) 
-                                       (1+ pkg-idx-end))))))
+                            (multiple-value-bind (file-idx pkg-idx-start pkg-idx-end)
+                                (if (numberp flags)
+                                    (values (logger-flags-file-idx flags)
+                                            (logger-flags-pkg-idx-start flags)
+                                            (logger-flags-pkg-idx-end flags))
+                                    (destructuring-bind (&optional x y z) flags
+                                      (values x y z))) 
+                              (make-logger-flags
+                               (1+ parent-depth)
+                               (if file-idx
+                                   (if (<= file-idx parent-depth) 
+                                       (1+ file-idx)))
+                               (if (and pkg-idx-start pkg-idx-end 
+                                        (<= pkg-idx-end (1+ parent-depth))) 
+                                   (1+ pkg-idx-start))
+                               (if (and pkg-idx-start pkg-idx-end 
+                                        (<= pkg-idx-end (1+ parent-depth))) 
+                                   (1+ pkg-idx-end)))))
                           (logger
                             (create-logger
                              :category category
@@ -597,8 +600,8 @@ consed list of strings"
 compiled file"
   (declare (ignore env))
   `(%get-logger ',(logger-categories log)
-                        (naming-option *package* :category-separator)
-                        (naming-option *package* :category-case)))
+                        ,(logger-category-separator log)
+                        nil nil t ,(logger-flags log)))
 
 (defun log-event-time ()
   "Returns the universal time of the current log event"

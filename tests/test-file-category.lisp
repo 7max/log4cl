@@ -219,3 +219,13 @@
                                                                          (min (+ start num)
                                                                               (length cats)))) "---")
                                    :logger logger))))))))
+
+
+(deftest test-naming-1 ()
+  "Test MAKE-LOGGER macro with static list of categories"
+  (with-package-log-hierarchy
+    (let ((logger (make-logger)))
+      (is (equal (logger-file logger) "test-file-category.lisp"))
+      (test-pattern-layout "%F" "test-file-category.lisp" :logger logger)
+      (test-pattern-layout "%g" (package-name #.*package*) :logger logger)
+      logger)))

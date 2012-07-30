@@ -469,10 +469,17 @@ unchanged"
       fmt-info
     (let* ((precision precision)
            (fmt-start start))
+      ;; (format t "here0 start-depth ~d end-depth ~d start ~d precision ~d
+      ;; logger ~s logger-depth ~s~%"
+      ;;         start-depth end-depth
+      ;;         start precision
+      ;;         logger (logger-depth logger))
       (if fmt-start
           (progn
-            (setq start (+ start-depth fmt-start))
-            (if precision (setq end-depth (min end-depth (+ start precision)))))
+            (setq start-depth (+ start-depth fmt-start))
+            (if (plusp precision) (setq end-depth (min end-depth (+ start-depth precision))))
+            ;; (format t "here1 start ~d end  ~d ~%" start-depth end-depth)
+            )
           (if precision
               (setq start-depth (max start-depth (- end-depth precision))))) 
       (let ((start nil)
@@ -485,6 +492,9 @@ unchanged"
         (loop while (< start-depth (logger-depth logger))
               do (setq start (logger-name-start-pos logger)
                        logger (logger-parent logger)))
+        ;; (format t "here2 start-depth ~d end-depth ~d start ~d end  ~d ~%"
+        ;;         start-depth end-depth
+        ;;         start end)
         (when start (format-string cat stream fmt-info
                                    start (or end (length cat))))))))
 

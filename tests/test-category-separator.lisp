@@ -194,6 +194,8 @@ correctly parsed into multiple loggers"
                  (concatenate 'string
                               (package-name #.*package*)
                               "."
+                              "test-category-separator.lisp"
+                              "."
                               (symbol-name :one.two.three)))))))
 
 ;; Include the "dots" package test suite into main one

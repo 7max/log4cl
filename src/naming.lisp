@@ -15,6 +15,18 @@
 
 (in-package #:log4cl-impl)
 
+
+(defclass naming-configuration ()
+  ((package-name :initarg :package-name :initform nil :reader package-name-of)
+   (category-separator :initform ":" :reader category-separator-of)
+   (category-case :initform nil :reader category-case-of)
+   (expr-value-separator :initform "=" :reader expr-value-separator-of)
+   (expr-value-suffix :initform " ~:_" :reader expr-value-suffix-of))
+  (:documentation "Contains per-package customization settings for log4cl."))
+
+(defvar *naming-configuration* (make-instance 'naming-configuration)
+  "Bound to current naming configuration")
+
 (defgeneric log-level-from-object (obj package)
   (:documentation "Should return numeric log level from the user
 representation, can be specialized per-package to have custom log
@@ -23,7 +35,9 @@ parses \"fatal\" \"debug\" and so on. Called by MAKE-LOG-LEVEL
 function"))
 
 (defgeneric naming-option (package option)
-  (:documentation "Return the automatic logger naming option
+  (:documentation "DEPRECIATED. Use naming configuration instead.
+
+  Return the automatic logger naming option
 for the specified package. Valid options are keywords:
 
   :CATEGORY-SEPARATOR
@@ -56,23 +70,37 @@ for the specified package. Valid options are keywords:
 
 (defgeneric package-wrapper (package categories explicit-p)
   (:documentation
-   "Allows packages to optionally massage logger names in their
-namespace. CATEGORIES will be a list of of category names from parent
+   "DEPRECIATED. 
+
+   Allows packages to optionally massage logger names in their
+namespace. CATEGORIES will be a list of category names from parent
 to child, and EXPLICIT-P will be non-NIL if that list was specified as
 an explicit list constant in a logging macro.
 
-Default method will prefix the passed category list with the current
-package shortest nickname. 
+Should return (values NEW-CATEGORIES [CAT-LIST-INDEXES])
 
-Example:
+Where NEW-CATEGORIES should be a new list of categories to use instead
+of CATEGORIES.
 
-    ;; Some package wishes to always wrap their logger names in weird prefix and suffix
-    (defmethod package-wrapper ((pkg (eql *package*)) categories explicit-p)
-      (if explicit-p categories
-        (append '(foo bar) categories '(baz))))
+CAT-LIST-INDEXES should be a list of three numbers (FILE-IDX
+PACKAGE-START-IDX PACKAGE-END-IDX) which have the following meaning:
 
-Will result in the macro (MAKE-LOGGER :NAME) returning logger named
-FOO:BAR:NAME:BAZ"))
+  * FILE-IDX    -- index of the category representing file name (zero based)
+  * PACKAGE-IDX -- index of the first and last (exclusive) category representing
+  the package.
+
+Based on the above indexes, the pattern layout %g (package) and
+%F (file name) and %G (everything else) will be able to return correct
+values, on matter where in the package or filename are located in the
+category hierarchy.
+
+Default method will first find PACKAGE shortest nickname, then split
+it according to category-separator naming option, then return the
+values like so:
+
+ (,@<split package> ,*LOGGER-TRUENAME* ,@CATEGORIES)
+
+"))
 
 (defgeneric resolve-logger-form (package env args)
   (:documentation "Is called by all logging macros to figure out the
@@ -154,23 +182,43 @@ Supported values for ARG are:
          arg)
         (t (log4cl-error "~s does not match any log levels" arg))))
 
+(defun instantiate-logger (package categories explicit-p)
+  ;; TODO new generic here to get per-package config, and call it from resolve methods
+  (let* ((*naming-configuration* *naming-configuration*)
+         (cnf *naming-configuration*)
+         (cat-separator (naming-option package :category-separator))
+         (cat-case (naming-option package :category-case)))
+    (multiple-value-bind (wrapped-categories indexes)
+        (package-wrapper package categories explicit-p)
+      (%get-logger wrapped-categories cat-separator cat-case nil t indexes))))
+
 (defmethod resolve-default-logger-form (package env args)
   "Returns the logger named after the enclosing lexical environment"
-  (values (%get-logger
-           (package-wrapper package
-                            (enclosing-scope-block-name package env)
-                            nil)
-           (naming-option package :category-separator)
-           (naming-option package :category-case))
+  (values (instantiate-logger
+           package
+           (enclosing-scope-block-name package env)
+           nil)
           args))
 
 (defmethod package-wrapper (package categories explicit-p)
   "Find the PACKAGES shortest name or nickname, and prefix CATEGORIES
 list with it"
   (if explicit-p categories
-      (append (split-into-categories (shortest-package-name package)
-                                     package)
-              categories)))
+      (let* ((package-categories
+               (split-into-categories (shortest-package-name package)
+                                      package))
+             (file (or *logger-truename*
+                       *compile-file-truename*
+                       *load-truename*))
+             (file (when file (file-namestring file)))
+             (package-idx-start (when package-categories 0))
+             (package-idx-end (when package-categories (length package-categories)))
+             (file-idx (when file (or package-idx-end 0))))
+        (values 
+         (append package-categories
+                 (when file (list file))
+                 categories)
+         (list file-idx package-idx-start package-idx-end)))))
 
 (defun shortest-package-name (package)
   "Return the shortest name or nickname of the package"
@@ -195,10 +243,11 @@ SEPARATOR"
   "Return default values for naming options which are:
     :CATEGORY-SEPARATOR \":\""
   (declare (ignore package))
-  (case option
-    (:category-separator ":")
-    (:expr-value-separator "=")
-    (:expr-value-suffix " ~:_")))
+  (ecase option
+    (:category-separator (category-separator-of *naming-configuration*))
+    (:expr-value-separator (expr-value-separator-of *naming-configuration*))
+    (:expr-value-suffix (expr-value-suffix-of *naming-configuration*))
+    (:category-case (category-case-of *naming-configuration*))))
 
 (defmethod resolve-logger-form (package env args)
   "- When first element of args is NIL or a constant string, calls
@@ -216,33 +265,22 @@ SEPARATOR"
          (stringp (first args)))
      (resolve-default-logger-form package env args))
     ((keywordp (first args))
-     (values (%get-logger
-              (package-wrapper
-               package
-               (split-into-categories (symbol-name (first args))
-                                      package)
-               nil)
-              (naming-option package :category-separator)
-              (naming-option package :category-case))
+     (values (instantiate-logger package
+                                 (split-into-categories
+                                  (symbol-name (first args)) package)
+                                 nil)
              (rest args)))
     ((constantp (first args))
      (let ((value (eval (first args))))
        (cond ((symbolp value)
-              (values
-               (%get-logger
-                (package-wrapper
-                 package
-                 (split-into-categories (symbol-name value) package)
-                 nil)
-                (naming-option package :category-separator)
-                (naming-option package :category-case))
-               (rest args)))
+              (values (instantiate-logger
+                       package
+                       (split-into-categories (symbol-name value) package)
+                       nil)
+                      (rest args)))
              ((listp value)
-              (values
-               (%get-logger (package-wrapper package value t)
-                                    (naming-option package :category-separator)
-                                    (naming-option package :category-case))
-               (rest args)))
+              (values (instantiate-logger package value t)
+                      (rest args)))
              (t (values (first args) (rest args))))))
     (t
      (values (first args) (rest args)))))

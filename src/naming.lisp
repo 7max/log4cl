@@ -182,22 +182,22 @@ Supported values for ARG are:
          arg)
         (t (log4cl-error "~s does not match any log levels" arg))))
 
-(defun instantiate-logger (package categories explicit-p)
+(defun instantiate-logger (package categories explicitp createp)
   ;; TODO new generic here to get per-package config, and call it from resolve methods
   (let* ((*naming-configuration* *naming-configuration*)
          (cnf *naming-configuration*)
          (cat-separator (naming-option package :category-separator))
          (cat-case (naming-option package :category-case)))
     (multiple-value-bind (wrapped-categories indexes)
-        (package-wrapper package categories explicit-p)
-      (%get-logger wrapped-categories cat-separator cat-case nil t indexes))))
+        (package-wrapper package categories explicitp)
+      (%get-logger wrapped-categories cat-separator cat-case nil createp indexes))))
 
 (defmethod resolve-default-logger-form (package env args)
   "Returns the logger named after the enclosing lexical environment"
   (values (instantiate-logger
            package
            (enclosing-scope-block-name package env)
-           nil)
+           nil t)
           args))
 
 (defmethod package-wrapper (package categories explicit-p)
@@ -268,7 +268,7 @@ SEPARATOR"
      (values (instantiate-logger package
                                  (split-into-categories
                                   (symbol-name (first args)) package)
-                                 nil)
+                                 nil t)
              (rest args)))
     ((constantp (first args))
      (let ((value (eval (first args))))
@@ -276,10 +276,10 @@ SEPARATOR"
               (values (instantiate-logger
                        package
                        (split-into-categories (symbol-name value) package)
-                       nil)
+                       nil t)
                       (rest args)))
              ((listp value)
-              (values (instantiate-logger package value t)
+              (values (instantiate-logger package value t t)
                       (rest args)))
              (t (values (first args) (rest args))))))
     (t

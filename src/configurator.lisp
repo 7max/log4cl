@@ -146,10 +146,11 @@ Examples:
     (cond ((logger-p (car args))
            (setq logger (pop args)))
           ((consp (car args))
-           (setq logger (%get-logger
-                         (pop args)
-                         (naming-option *package* :category-separator)
-                         (naming-option *package* :category-case))))
+           (setq logger
+                 (let ((cats (pop args))) 
+                   (or (instantiate-logger *package* cats t nil) 
+                       (log4cl-error "Logger named ~s not found. If you want to create it, ~
+                       use (log:make) instead of explicit category list" cats)))))
           ((member :self args)
            (setq logger (make-logger '(log4cl-impl self))
                  self t)

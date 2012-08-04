@@ -97,6 +97,7 @@
                   ,@(shadow-and-export
                      `(#:sexp #:expr #:config #:make ,@+log-level-symbols+ ,@(level-expr-syms)
                               #:with-hierarchy
+                              #:setup
                               #:push #:pop
                               #:with-package-hierarchy
                               #:in-package-hierarchy
@@ -185,5 +186,6 @@
 (forward-function log:c log-config)
 (forward-function log:pop restore)
 (forward-function log:push save)
+(forward-function log:setup log-setup)
 
 

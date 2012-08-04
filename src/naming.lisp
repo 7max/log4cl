@@ -17,15 +17,31 @@
 
 
 (defclass naming-configuration ()
-  ((package-name :initarg :package-name :initform nil :reader package-name-of)
-   (category-separator :initform ":" :reader category-separator-of)
-   (category-case :initform nil :reader category-case-of)
-   (expr-value-separator :initform "=" :reader expr-value-separator-of)
-   (expr-value-suffix :initform " ~:_" :reader expr-value-suffix-of))
-  (:documentation "Contains per-package customization settings for log4cl."))
+  ((category-separator :initform ":" :accessor category-separator)
+   (category-case :initform nil :accessor category-case)
+   (expr-value-separator :initform "=" :accessor expr-value-separator)
+   (expr-value-suffix :initform " ~:_" :accessor expr-value-suffix)
+   (use-shortest-nickname :initform " ~:_" :accessor use-shortest-nickname))
+  (:documentation "Contains configuration that affects expansion of logger macros."))
 
-(defvar *naming-configuration* (make-instance 'naming-configuration)
-  "Bound to current naming configuration")
+(defvar *naming-configuration* nil
+  "Naming configuration currently in effect")
+
+(defvar *default-naming-configuration* (make-instance 'naming-configuration)
+  "Default naming configuration")
+
+(defvar *naming-configurations* (make-hash-table :test #'equal))
+
+(defun find-or-create-naming-configuration (p &optional createp)
+  (declare (type package p))
+  (let ((nc (gethash (package-name p) *naming-configurations*)))
+    (or nc (and createp (setf (gethash (package-name p) *naming-configurations*)
+                              (make-instance 'naming-configuration))))))
+
+(defmacro with-package-naming-configuration ((package) &body body)
+  `(let ((*naming-configuration* (or (find-or-create-naming-configuration ,package)
+                                     *default-naming-configuration*)))
+     ,@body))
 
 (defgeneric log-level-from-object (obj package)
   (:documentation "Should return numeric log level from the user
@@ -183,10 +199,7 @@ Supported values for ARG are:
         (t (log4cl-error "~s does not match any log levels" arg))))
 
 (defun instantiate-logger (package categories explicitp createp)
-  ;; TODO new generic here to get per-package config, and call it from resolve methods
-  (let* ((*naming-configuration* *naming-configuration*)
-         (cnf *naming-configuration*)
-         (cat-separator (naming-option package :category-separator))
+  (let* ((cat-separator (naming-option package :category-separator))
          (cat-case (naming-option package :category-case)))
     (multiple-value-bind (wrapped-categories indexes)
         (package-wrapper package categories explicitp)
@@ -244,10 +257,11 @@ SEPARATOR"
     :CATEGORY-SEPARATOR \":\""
   (declare (ignore package))
   (ecase option
-    (:category-separator (category-separator-of *naming-configuration*))
-    (:expr-value-separator (expr-value-separator-of *naming-configuration*))
-    (:expr-value-suffix (expr-value-suffix-of *naming-configuration*))
-    (:category-case (category-case-of *naming-configuration*))))
+    (:category-separator (category-separator *naming-configuration*))
+    (:expr-value-separator (expr-value-separator *naming-configuration*))
+    (:expr-value-suffix (expr-value-suffix *naming-configuration*))
+    (:category-case (category-case *naming-configuration*))))
+
 
 (defmethod resolve-logger-form (package env args)
   "- When first element of args is NIL or a constant string, calls

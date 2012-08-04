@@ -695,3 +695,18 @@ lift the older equivalent configuration to the top of the list"
   (loop for cnt from 0 
         for cnf in *configurations*
         do (format stream "~4:<~d.~> ~A~%" cnt cnf)))
+
+(defun log-setup (&key (package *package*)
+                       (category-case nil category-casep)
+                       category-separator
+                       expr-value-separator
+                       expr-value-suffix
+                       (shortest-nickname t shortest-nicknamep))
+  (let* ((nc (find-or-create-naming-configuration package t))
+         (*naming-configuration* nc))
+    (prog1 nc 
+      (when category-casep (setf (category-case nc) category-case)) 
+      (when category-separator (setf (category-separator nc) category-separator)) 
+      (when expr-value-separator (setf (expr-value-separator nc) expr-value-separator))
+      (when expr-value-suffix (setf (expr-value-separator nc) expr-value-suffix))
+      (when shortest-nicknamep (setf (use-shortest-nickname nc) shortest-nickname)))))

@@ -19,10 +19,7 @@
 (in-package #:log4cl-test.dots)
 
 (eval-when (:load-toplevel :compile-toplevel :execute)
-  (defmethod naming-option ((pkg (eql (find-package :log4cl-test.dots)))
-                            (option (eql :category-separator)))
-    "."))
-
+  (log4cl-impl::log-setup :category-separator "."))
 
 (in-root-suite)
 (defsuite* test)

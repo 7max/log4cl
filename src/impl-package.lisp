@@ -139,7 +139,11 @@
    #:configuration-element
    #:configuration
    #:*logger-truename*
-   #:logger-file))
+   #:logger-file
+   #:*default-naming-configuration*
+   #:*naming-configuration*
+   #:log-setup
+   #:naming-configuration))
 
 
 

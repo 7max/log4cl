@@ -289,49 +289,33 @@ user log statement, its raised and does not disable the appender"
   "Test the variable backup name format"
   (with-package-log-hierarchy
     (clear-logging-configuration)
-    (let* ((fname-base1 (merge-pathnames (rand-filename) *tests-dir*))
-           (name2 (rand-filename))
-           (fname-base2 (merge-pathnames name2 *tests-dir*))
-           ;; a1 is used only to figure out what the dynamic part
-           ;; of backup filename will be, as we don't have public interface
-           ;; for accessing backup file name
-           (a1 (make-instance 'daily-file-appender :name-format
-                (format nil "~a-%H-%M-%S.log" fname-base1)
-                :rollover-check-period 1))
+    (let* ((fname (merge-pathnames (rand-filename) *tests-dir*))
            ;; fixed name, and formatted backup
-           (a2 (make-instance 'daily-file-appender :backup-name-format
-                (format nil "~a-%H-%M-%S.log" fname-base2)
-                :name-format fname-base2
+           (a1 (make-instance 'daily-file-appender
+                :name-format fname
+                :backup-name-format (format nil "~a-%H-%M-%S.log" fname)
                 ::rollover-check-period 1))
            (logger (make-logger '(one two three))))
       (add-appender logger a1)
-      (add-appender logger a2)
       ;; (add-appender *root-logger* (make-instance 'console-appender))
       (log-config :d)
       (log-info logger "Hey")
-      (let ((fname-bak
-              (merge-pathnames
-               (concatenate 'string name2
-                            (subseq (appender-filename a1)
-                                    (- (length (appender-filename a1))
-                                       (length "-xx-xx-xx.log"))))
-               *tests-dir*)))
+      (let ((fname-bak (appender-backup-filename a1)))
         (log-sexp fname-bak)
         (sleep 1.2)
         (log-info logger "Hey again")
         (unwind-protect
              (progn
-               (is (not (equal fname-bak fname-base2)))
+               (is (not (equal fname-bak fname)))
                (with-open-file (s fname-bak)
                  (is (equal (read-line s) "INFO - Hey")))
                (remove-appender logger a1)
-               (remove-appender logger a2)
                ;; verify it got closed
-               (is (not (slot-boundp a2 'stream)))
-               (with-open-file (s fname-base2)
+               (is (not (slot-boundp a1 'stream)))
+               (with-open-file (s fname)
                  (is (equal (read-line s) "INFO - Hey again"))))
           (ignore-errors (delete-file fname-bak))
-          (ignore-errors (delete-file fname-base2)))))))
+          (ignore-errors (delete-file fname)))))))
 
 (deftest test-appender-flush-interval ()
   (with-package-log-hierarchy
@@ -380,4 +364,5 @@ user log statement, its raised and does not disable the appender"
           (is (equal (read-line s nil) "INFO - Hello World 2")))
         (remove-appender logger a)
         (delete-file fname)))))
+
 

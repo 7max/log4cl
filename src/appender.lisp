@@ -188,6 +188,11 @@ unless IMMEDAITE-FLUSH property is set."
 (defgeneric appender-filename (appender)
   (:documentation "Returns the appenders file name"))
 
+(defgeneric appender-backup-filename (appender)
+  (:documentation "Returns the appenders backup file name, this fill
+be the file name that current log file will be renamed to, if log file
+needs to roll over"))
+
 (defun maybe-close-file (appender)
   (when (and (slot-boundp appender 'stream))
     (close (slot-value appender 'stream))
@@ -201,7 +206,7 @@ its no longer attached to loggers"))
   (maybe-close-file appender))
 
 (defclass file-appender (file-appender-base)
-  ((filename :initarg :file)) 
+  ((filename :initarg :file :reader appender-filename)) 
   (:documentation "Appender that writes to a file with a fixed file
 name"))
 
@@ -209,19 +214,15 @@ name"))
   (append (call-next-method)
           '((:file filename :string-skip-whitespace))))
 
-(defmethod appender-filename ((appender file-appender-base))
-  (slot-value appender 'filename))
-
 (defclass rolling-file-appender-base (file-appender-base)
   ((%rollover-check-period :initform 60 :initarg :rollover-check-period)
    (%next-rollover-time :initform 0))
-  (:documentation
-  "File appender that periodically checks if it needs to rollover the
-log file.
+  (:documentation "File appender that periodically checks if it needs
+to rollover the log file.
 
 Properties:
 
-ROLLOVER-CHECK-PERIOD
+ROLLOVER-CHECK-PERIOD 
 
 : An integer, when current time advances past the boundary evenly divisible by this
 number a call to MAYBE-ROLL-FILE will be made to check if log file needs
@@ -236,9 +237,9 @@ to be rolled over"))
    (name-format :initarg :name-format)
    (utc-p :initform nil :initarg :utc)
    ;; File name of the currently active log file
-   (%current-file-name :initform nil)
+   (%current-file-name :initform nil :reader appender-filename)
    ;; The name that the currently active file will be renamed into
-   (%next-backup-name :initform nil))
+   (%next-backup-name :initform nil :reader appender-backup-filename))
   (:documentation "An appender that writes to the file named by
 expanding a pattern.  The expansion is done by the same
 converter as the %d conversion pattern of the PATTERN-LAYOUT, which is
@@ -295,9 +296,6 @@ day.
           '((:name-format name-format :string-skip-whitespace)
             (:backup-name-format backup-name-format :string-skip-whitespace)
             (:utc utc-p boolean))))
-
-(defmethod appender-filename ((appender daily-file-appender))
-  (slot-value appender '%current-file-name))
 
 (defun next-time-boundary (time check-period)
   "Given universal time TIME return next boundary evenly divisible by

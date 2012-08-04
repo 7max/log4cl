@@ -143,7 +143,8 @@
    #:*default-naming-configuration*
    #:*naming-configuration*
    #:log-setup
-   #:naming-configuration))
+   #:naming-configuration
+   #:appender-backup-filename))
 
 
 

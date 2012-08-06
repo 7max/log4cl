@@ -294,13 +294,13 @@ user log statement, its raised and does not disable the appender"
            (a1 (make-instance 'daily-file-appender
                 :name-format fname
                 :backup-name-format (format nil "~a-%H-%M-%S.log" fname)
-                ::rollover-check-period 1))
+                :rollover-check-period 1))
            (logger (make-logger '(one two three))))
       (add-appender logger a1)
       ;; (add-appender *root-logger* (make-instance 'console-appender))
       (log-config :d)
       (log-info logger "Hey")
-      (let ((fname-bak (appender-backup-filename a1)))
+      (let ((fname-bak (appender-next-backup-file a1)))
         (log-sexp fname-bak)
         (sleep 1.2)
         (log-info logger "Hey again")
@@ -366,3 +366,42 @@ user log statement, its raised and does not disable the appender"
         (delete-file fname)))))
 
 
+(deftest test-daily-file-appender-3 ()
+  "Test that when log file already exists, and we start writing to it, that it rolls over
+based on the file modification time"
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (let* ((fname (merge-pathnames (rand-filename) *tests-dir*))
+           ;; fixed name, and formatted backup
+           (a1 (make-instance 'daily-file-appender
+                :name-format fname
+                :backup-name-format (format nil "~a-%H-%M-%S.log" fname)
+                ::rollover-check-period 1))
+   (logger (make-logger '(one two three))))
+      ;; create 
+      (with-open-file (s fname :direction :output :if-does-not-exist :create :if-exists :supersede)
+        (format s "First line~%"))
+      ;; test its there
+      (with-open-file (s fname)
+        (is (equal "First line" (read-line s))))
+      ;; make sure its old enough for rollover
+      (loop while (>= (file-write-date fname) (get-universal-time))
+            do (sleep 0.5))
+      (add-appender logger a1)
+      ;; (add-appender *root-logger* (make-instance 'console-appender))
+      (log-config :d)
+      (log-info logger "Hey")
+      (let ((fname-bak (appender-last-backup-file a1)))
+        (log-sexp fname-bak)
+        (unwind-protect
+             (progn
+               (is (not (equal fname-bak fname)))
+               (with-open-file (s fname-bak)
+                 (is (equal "First line" (read-line s))))
+               (remove-appender logger a1)
+               ;; verify it got closed
+               (is (not (slot-boundp a1 'stream)))
+               (with-open-file (s fname)
+                 (is (equal (read-line s) "INFO - Hey"))))
+          (ignore-errors (delete-file fname-bak))
+          (ignore-errors (delete-file fname)))))))

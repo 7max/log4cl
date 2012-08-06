@@ -144,7 +144,8 @@
    #:*naming-configuration*
    #:log-setup
    #:naming-configuration
-   #:appender-backup-filename))
+   #:appender-next-backup-file
+   #:appender-last-backup-file))
 
 
 

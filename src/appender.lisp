@@ -188,10 +188,11 @@ unless IMMEDAITE-FLUSH property is set."
 (defgeneric appender-filename (appender)
   (:documentation "Returns the appenders file name"))
 
-(defgeneric appender-backup-filename (appender)
-  (:documentation "Returns the appenders backup file name, this fill
-be the file name that current log file will be renamed to, if log file
-needs to roll over"))
+(defgeneric appender-next-backup-file (appender)
+  (:documentation "Returns the appenders next backup file name"))
+
+(defgeneric appender-last-backup-file (appender)
+  (:documentation "Returns the appenders last backup file name"))
 
 (defun maybe-close-file (appender)
   (when (and (slot-boundp appender 'stream))
@@ -239,7 +240,8 @@ to be rolled over"))
    ;; File name of the currently active log file
    (%current-file-name :initform nil :reader appender-filename)
    ;; The name that the currently active file will be renamed into
-   (%next-backup-name :initform nil :reader appender-backup-filename))
+   (%next-backup-name :initform nil :reader appender-next-backup-file)
+   (%last-backup-name :initform nil :reader appender-last-backup-file))
   (:documentation "An appender that writes to the file named by
 expanding a pattern.  The expansion is done by the same
 converter as the %d conversion pattern of the PATTERN-LAYOUT, which is
@@ -351,25 +353,43 @@ them. One possible extension could be having daily log file and a
 weekly backup, that is appended to each day")
   (:method (appender log-filename backup-filename)
     (declare (ignore appender))
-    (rename-file log-filename backup-filename)))
+    (rename-file log-filename backup-filename))
+  (:method ((appender daily-file-appender) log-filename backup-filename)
+    (with-slots (%last-backup-name) appender
+      (setf %last-backup-name backup-filename)
+      (call-next-method))))
 
 (defmethod maybe-roll-file ((appender daily-file-appender)) 
   "Expands FILENAME and BACKUP patterns, and if one of them changed,
 switches to the new log file"
   (with-slots (name-format backup-name-format
-               %current-file-name %next-backup-name utc-p) appender
+               %current-file-name %next-backup-name
+               %last-backup-name utc-p) appender
     (let* ((time (log-event-time))
-           (new-file (expand-name-format name-format time utc-p))
-           (new-bak (expand-name-format
-                     (or backup-name-format name-format) time utc-p)))
-      ;; (log-sexp time new-file new-bak %current-file-name %next-backup-name)
-      (unless (and (equal new-file %current-file-name)
-                   (equal new-bak %next-backup-name))
-        (when %current-file-name
-          (maybe-close-file appender)
-          (unless (equal %current-file-name %next-backup-name)
-            (backup-log-file appender %current-file-name %next-backup-name)))
-        (setq %current-file-name new-file
-              %next-backup-name new-bak)))))
+           (new-file (expand-name-format name-format time utc-p)))
+      ;; Handle roll over of the log file that we never written to,
+      ;; based on its modification time, only happens once at initial
+      ;; log into the newly created appender
+      (if (and (null %current-file-name)
+               (probe-file new-file))
+          (let ((old-bak (expand-name-format
+                          (or backup-name-format name-format)
+                          (file-write-date new-file)
+                          utc-p)))
+            (unless (equal new-file old-bak)
+              (backup-log-file appender new-file old-bak))))
+      ;; Normal code path
+      (let ((new-bak (expand-name-format
+                      (or backup-name-format name-format)
+                      time utc-p))) 
+        ;; (log-sexp time new-file new-bak %current-file-name %next-backup-name)
+        (unless (and (equal new-file %current-file-name)
+                     (equal new-bak %next-backup-name))
+          (when %current-file-name 
+            (maybe-close-file appender) 
+            (unless (equal %current-file-name %next-backup-name)
+              (backup-log-file appender %current-file-name %next-backup-name)))
+          (setq %current-file-name new-file
+                %next-backup-name new-bak))))))
 
 

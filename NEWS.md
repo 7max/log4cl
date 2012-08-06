@@ -1,3 +1,13 @@
+## 0.9.5
+
+* (Bugfix) DAILY-FILE-APPENDER was only rolling over the file if
+  rollover time passed in between two log messages. Therefore a
+  short-lived command line utility configured with `(log:config :daily
+  "log.txt")` would never roll over the log.txt to
+  log.txt-yyyy-mm-dd.txt, unless it happen to run exactly at
+  midnight. This had now been corrected, and pre-existing log file
+  will be rolled over based on its modification time.
+
 ## 0.9.3
 
 * (Feature): Added ability to quick save/restore of named logging

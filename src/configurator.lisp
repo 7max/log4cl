@@ -473,9 +473,7 @@ Returns a list of CONFIGURATION-ELEMENT objects"
         (format stream  "#.~S"
                 `(make-instance 'configuration-element
                   :logger
-                  (%get-logger ',(logger-categories logger)
-                               ,(logger-category-separator logger)
-                               nil)
+                  ,(make-load-form logger)
                   :level ,level)))))
 
 (defmethod print-object ((cnf configuration) stream)

@@ -201,9 +201,10 @@ Supported values for ARG are:
 (defun instantiate-logger (package categories explicitp createp)
   (let* ((cat-separator (naming-option package :category-separator))
          (cat-case (naming-option package :category-case)))
-    (multiple-value-bind (wrapped-categories indexes)
+    (multiple-value-bind (wrapped-categories file pkg-start pkg-end)
         (package-wrapper package categories explicitp)
-      (%get-logger wrapped-categories cat-separator cat-case nil createp indexes))))
+      (%get-logger wrapped-categories cat-separator cat-case nil createp file
+                   pkg-start pkg-end))))
 
 (defmethod resolve-default-logger-form (package env args)
   "Returns the logger named after the enclosing lexical environment"
@@ -223,15 +224,10 @@ list with it"
              (file (or *logger-truename*
                        *compile-file-truename*
                        *load-truename*))
-             (file (when file (file-namestring file)))
              (package-idx-start (when package-categories 0))
-             (package-idx-end (when package-categories (length package-categories)))
-             (file-idx (when file (or package-idx-end 0))))
-        (values 
-         (append package-categories
-                 (when file (list file))
-                 categories)
-         (list file-idx package-idx-start package-idx-end)))))
+             (package-idx-end (when package-categories (length package-categories))))
+        (values (append package-categories categories)
+         file package-idx-start package-idx-end))))
 
 (defun shortest-package-name (package)
   "Return the shortest name or nickname of the package"

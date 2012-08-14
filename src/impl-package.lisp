@@ -145,7 +145,10 @@
    #:log-setup
    #:naming-configuration
    #:appender-next-backup-file
-   #:appender-last-backup-file))
+   #:appender-last-backup-file
+   #:logger-file-namestring
+   #:logger-file-logger
+   #:logger-ancestors))
 
 
 

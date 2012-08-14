@@ -19,7 +19,7 @@
 (in-package #:log4cl-test.dots)
 
 (eval-when (:load-toplevel :compile-toplevel :execute)
-  (log4cl-impl::log-setup :category-separator "."))
+  (log4cl-impl:log-setup :category-separator "."))
 
 (in-root-suite)
 (defsuite* test)
@@ -181,7 +181,8 @@ correctly parsed into multiple loggers"
       (is (null (log-debug)))
       (is (null (log-warn)))
       (is (log-debug logger))
-      (is (log-warn logger)))))
+      (is (log-warn logger))
+      (values logger parent))))
 
 (deftest make-logger-with-dotted-symbol-name ()
   (with-package-log-hierarchy
@@ -190,8 +191,6 @@ correctly parsed into multiple loggers"
       (is (equal (logger-category logger)
                  (concatenate 'string
                               (package-name #.*package*)
-                              "."
-                              "test-category-separator.lisp"
                               "."
                               (symbol-name :one.two.three)))))))
 

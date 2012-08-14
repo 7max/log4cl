@@ -355,6 +355,7 @@ weekly backup, that is appended to each day")
     (declare (ignore appender))
     (rename-file log-filename backup-filename))
   (:method ((appender daily-file-appender) log-filename backup-filename)
+    (declare (ignore log-filename))
     (with-slots (%last-backup-name) appender
       (setf %last-backup-name backup-filename)
       (call-next-method))))

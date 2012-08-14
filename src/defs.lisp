@@ -108,4 +108,5 @@ when non-NIL to determine logger's parent file logger.")
 
 (defconstant +logger-category-depth-bits+ 6)
 (deftype logger-cat-idx () `(unsigned-byte ,+logger-category-depth-bits+))
+(defconstant +logger-after-package-flag+ (ash 1 +logger-category-depth-bits+))
 

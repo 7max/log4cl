@@ -58,6 +58,7 @@
                        #:logger-parent
                        #:logger-children
                        #:logger-descendants
+                       #:logger-ancestors
                        #:logger-depth
                        #:logger-log-level
                        #:log-sexp-with-level

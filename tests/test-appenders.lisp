@@ -223,8 +223,8 @@ user log statement, its raised and does not disable the appender"
 
 (defparameter *temp-dir*
   (or (can-create-file-p "/tmp")
-      (can-create-file-p (asdf:getenv "TEMP"))
-      (can-create-file-p (asdf:getenv "TMP"))
+      (can-create-file-p (asdf::getenv "TEMP"))
+      (can-create-file-p (asdf::getenv "TMP"))
       (can-create-file-p ".")))
 
 (defparameter *tests-dir*

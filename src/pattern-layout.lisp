@@ -96,6 +96,24 @@ Following pattern characters are recognized:
    with conversion pattern of %c{}{--}{:invert} will result print it
    as cl-user--foo--bar
 --------------------------------------------------------------------
+   %g - like to %c, but only portion of the categories that represents
+   the package name
+   
+   %C - like to %c, but only portion of the categories that are not
+   the package name.
+
+   Example: assuming category separator setup for the package was a
+   dot, and a (log:make-logger :one.two.three) was instantiated in
+   package cl.dotted.package:
+
+     %g                    => CL.DOTTED.PACKAGE
+     %g{}{--}{:downcase}   => cl--dotted--package
+     %C                    => ONE.TWO.THREE
+     (%C{}{ }{:downcase})  => (one two three)
+
+   %F namestring of a file where logger was instantiated, same as
+      returned by LOGGER-FILE-NAMESTRING
+--------------------------------------------------------------------
    %d The date/time of the log message in UTC, extra argument
       can be a date pattern. Default date pattern is
       %d{%Y-%m-%d %H:%M:%S}

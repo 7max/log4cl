@@ -547,9 +547,45 @@ unchanged"
 
 
 (define-pattern-formatter (#\c)
-  "Format the %c (log category) pattern"
+  "Format the %c (full log category) pattern"
   (declare (ignore log-level log-func))
   (format-categories-range stream fmt-info logger 0 (logger-depth logger))
+  (values))
+
+(define-pattern-formatter (#\C)
+  "Format the %C (log category excluding package) pattern"
+  (declare (ignore log-level log-func))
+  (let* ((start-depth (logger-pkg-idx-start logger))
+         (end-depth (logger-pkg-idx-end logger)))
+    (cond ((zerop start-depth) 
+           ;; logger has no package info, format entire thing
+           (format-categories-range stream fmt-info logger 0 (logger-depth logger)))
+          ((= 1 start-depth)
+           ;; package is the prefix, so start from end of the package
+           (format-categories-range stream fmt-info logger (1- end-depth)
+                                    (logger-depth logger)))
+          (t
+           ;; weird case that is possible by achieve by overloading
+           ;; PACKAGE-WRAPPER method, where categories representing
+           ;; package name can be in the middle, in which case
+           ;; we have to skip them
+           (let ((sep (slot-value fmt-info 'separator)))
+             (with-small-dynamic-extent-vector
+                 (cats num-cats (- end-depth start-depth))
+               (declare (ignore num-cats))
+               (let ((cnt 0))
+                 (declare (type fixnum cnt)) 
+                 (loop with lgr = logger
+                       for i fixnum downfrom (1- (logger-depth logger))
+                       to 0
+                       do (progn
+                            ;; (format t "here1 i = ~d logger = ~s file-idx = ~s ~%" i lgr file-idx)
+                            (unless (< (1- start-depth) i (1- end-depth))
+                              (setf (svref cats cnt) lgr)
+                              (incf cnt))
+                            (setf lgr (logger-parent lgr)))) 
+                 (format-categories stream fmt-info cats cnt
+                                    (or sep (logger-category-separator logger)))))))))
   (values))
 
 (define-pattern-formatter (#\g)

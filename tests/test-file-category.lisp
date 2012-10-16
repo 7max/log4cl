@@ -31,19 +31,30 @@
   (with-package-log-hierarchy
     (clear-logging-configuration) 
     (let ((no-file-logger (make-logger '(one two three)))
-          (has-file-logger (make-logger :blah)))
+          (has-file-logger (make-logger :foo.bar)))
       (is (null (logger-file no-file-logger)))
       (is (pathnamep (logger-file has-file-logger)))
       (is (equal "test-file-category.lisp" (logger-file-namestring has-file-logger)))
     
       ;; cross test that %c and %C ignore each other stuff
-      (test-pattern-layout "%c" (make-expected (list (package-name *package*) :blah) ".")
+      (test-pattern-layout "%c" (make-expected (list (package-name *package*) :foo.bar) ".")
+                           :logger has-file-logger)
+
+      ;; just the package
+      (test-pattern-layout "%g" (make-expected (list (package-name *package*)) ".")
+                           :logger has-file-logger)
+
+      ;; everything else but the package
+      (test-pattern-layout "%C" (make-expected (list :foo.bar) ".")
                            :logger has-file-logger)
 
       ;; using : as separator because '(one two three) logger was
       ;; instantiated in earlier test with default package config
       (test-pattern-layout "%c" (make-expected '(one two three) ":")
-                           :logger no-file-logger))))
+                           :logger no-file-logger)
+      (test-pattern-layout "%C" (make-expected '(one two three) ":")
+                           :logger no-file-logger)
+      (test-pattern-layout "%g" "" :logger no-file-logger))))
 
 
 (deftest test-file-category-3 ()

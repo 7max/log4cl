@@ -398,12 +398,6 @@ represents the package name."
                                           (or pkg-idx-end 0))))
                           (let ((old (file-logger-file cached))
                                 (new (ensure-source-logger cached)))
-                            ;; (format t "here we are cached = ~s ~
-                            ;; categories = ~s
-                            ;; new source-file-logger is ~s logger-depth logger = ~d ~%"
-                            ;;         cached categories
-                            ;;         (logger-depth logger)
-                            ;;         logger)
                             (unless (eq old new)
                               (when (and old new (logger-child-hash old))
                                 (remhash cached (logger-child-hash old)))
@@ -411,12 +405,8 @@ represents the package name."
                                 (setf (gethash cached (or (logger-child-hash new)
                                                           (setf (logger-child-hash new)
                                                                 (make-hash-table :test #'equal))))
-                                      cached))
-                              (format t "Setting ~s file to ~s ~%" cached new)
-                              ;; (format t "first condition = ~s ~%" (list (null categories)
-                              ;;                                           (> (logger-depth cached))
-                              ;;                                           (or pkg-idx-end 0)))
-                              (setf (file-logger-file cached) new))))
+                                      cached)
+                                (setf (file-logger-file cached) new)))))
                         cached))
                  (unless createp (return-from %get-logger nil))
                  (setf (gethash name (or hash

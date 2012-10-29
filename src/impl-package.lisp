@@ -148,7 +148,8 @@
    #:appender-last-backup-file
    #:logger-file-namestring
    #:logger-file-logger
-   #:logger-ancestors))
+   #:logger-ancestors
+   #:inherited-log-level))
 
 
 

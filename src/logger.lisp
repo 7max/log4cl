@@ -180,6 +180,16 @@ from parent"
                        (%effective-log-level (logger-parent lgr)))))))
       (%effective-log-level logger))))
 
+(defun inherited-log-level (logger)
+  "Return logger's own log level (if set) or the one it had inherited
+from parent"
+  (declare (type logger logger))
+  (let* ((file-logger (when (typep logger 'file-logger)
+                        (file-logger-file logger))))
+    (if (and file-logger (logger-first-after-package-p logger))
+        (effective-log-level file-logger)
+        (effective-log-level (logger-parent logger)))))
+
 (defun have-appenders-for-level (logger level)
   "Return non-NIL if logging with LEVEL will actually reach any
 appenders"

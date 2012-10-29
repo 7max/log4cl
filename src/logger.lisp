@@ -525,8 +525,10 @@ context of the current application."
 
 (defun logger-descendants (logger)
   "Return a list of LOGGER's descendants"
-  (let ((children (logger-children logger)))
-    (nconc children (mapcan #'logger-descendants children))))
+  (labels ((%logger-descendants (logger) 
+           (let ((children (logger-children logger)))
+             (nconc children (mapcan #'%logger-descendants children)))))
+    (delete-duplicates (%logger-descendants logger) :test #'eq)))
 
 (defun logger-ancestors (logger)
   "Return a list of logger's ancestors starting from parent and ending wit root logger"

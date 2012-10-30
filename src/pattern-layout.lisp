@@ -32,13 +32,26 @@ and \"%-5p [%c{2}{:invert}{.}] - %m%n\" produces the message:
 
  INFO [subcategory.name] - message text
 
+Syntax of conversion pattern is: %[<FLAGS>]<PATTERN-CHAR>[{<EXTRA-ARG>}...]
 
-Syntax of conversion pattern is: %[-][<MIN>][.<MAX>]<PATTERN-CHAR>[{<EXTRA-ARG>}...]
+FLAGS are consists of:
+  [:][;<PREFIX>;][;<SUFFIX>;][-]<MIN>.<MAX>
 
 If a string resulting from the pattern expansion is longer then MAX
 its truncated by omitting characters from the start. Then if its
 shorter then MIN its padded with spaces to the right or left (when
 preceded by a minus)
+
+If PREFIX and/or SUFFIX is specified, then string is wrapped with them
+and all padding for justification, is done before the prefix and after
+the suffix. The length of prefix and suffix are not included into
+MIN/MAX or/padding calculations.
+
+Example: %-7;<;;>;p with p expanding to INFO, will produce the string
+\" <INFO>\"
+
+If : flag is specified, and string is empty, then no output is made, including
+not outputting any prefix or suffix.
 
 Performance considerations: All formatting is done without consing,
 except for the case of %m (user message) format, when it has MIN or
@@ -96,7 +109,7 @@ Following pattern characters are recognized:
    with conversion pattern of %c{}{--}{:invert} will result print it
    as cl-user--foo--bar
 --------------------------------------------------------------------
-   %g - like to %c, but only portion of the categories that represents
+   %g - like to %c, but only portion of the categories that represent
    the package name
    
    %C - like to %c, but only portion of the categories that are not
@@ -218,7 +231,15 @@ Following pattern characters are recognized:
    (maxlen :initform nil :initarg :maxlen :type (or null fixnum)
            :reader format-max-len)
    (right-justify :initform nil :initarg :right-justify :type boolean
-                  :reader format-right-justify))
+                  :reader format-right-justify)
+
+   (prefix :initform nil :initarg :prefix :reader format-prefix
+           :type (or null simple-string))
+   (suffix :initform nil :initarg :suffix :reader format-suffix
+                  :type (or null simple-string))
+
+   (empty-skip :initform nil :initarg :empty-skip :reader format-empty-skip
+               :type boolean))
   (:documentation "Represents data for a single conversion pattern"))
 
 (defgeneric parse-extra-args (fmt-info pattern-char pattern-string start)
@@ -284,22 +305,38 @@ Example: For the string {one}{}{three} will return the list (14
            (type stream stream)
            (type format-info info)
            (type fixnum start end))
-  (let* ((min (slot-value info 'minlen))
+  (let* ((min (format-min-len info))
          (len (- end start))
-         (max (or (slot-value info 'maxlen) len)))
+         (max (or (format-max-len info) len)))
     (declare (type fixnum min max len))
     (when (< max len)
       (incf start (- len max))
       (decf len (- len max)))
-    (if (< len min)
-        (cond ((not (slot-value info 'right-justify))
-               (write-string string stream :start start :end end)
-               (loop repeat (- min len)
-                     do (write-char #\Space stream)))
-              (t (loop repeat (- min len)
-                       do (write-char #\Space stream))
-                 (write-string string stream :start start :end end)))
-        (write-string string stream :start start :end end)))
+    (cond
+      ((and (zerop len) (format-empty-skip info)))
+      ((< len min) 
+       (cond ((not (format-right-justify info))
+              (when (format-prefix info)
+                (write-string (format-prefix info) stream))
+              (write-string string stream :start start :end end)
+              (when (format-suffix info)
+                (write-string (format-suffix info) stream))
+              (loop repeat (- min len)
+                    do (write-char #\Space stream)))
+             (t (loop repeat (- min len)
+                      do (write-char #\Space stream))
+                (when (format-prefix info)
+                  (write-string (format-prefix info) stream))
+                (write-string string stream :start start :end end)
+                (when (format-suffix info)
+                  (write-string (format-suffix info) stream)))))
+      (t
+       (when (format-prefix info)
+         (write-string (format-prefix info) stream))
+       (when (plusp len) 
+         (write-string string stream :start start :end end))
+       (when (format-suffix info)
+           (write-string (format-suffix info) stream)))))
   (values)) 
 
 (define-pattern-formatter (#\p) 
@@ -434,15 +471,15 @@ unchanged"
             (setq start (max 0 (- num-cats precision)))))
     ;; make end inclusive
     (decf end)
-    ;; (format t "here1 fmt-start ~d precision ~d start ~d end ~d num-cats ~d ~%"
-    ;;         fmt-start precision start end num-cats)
+    ;; (format t "here1 fmt-start ~d precision ~d start ~d end ~d num-cats ~d cats ~s ~%"
+    ;;         fmt-start precision start end num-cats cats)
     (let ((field-len 0)
           (padlen 0)
           (skip-at-start 0))
       (declare (type fixnum field-len skip-at-start padlen))
       ;; sum logger names length
       (loop for i fixnum from start to end
-            as logger = (svref cats i)
+            as logger = (svref cats (- num-cats i 1))
             do (incf field-len (logger-name-length logger)))
       ;; add length of separators between loggers
       (if (< start end)
@@ -461,6 +498,8 @@ unchanged"
                  (write-string-modify-case
                   string stream case start end))))
            (doit ()
+             (when (format-prefix fmt-info)
+               (write-string (format-prefix fmt-info) stream))
              (loop for i fixnum from start to end
                    as logger = (svref cats (- num-cats i 1))
                    ;; do (format t "doing logger ~s ~s ~s ~%" logger (logger-name logger) (logger-name-start-pos logger))
@@ -470,7 +509,9 @@ unchanged"
                                             case)
                    if (/= i end) 
                    do (write-string-or-skip separator 0
-                                            (length separator) nil)))
+                                            (length separator) nil))
+             (when (format-suffix fmt-info)
+               (write-string (format-suffix fmt-info) stream)))
            (pad ()
              (loop repeat padlen do (write-char #\Space stream))))
         (cond ((and (plusp padlen) right-justify)
@@ -510,11 +551,9 @@ unchanged"
       (loop while (< start-depth (logger-depth logger))
             do (setq start (logger-name-start-pos logger)
                      logger (logger-parent logger)))
-      ;; (format t "here2 start-depth ~d end-depth ~d start ~d end  ~d ~%"
-      ;;         start-depth end-depth
-      ;;         start end)
-      (when start (format-string cat stream fmt-info
-                                 start (or end (length cat)))))))
+      (if start (format-string cat stream fmt-info
+                               start (or end (length cat)))
+          (format-string "" stream fmt-info)))))
 
 (defmacro with-small-dynamic-extent-vector ((name len len-expr &optional (limit 32))
                                             &body body)
@@ -643,7 +682,10 @@ the log message to the stream with the specified format."
                            :adjustable t
                            :fill-pointer t))
         (c #\Space) (fm-list '()) (state :normal)
-        (minlen 0) (maxlen nil) (right-justify nil))
+        (minlen 0) (maxlen nil) (right-justify nil)
+        (empty-skip nil)
+        (prefix nil)
+        (suffix nil))
     (declare (type fixnum idx)
              (type character c))
     (labels ((next ()
@@ -686,7 +728,38 @@ the log message to the stream with the specified format."
            (cond ((char= c #\%)
                   (add-char c)
                   (setq state :normal))
+                 (t (setq state :flag))))
+          (:flag 
+           (cond ((char= c #\:)
+                  (setq empty-skip t)
+                  (next-or-error "Expecting minimum length"))
+                 ((char= c #\;)
+                  (cond ((null prefix)
+                         (setq state :prefix
+                               prefix (make-array 0 :element-type 'character
+                                                    :adjustable t
+                                                    :fill-pointer t))
+                         (next-or-error "Expecting prefix"))
+                        ((null suffix)
+                         (setq state :suffix
+                               suffix (make-array 0 :element-type 'character
+                                                    :adjustable t
+                                                    :fill-pointer t))
+                         (next-or-error "Expecting suffix"))
+                        (t (signal-error "Both prefix and suffix are already set"))))
                  (t (setq state :minus))))
+          (:prefix 
+           (cond ((char/= c #\;)
+                  (vector-push-extend c prefix)
+                  (next-or-error "Runaway prefix"))
+                 (t (setq state :flag)
+                    (next-or-error "Expecting minimum length"))))
+          (:suffix 
+           (cond ((char/= c #\;)
+                  (vector-push-extend c suffix)
+                  (next-or-error "Runaway suffix"))
+                 (t (setq state :flag)
+                    (next-or-error "Expecting minimum length"))))
           (:minus (when (char= c #\-)
                     (next-or-error "Expecting minimum field width")
                     (setq right-justify t)
@@ -716,12 +789,19 @@ the log message to the stream with the specified format."
                                        :conversion-char c
                                        :minlen minlen
                                        :maxlen maxlen
-                                       :right-justify right-justify)))
+                                       :right-justify right-justify
+                                       :empty-skip empty-skip
+                                       :prefix (when (and prefix (plusp (length prefix))) prefix)
+                                       :suffix (when (and suffix (plusp (length suffix))) suffix))))
                         (multiple-value-setq (idx fmt-info)
                           (parse-extra-args fmt-info c pattern idx))
                         (add-formatter formatter fmt-info)
                         (setq state :normal
-                              minlen 0 maxlen nil right-justify nil))))))
+                              minlen 0
+                              maxlen nil
+                              right-justify nil
+                              empty-skip nil
+                              prefix nil suffix nil))))))
       (add-literal)
       (setq fm-list (nreverse fm-list))
       (lambda (stream logger level log-func)

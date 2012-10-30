@@ -118,6 +118,42 @@ message")
   (test-pattern-layout "%p \\- %m" "INFO - message")
   (test-pattern-layout "%p \\\\-\\\\ %m" "INFO \\-\\ message"))
 
+(deftest test-pattern-layout-optional ()
+  (with-ndc-context (nil) 
+    (test-pattern-layout "%x" "")
+    (test-pattern-layout "<%x>" "<>")
+    (test-pattern-layout "%3x" "   ")
+    (test-pattern-layout "<%3x>" "<   >")
+    (test-pattern-layout "%:3x" "")
+    (test-pattern-layout "%:-3x" "")
+    (with-ndc-context ("A")
+      (test-pattern-layout "%x" "A")
+      (test-pattern-layout "%:x" "A")
+      (test-pattern-layout "%:3x" "A  ")
+      (test-pattern-layout "%:-3x" "  A"))
+    (with-ndc-context (nil) 
+      (test-pattern-layout "%;<;;>;x" "<>")
+      (test-pattern-layout "%;<;;>;3x" "<>   ") 
+      (test-pattern-layout "%;<;;>;-3x" "   <>"))
+    (with-ndc-context ("A")
+      (test-pattern-layout "%;<;;>;x" "<A>")
+      (test-pattern-layout "%;<;;>;3x" "<A>  ")
+      (test-pattern-layout "%;<;;>;-3x" "  <A>")
+      (test-pattern-layout "%;<;3x" "<A  ")
+      (test-pattern-layout "%;;;>;-3x" "  A>"))
+    (with-ndc-context (nil)
+      (test-pattern-layout "%:;<;;>;x" "")
+      (test-pattern-layout "%:;<;;>;3x" "")
+      (test-pattern-layout "%:;<;;>;-3x" "")
+      (test-pattern-layout "%:;<;3x" "")
+      (test-pattern-layout "%:;;;>;-3x" ""))
+    (with-ndc-context ("A")
+      (test-pattern-layout "%:;-=<;;>;x" "-=<A>")
+      (test-pattern-layout "%:;<;;>;3x" "<A>  ")
+      (test-pattern-layout "%:;<;;>;-3x" "  <A>")
+      (test-pattern-layout "%:;<;3x" "<A  ")
+      (test-pattern-layout "%:;;;>;-3x" "  A>"))))
+
 (deftest test-pattern-log-level ()
   "Test %p pattern"
   (loop for level from +log-level-fatal+ to +log-level-user9+
@@ -371,6 +407,22 @@ works correctly with it"
                                      (- (length expected) i)))
                 :logger logger)))))
 
+
+(deftest test-pattern-category-3 ()
+  (test-pattern-layout "%-5c{1}" (make-expected '(three) ":"))
+  (test-pattern-layout "%-5c{1}{:}" (make-expected '(three) ":")))
+
+(deftest test-pattern-category-4 ()
+  (test-pattern-layout "%-12c{2}" (concatenate 'string
+                                               "   "
+                                               (make-expected '(two three) ":")))
+  (test-pattern-layout "%-12c{2}{:}" (concatenate 'string
+                                                  "   "
+                                                  (make-expected '(two three) ":")))
+  (test-pattern-layout "%-12c{2}{--}" (concatenate 'string
+                                                  "  "
+                                                  (make-expected '(two three) "--"))))
+
 (deftest test-pattern-category-extended-precision ()
   "Test the category precision in the form of %c{<from>,<count>}"
   (test-pattern-layout "%c{0,0}" (make-expected '(one two three) ":"))
@@ -381,8 +433,6 @@ works correctly with it"
   (test-pattern-layout "%c{1,1}" (make-expected '(two) ":"))
   (test-pattern-layout "%c{0,2}" (make-expected '(one two) ":"))
   (test-pattern-layout "%c{1,2}" (make-expected '(two three) ":"))
-
-  ;; repeat above with different separator
 
   (test-pattern-layout "%c{0,0}{----}" (make-expected '(one two three) "----"))
   (test-pattern-layout "%c{0,20}{----}" (make-expected '(one two three) "----"))
@@ -568,3 +618,4 @@ two asserts "
                        (log4cl-impl::format-time s "%z" ut-winter nil))
                    (with-output-to-string (s)
                        (log4cl-impl::format-time s "%z" ut-summer nil)))))))
+

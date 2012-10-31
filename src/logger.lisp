@@ -270,8 +270,6 @@ child. Uses NAMING-OPTION to determine category separator"
   (split-string category (naming-option package :category-separator)))
 
 
-
-
 (defun %get-logger (categories cat-sep cat-case
                     &optional force-string-case
                               (createp t)
@@ -321,7 +319,7 @@ represents the package name."
                             (append (subseq (coerce names 'list)
                                             (or pkg-idx-start 0)
                                             (or pkg-idx-end 0))
-                                    (list (file-namestring file)))
+                                    (list (namestring file)))
                             cat-sep cat-case
                             nil t file pkg-idx-start pkg-idx-end t)))))
              (create-logger-from-parent (parent)
@@ -377,18 +375,18 @@ represents the package name."
           (vector-push-extend name names)
           (setq logger
                 (or
+                 ;; special case of trying to get a source-file-logger by partial name, happens
+                 ;; when
+                 (and hash is-file-p (not file) (not createp) (null categories)
+                      (find-if (lambda (child)
+                                 (zerop (or (mismatch name (logger-category child)
+                                                      :from-end t
+                                                      :start2 (logger-name-start-pos child))
+                                            0)))
+                               (logger-children logger)))
                  (and hash
                       (let ((cached (gethash name hash)))
                         ;; in case logger moved from one file to another
-                        ;; (when cached 
-                        ;;   (format t "here setitng logger ~s to ~S ~% ~
-                        ;;   (null categories) = ~s
-                        ;;   (logger-depth logger) = ~d
-                        ;;   pkg-idx-end = ~d
-                        ;;   " cached source-file-logger
-                        ;;   (null categories)
-                        ;;   (logger-depth cached)
-                        ;;   pkg-idx-end))
                         (when (and cached (typep cached 'file-logger)
                                    (not is-file-p)
                                    (or (and (null categories)
@@ -396,17 +394,32 @@ represents the package name."
                                                (or pkg-idx-end 0))) 
                                        (> (logger-depth logger)
                                           (or pkg-idx-end 0))))
+                          ;; old and new are source file loggers
                           (let ((old (file-logger-file cached))
-                                (new (ensure-source-logger cached)))
+                                (new (ensure-source-logger cached))
+                                (didit nil))
+                            ;; if logger is in the same file as before, nothing needs to be done
                             (unless (eq old new)
+                              ;; If was in the file, and now moved to different file
+                              ;; remove it from old file
                               (when (and old new (logger-child-hash old))
                                 (remhash cached (logger-child-hash old)))
+                              ;; Is now in the new file, remember it there
                               (when new
                                 (setf (gethash cached (or (logger-child-hash new)
                                                           (setf (logger-child-hash new)
                                                                 (make-hash-table :test #'equal))))
                                       cached)
-                                (setf (file-logger-file cached) new)))))
+                                (setf (file-logger-file cached) new
+                                      didit t))
+                              ;; note that if logger is instantiated
+                              ;; without a file, but was previously
+                              ;; instantiated from a file, it keeps
+                              ;; the old file, so that log statements
+                              ;; issued from REPL do not reset
+                              ;; logger's file
+                              (when didit
+                                (adjust-logger cached)))))
                         cached))
                  (unless createp (return-from %get-logger nil))
                  (setf (gethash name (or hash

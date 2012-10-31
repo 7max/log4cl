@@ -462,6 +462,33 @@ Returns a list of CONFIGURATION-ELEMENT objects"
                 for level = (logger-log-level logger)
                 if level collect (make-element logger level)))))
 
+
+(defun make-logger-configuration-load-form (logger)
+  "Different version of loggers load-form, that does not
+remember the file name. This allows saved logging configuration
+to be restored, even if loggers had moved to a different file,
+without overwriting their file with its value when configuration
+was saved."
+  (let ((pkg-start (logger-pkg-idx-start logger))
+        (pkg-end (logger-pkg-idx-end logger))) 
+    (if (typep logger 'source-file-logger) 
+        ;; for source-file-loggers, that represent the entire file we
+        ;; still remember the file
+        `(%get-logger ',(logger-categories logger)
+                      ,(logger-category-separator logger)
+                      nil nil t
+                      ,(logger-file logger)
+                      ,(when (plusp pkg-start) (1- pkg-start))
+                      ,(when (plusp pkg-end) (1- pkg-end)) t)
+        ;; but not for regular loggers
+        `(%get-logger ',(logger-categories logger)
+                      ,(logger-category-separator logger)
+                      nil nil t
+                      nil
+                      ,(when (plusp pkg-start) (1- pkg-start))
+                      ,(when (plusp pkg-end) (1- pkg-end))
+                      ,(typep logger 'source-file-logger)))))
+
 (defmethod print-object ((elem configuration-element) stream)
   (with-slots (logger level) elem
     (if (not *print-readably*)
@@ -473,7 +500,7 @@ Returns a list of CONFIGURATION-ELEMENT objects"
         (format stream  "#.~S"
                 `(make-instance 'configuration-element
                   :logger
-                  ,(make-load-form logger)
+                  ,(make-logger-configuration-load-form logger)
                   :level ,level)))))
 
 (defmethod print-object ((cnf configuration) stream)

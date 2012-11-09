@@ -269,7 +269,6 @@ non-NIL strip whitespace from the string first"
 child. Uses NAMING-OPTION to determine category separator"
   (split-string category (naming-option package :category-separator)))
 
-
 (defun %get-logger (categories cat-sep cat-case
                     &optional force-string-case
                               (createp t)

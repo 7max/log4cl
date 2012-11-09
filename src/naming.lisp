@@ -17,7 +17,7 @@
 
 
 (defclass naming-configuration ()
-  ((category-separator :initform ":" :accessor category-separator)
+  ((category-separator :initform "." :accessor category-separator)
    (category-case :initform nil :accessor category-case)
    (expr-value-separator :initform "=" :accessor expr-value-separator)
    (expr-value-suffix :initform " ~:_" :accessor expr-value-suffix)
@@ -214,13 +214,16 @@ Supported values for ARG are:
            nil t)
           args))
 
+(defun make-package-categories (package)
+  "Return package categories split as per package configuration"
+  (split-into-categories (shortest-package-name package)
+                         package))
+
 (defmethod package-wrapper (package categories explicit-p)
   "Find the PACKAGES shortest name or nickname, and prefix CATEGORIES
 list with it"
   (if explicit-p categories
-      (let* ((package-categories
-               (split-into-categories (shortest-package-name package)
-                                      package))
+      (let* ((package-categories (make-package-categories package))
              (file (or *logger-truename*
                        *compile-file-truename*
                        *load-truename*))

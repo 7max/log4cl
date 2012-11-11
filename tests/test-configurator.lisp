@@ -273,14 +273,14 @@ done via property configurator, rather then directly"
                  (is (not (equal fname1 fname2)))
                  (with-open-file (s fname1)
                    (is (equal (read-line s)
-                              (format nil "INFO ~a:~a Hey"
+                              (format nil "INFO ~a.~a Hey"
                                       (string 'bar)
                                       (string 'baz)))))
                  ;; So we don't have to sleep for auto-flush
                  (remove-all-appenders logger)
                  (with-open-file (s fname2)
                    (is (equal (read-line s) 
-                              (format nil "DEBUG ~a:~a Hey again"
+                              (format nil "DEBUG ~a.~a Hey again"
                                       (string 'bar)
                                       (string 'baz))))))
             (ignore-errors (delete-file fname1))

@@ -39,9 +39,9 @@
       (basics logger)
       (is (equal (logger-category logger)
                  (concatenate 'string
-                              (symbol-name 'one) ":"
-                              (symbol-name 'two) ":"
-                              (symbol-name 'three) ":"
+                              (symbol-name 'one) "."
+                              (symbol-name 'two) "."
+                              (symbol-name 'three) "."
                               (symbol-name 'four))))
       (is (equal (logger-name logger) (symbol-name 'four)))
       (is (eql (logger-depth logger) 4)))))

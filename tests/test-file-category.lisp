@@ -50,9 +50,9 @@
 
       ;; using : as separator because '(one two three) logger was
       ;; instantiated in earlier test with default package config
-      (test-pattern-layout "%c" (make-expected '(one two three) ":")
+      (test-pattern-layout "%c" (make-expected '(one two three) ".")
                            :logger no-file-logger)
-      (test-pattern-layout "%C" (make-expected '(one two three) ":")
+      (test-pattern-layout "%C" (make-expected '(one two three) ".")
                            :logger no-file-logger)
       (test-pattern-layout "%g" "" :logger no-file-logger))))
 

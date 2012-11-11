@@ -186,7 +186,7 @@ case conversion"
         (logger (make-logger '(one two three))))
     (labels
         ((test-category (pattern &key
-                                 (separator ":")
+                                 (separator ".")
                                  (categories categories)
                                  (logger logger))
            (let ((expected
@@ -197,12 +197,12 @@ case conversion"
       ;; test using system native case
       (test-category "%c{4}")
       (test-category "%c{3}")
-      (test-category "%c{2}" :separator ":" :categories '(two three))
-      (test-category "%c{1}" :separator ":" :categories '(three))
-      (test-category "%c{4}{.}" :separator ".")
-      (test-category "%c{3}{.}" :separator ".")
-      (test-category "%c{2}{.}" :separator "." :categories '(two three))
-      (test-category "%c{1}{.}" :separator "." :categories '(three))
+      (test-category "%c{2}" :separator "." :categories '(two three))
+      (test-category "%c{1}" :separator "." :categories '(three))
+      (test-category "%c{4}{_}" :separator "_")
+      (test-category "%c{3}{_}" :separator "_")
+      (test-category "%c{2}{_}" :separator "_" :categories '(two three))
+      (test-category "%c{1}{_}" :separator "_" :categories '(three))
       ;; create loggers named with upper, lower and mixed cases
       ;; and test various combination of case conversion on them
       (let ((logger-mixed (make-logger '(|One| |Two| |Three|)))
@@ -214,157 +214,157 @@ case conversion"
         ;; test unchanged mixed case
         (test-category "%c{4}" :logger logger-mixed :categories cats-mixed)
         (test-category "%c{3}" :logger logger-mixed :categories cats-mixed)
-        (test-category "%c{2}" :separator ":" :logger logger-mixed
+        (test-category "%c{2}" :separator "." :logger logger-mixed
                                :categories (last cats-mixed 2))
-        (test-category "%c{1}" :separator ":" :logger logger-mixed
+        (test-category "%c{1}" :separator "." :logger logger-mixed
                                :categories (last cats-mixed 1))
-        (test-category "%c{4}{.}" :separator "."
+        (test-category "%c{4}{_}" :separator "_"
                                   :logger logger-mixed :categories cats-mixed)
-        (test-category "%c{}{.}" :separator "."
+        (test-category "%c{}{_}" :separator "_"
                                   :logger logger-mixed :categories cats-mixed)
-        (test-category "%c{2}{.}" :separator "."
+        (test-category "%c{2}{_}" :separator "_"
                                   :logger logger-mixed :categories
                                   (last cats-mixed 2))
-        (test-category "%c{1}{.}" :separator "."
+        (test-category "%c{1}{_}" :separator "_"
                                   :logger logger-mixed :categories
                                   (last cats-mixed 1))
         ;; test invert does not change the case
         (test-category "%c{4}{}{:invert}" :logger logger-mixed :categories cats-mixed)
         (test-category "%c{3}{}{:invert}" :logger logger-mixed :categories cats-mixed)
-        (test-category "%c{2}{}{:invert}" :separator ":" :logger logger-mixed
+        (test-category "%c{2}{}{:invert}" :separator "." :logger logger-mixed
                                           :categories (last cats-mixed 2))
-        (test-category "%c{1}{}{:invert}" :separator ":" :logger logger-mixed
+        (test-category "%c{1}{}{:invert}" :separator "." :logger logger-mixed
                                           :categories (last cats-mixed 1))
-        (test-category "%c{4}{.}{:invert}" :separator "."
+        (test-category "%c{4}{_}{:invert}" :separator "_"
                                            :logger logger-mixed
                                            :categories cats-mixed)
-        (test-category "%c{}{.}{:invert}" :separator "."
+        (test-category "%c{}{_}{:invert}" :separator "_"
                                           :logger logger-mixed
                                           :categories cats-mixed)
-        (test-category "%c{2}{.}{:invert}" :separator "."
+        (test-category "%c{2}{_}{:invert}" :separator "_"
                                            :logger logger-mixed :categories
                                            (last cats-mixed 2))
-        (test-category "%c{1}{.}{:invert}" :separator "."
+        (test-category "%c{1}{_}{:invert}" :separator "_"
                                            :logger logger-mixed :categories
                                            (last cats-mixed 1))
         ;; test forced upper case
-        (test-category "%c{4}{:}{:upcase}"
+        (test-category "%c{4}{.}{:upcase}"
                        :logger logger-mixed
                        :categories cats-upcase)
         (test-category "%c{}{}{:upcase}"
                        :logger logger-mixed
                        :categories cats-upcase)
         (test-category "%c{2}{}{:upcase}"
-                       :separator ":"
+                       :separator "."
                        :logger logger-mixed
                        :categories (last cats-upcase 2))
         (test-category "%c{1}{}{:upcase}"
-                       :separator ":"
+                       :separator "."
                        :logger logger-mixed
                        :categories (last cats-upcase 1))
-        (test-category "%c{4}{.}{:upcase}"
-                       :separator "."
+        (test-category "%c{4}{_}{:upcase}"
+                       :separator "_"
                        :logger logger-mixed
                        :categories cats-upcase)
-        (test-category "%c{}{.}{:upcase}"
-                       :separator "."
+        (test-category "%c{}{_}{:upcase}"
+                       :separator "_"
                        :logger logger-mixed :categories cats-upcase)
-        (test-category "%c{2}{.}{:upcase}"
-                       :separator "."
+        (test-category "%c{2}{_}{:upcase}"
+                       :separator "_"
                        :logger logger-mixed :categories
                        (last cats-upcase 2))
-        (test-category "%c{1}{.}{:upcase}"
-                       :separator "."
+        (test-category "%c{1}{_}{:upcase}"
+                       :separator "_"
                        :logger logger-mixed :categories
                        (last cats-upcase 1))
         ;; test forced lower case
-        (test-category "%c{4}{:}{:downcase}"
+        (test-category "%c{4}{.}{:downcase}"
                        :logger logger-mixed
                        :categories cats-downcase)
         (test-category "%c{}{}{:downcase}"
                        :logger logger-mixed
                        :categories cats-downcase)
         (test-category "%c{2}{}{:downcase}"
-                       :separator ":"
+                       :separator "."
                        :logger logger-mixed
                        :categories (last cats-downcase 2))
         (test-category "%c{1}{}{:downcase}"
-                       :separator ":"
+                       :separator "."
                        :logger logger-mixed
                        :categories (last cats-downcase 1))
-        (test-category "%c{4}{.}{:downcase}"
-                       :separator "."
+        (test-category "%c{4}{_}{:downcase}"
+                       :separator "_"
                        :logger logger-mixed
                        :categories cats-downcase)
-        (test-category "%c{}{.}{:downcase}"
-                       :separator "."
+        (test-category "%c{}{_}{:downcase}"
+                       :separator "_"
                        :logger logger-mixed :categories cats-downcase)
-        (test-category "%c{2}{.}{:downcase}"
-                       :separator "."
+        (test-category "%c{2}{_}{:downcase}"
+                       :separator "_"
                        :logger logger-mixed :categories
                        (last cats-downcase 2))
-        (test-category "%c{1}{.}{:downcase}"
-                       :separator "."
+        (test-category "%c{1}{_}{:downcase}"
+                       :separator "_"
                        :logger logger-mixed :categories
                        (last cats-downcase 1))
         ;; test that invert works on lower-case named logger
-        (test-category "%c{4}{:}{:invert}"
+        (test-category "%c{4}{.}{:invert}"
                        :logger logger-downcase
                        :categories cats-upcase)
         (test-category "%c{}{}{:invert}"
                        :logger logger-downcase
                        :categories cats-upcase)
         (test-category "%c{2}{}{:invert}"
-                       :separator ":"
+                       :separator "."
                        :logger logger-downcase
                        :categories (last cats-upcase 2))
         (test-category "%c{1}{}{:invert}"
-                       :separator ":"
+                       :separator "."
                        :logger logger-downcase
                        :categories (last cats-upcase 1))
-        (test-category "%c{4}{.}{:invert}"
-                       :separator "."
+        (test-category "%c{4}{_}{:invert}"
+                       :separator "_"
                        :logger logger-downcase
                        :categories cats-upcase)
-        (test-category "%c{}{.}{:invert}"
-                       :separator "."
+        (test-category "%c{}{_}{:invert}"
+                       :separator "_"
                        :logger logger-downcase :categories cats-upcase)
-        (test-category "%c{2}{.}{:invert}"
-                       :separator "."
+        (test-category "%c{2}{_}{:invert}"
+                       :separator "_"
                        :logger logger-downcase :categories
                        (last cats-upcase 2))
-        (test-category "%c{1}{.}{:invert}"
-                       :separator "."
+        (test-category "%c{1}{_}{:invert}"
+                       :separator "_"
                        :logger logger-downcase :categories
                        (last cats-upcase 1))
         ;; test that invert works on upper-case named logger
-        (test-category "%c{4}{:}{:invert}"
+        (test-category "%c{4}{.}{:invert}"
                        :logger logger-upcase
                        :categories cats-downcase)
         (test-category "%c{}{}{:invert}"
                        :logger logger-upcase
                        :categories cats-downcase)
         (test-category "%c{2}{}{:invert}"
-                       :separator ":"
+                       :separator "."
                        :logger logger-upcase
                        :categories (last cats-downcase 2))
         (test-category "%c{1}{}{:invert}"
-                       :separator ":"
+                       :separator "."
                        :logger logger-upcase
                        :categories (last cats-downcase 1))
-        (test-category "%c{4}{.}{:invert}"
-                       :separator "."
+        (test-category "%c{4}{_}{:invert}"
+                       :separator "_"
                        :logger logger-upcase
                        :categories cats-downcase)
-        (test-category "%c{}{.}{:invert}"
-                       :separator "."
+        (test-category "%c{}{_}{:invert}"
+                       :separator "_"
                        :logger logger-upcase :categories cats-downcase)
-        (test-category "%c{2}{.}{:invert}"
-                       :separator "."
+        (test-category "%c{2}{_}{:invert}"
+                       :separator "_"
                        :logger logger-upcase :categories
                        (last cats-downcase 2))
-        (test-category "%c{1}{.}{:invert}"
-                       :separator "."
+        (test-category "%c{1}{_}{:invert}"
+                       :separator "_"
                        :logger logger-upcase :categories
                        (last cats-downcase 1))))))
 
@@ -409,13 +409,13 @@ works correctly with it"
 
 
 (deftest test-pattern-category-3 ()
-  (test-pattern-layout "%-5c{1}" (make-expected '(three) ":"))
+  (test-pattern-layout "%-5c{1}" (make-expected '(three) "."))
   (test-pattern-layout "%-5c{1}{:}" (make-expected '(three) ":")))
 
 (deftest test-pattern-category-4 ()
   (test-pattern-layout "%-12c{2}" (concatenate 'string
                                                "   "
-                                               (make-expected '(two three) ":")))
+                                               (make-expected '(two three) ".")))
   (test-pattern-layout "%-12c{2}{:}" (concatenate 'string
                                                   "   "
                                                   (make-expected '(two three) ":")))
@@ -425,14 +425,14 @@ works correctly with it"
 
 (deftest test-pattern-category-extended-precision ()
   "Test the category precision in the form of %c{<from>,<count>}"
-  (test-pattern-layout "%c{0,0}" (make-expected '(one two three) ":"))
-  (test-pattern-layout "%c{0,20}" (make-expected '(one two three) ":"))
+  (test-pattern-layout "%c{0,0}" (make-expected '(one two three) "."))
+  (test-pattern-layout "%c{0,20}" (make-expected '(one two three) "."))
   (test-pattern-layout "%c{3,20}" "")
   (test-pattern-layout "%c{3,-1}" "")
-  (test-pattern-layout "%c{2,1}" (make-expected '(three) ":"))
-  (test-pattern-layout "%c{1,1}" (make-expected '(two) ":"))
-  (test-pattern-layout "%c{0,2}" (make-expected '(one two) ":"))
-  (test-pattern-layout "%c{1,2}" (make-expected '(two three) ":"))
+  (test-pattern-layout "%c{2,1}" (make-expected '(three) "."))
+  (test-pattern-layout "%c{1,1}" (make-expected '(two) "."))
+  (test-pattern-layout "%c{0,2}" (make-expected '(one two) "."))
+  (test-pattern-layout "%c{1,2}" (make-expected '(two three) "."))
 
   (test-pattern-layout "%c{0,0}{----}" (make-expected '(one two three) "----"))
   (test-pattern-layout "%c{0,20}{----}" (make-expected '(one two three) "----"))

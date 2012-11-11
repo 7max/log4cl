@@ -335,7 +335,7 @@ represents the package name."
                                        (<= pkg-idx-end (1+ parent-depth))) 
                                   (1+ pkg-idx-end))))
                       (logger 
-                        (if is-file-p 
+                        (if (and is-file-p (null categories)) 
                             (create-source-file-logger
                              :category category
                              :category-separator (coerce cat-sep 'simple-string)

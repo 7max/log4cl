@@ -114,21 +114,15 @@ NAMING-OPTION generic function
       (let* ((args nil)
              (format 
                (with-output-to-string (*standard-output*)  
-                 (princ "~@<~;")
                  (setq args
                        (loop 
                          for arg in sexps
                          if (stringp arg)
                          do (format t "~a " arg)
                          else
-                         do (format t "~A~A~A~A"
-                                    "~W"
-                                    (naming-option *package* :expr-value-separator)
-                                    "~W"
-                                    (naming-option *package* :expr-value-suffix))
+                         do (princ (naming-option *package* :expr-print-format))
                          and collect `(quote ,arg)
-                         and collect arg))
-                 (princ "~:>"))))
+                         and collect arg)))))
         `(,level ,logger-form ,format ,@args)))))
 
 (defmacro deflog-sexp-macros (levels)

@@ -19,9 +19,8 @@
 (defclass naming-configuration ()
   ((category-separator :initform "." :accessor category-separator)
    (category-case :initform nil :accessor category-case)
-   (expr-value-separator :initform "=" :accessor expr-value-separator)
-   (expr-value-suffix :initform " ~:_" :accessor expr-value-suffix)
-   (use-shortest-nickname :initform " ~:_" :accessor use-shortest-nickname))
+   (expr-print-format :initform "~W=~W" :accessor expr-print-format)
+   (use-shortest-nickname :initform  nil :accessor use-shortest-nickname))
   (:documentation "Contains configuration that affects expansion of logger macros."))
 
 (defvar *naming-configuration* nil
@@ -74,14 +73,9 @@ for the specified package. Valid options are keywords:
     Note that pattern layout offers similar facility that changes how
     logger category is printed on the output side
 
-  :EXPR-VALUE-SEPARATOR
-    : A string that separates expression and value printed
-      by (LOG-SEXP). Default is equal sign
-
-  :EXPR-VALUE-SUFFIX
-    : A string inserted into the format statement after each
-      expression and value pair printed by (LOG-SEXP). Default is
-      \" ~:_\" (a space followed by conditional newline)"))
+  :EXPR-PRINT-FORMAT
+    : A string used to format the expression and its value, must
+      consume two FORMAT arguments. Default value is ~W=~W"))
 
 
 (defgeneric package-wrapper (package categories explicit-p)
@@ -257,9 +251,9 @@ SEPARATOR"
   (declare (ignore package))
   (ecase option
     (:category-separator (category-separator *naming-configuration*))
-    (:expr-value-separator (expr-value-separator *naming-configuration*))
-    (:expr-value-suffix (expr-value-suffix *naming-configuration*))
-    (:category-case (category-case *naming-configuration*))))
+    (:category-case (category-case *naming-configuration*))
+    (:expr-print-format (expr-print-format *naming-configuration*))
+    (:use-shortest-nickname (use-shortest-nickname *naming-configuration*))))
 
 
 (defmethod resolve-logger-form (package env args)

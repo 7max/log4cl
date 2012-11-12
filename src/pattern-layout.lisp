@@ -181,24 +181,72 @@ Following pattern characters are recognized:
 
    %m Actual user log message.
 
+--------------------------------------------------------------------
+
+   PRETTY-PRINTER CONTROL
+
+   %< and %> the formatting inside is wrapped into PPRINT-LOGICAL-BLOCK
+   %> and %< opposite pair, *PPRINT-PRETTY* is unbound inside
+
+   %_ conditional newline, issues (PPRINT-NEWLINE :linear)
+
+   %:_ conditional newline, issues (PPRINT-NEWLINE :fill)
+
+   %[<n>]N does (PPRINT-INDENT :block n). 
+   %[<n>]N does (PPRINT-INDENT :current n).
+
+   %<n1>.<n2>N is similar to above but the second argument of
+   PPRINT-INDENT is calculated as (*log-indent* + n1) * n2
+
+
    "))
 
 (defmethod property-alist ((instance pattern-layout))
   (append (call-next-method)
           '((:conversion-pattern %pattern string))))
 
-
 (defvar *formatters* (make-hash-table))
 
-(defmacro define-pattern-formatter ((char) &body body)
-  `(setf (gethash ,char *formatters*)
-         (lambda (stream fmt-info logger log-level log-func)
-           ,@body)))
+(defmacro define-pattern-formatter ((char &optional stopchar) &body body)
+  "Define a pattern formatter function, with the signature of
+
+\(LAMBDA (STREAM FMT-INFO LOGGER LOG-LEVEL LOG-FUNC)\)
+
+Arguments:
+
+STREAM    - stream to print stuff to
+FMT-INFO  - instance of FORMAT-INFO
+LOGGER    - the logger category that event came from
+LOG-LEVEL - log level of the message
+LOG-FUNC  - user log function that outputs actual log message
+
+When STOPCHAR is specified, the pattern format will be parsed until
+%<STOPCHAR> is encountered, and the formatting function that outputs
+everything in between will be passed as the extra argument to the
+formatter, making the signature
+
+\(LAMBDA (STREAM FMT-INFO LOGGER LOG-LEVEL LOG-FUNC WRAPPED-FORMATTER)\)
+
+The WRAPPED-FORMATTER will be a function with the same signature as regular
+non-wrapped formatter.
+
+This second form allows writing formatters that establish the dynamic
+context for the pattern inside, for example %< %> formatter that wraps
+everything inside into PPRINT-LOGICAL-BLOCK is implemented this way.
+"
+  (if (null stopchar)
+      `(setf (gethash ,char *formatters*)
+             (lambda (stream fmt-info logger log-level log-func)
+               ,@body))
+      `(setf (gethash ,char *formatters*)
+             (list (lambda (stream fmt-info logger log-level log-func wrap)
+                     ,@body)
+                   ,stopchar))))
 
 (defun compile-pattern (layout pattern)
   (when pattern
     (setf (slot-value layout '%formatter)
-          (compile-pattern-format layout pattern))))
+          (compile-pattern-format pattern))))
 
 (defmethod shared-initialize :after ((layout pattern-layout) slots &key conversion-pattern)
   (declare (ignore slots))
@@ -223,9 +271,7 @@ Following pattern characters are recognized:
 
 
 (defclass format-info ()
-  ((layout :initarg :layout
-           :reader format-layout)
-   (conversion-char :initarg :conversion-char :type character
+  ((conversion-char :initarg :conversion-char :type character
                     :reader format-conversion-char)
    (minlen :initform 0 :initarg :minlen :type fixnum :reader format-min-len)
    (maxlen :initform nil :initarg :maxlen :type (or null fixnum)
@@ -673,12 +719,13 @@ unchanged"
   (values))
 
 
-(defun compile-pattern-format (layout pattern)
+(defun compile-pattern-format (pattern
+                               &optional (idx 0)
+                                         stopchar)
   "Parses the pattern format and returns a function with lambda-list
 of (STREAM LOGGER LOG-LEVEL LOG-FUNC) that when called will output
 the log message to the stream with the specified format."
-  (let ((idx 0)
-        (str (make-array 0 :element-type 'character
+  (let ((str (make-array 0 :element-type 'character
                            :adjustable t
                            :fill-pointer t))
         (c #\Space) (fm-list '()) (state :normal)
@@ -780,33 +827,42 @@ the log message to the stream with the specified format."
                           (setq maxlen (+ (digit-char-p c) (* 10 maxlen)))
                           (next-or-error "Expecting conversion char"))
                          (t (setq state :pattern))))
-          (:pattern (let ((formatter (gethash c *formatters*)))
-                      (or formatter
-                          (signal-error (format nil "Unknown conversion char ~s" c)))
-                      (add-literal)
-                      (let ((fmt-info (make-instance 'format-info
-                                       :layout layout
-                                       :conversion-char c
-                                       :minlen minlen
-                                       :maxlen maxlen
-                                       :right-justify right-justify
-                                       :empty-skip empty-skip
-                                       :prefix (when (and prefix (plusp (length prefix))) prefix)
-                                       :suffix (when (and suffix (plusp (length suffix))) suffix))))
-                        (multiple-value-setq (idx fmt-info)
-                          (parse-extra-args fmt-info c pattern idx))
-                        (add-formatter formatter fmt-info)
-                        (setq state :normal
-                              minlen 0
-                              maxlen nil
-                              right-justify nil
-                              empty-skip nil
-                              prefix nil suffix nil))))))
+          (:pattern
+           (when (eql c stopchar) (return))
+           (let ((formatter (gethash c *formatters*)))
+             (or formatter
+                 (signal-error (format nil "Unknown conversion char ~s" c)))
+             (add-literal)
+             (let ((fmt-info (make-instance 'format-info
+                              :conversion-char c
+                              :minlen minlen
+                              :maxlen maxlen
+                              :right-justify right-justify
+                              :empty-skip empty-skip
+                              :prefix (when (and prefix (plusp (length prefix))) prefix)
+                              :suffix (when (and suffix (plusp (length suffix))) suffix))))
+               (multiple-value-setq (idx fmt-info)
+                 (parse-extra-args fmt-info c pattern idx))
+               (if (atom formatter) (add-formatter formatter fmt-info)
+                   (destructuring-bind (formatter stopchar) formatter
+                     (multiple-value-bind (wrap newidx) 
+                         (compile-pattern-format pattern idx stopchar)
+                       (setq idx newidx)
+                       (add-formatter (lambda (stream fmt-info logger level log-func)
+                                        (funcall formatter stream fmt-info logger level log-func wrap))))))
+               (setq state :normal
+                     minlen 0
+                     maxlen nil
+                     right-justify nil
+                     empty-skip nil
+                     prefix nil suffix nil))))))
       (add-literal)
       (setq fm-list (nreverse fm-list))
-      (lambda (stream logger level log-func)
-        (loop for (fm . fm-info) in fm-list
-              do (funcall fm stream fm-info logger level log-func))))))
+      (values 
+       (lambda (stream logger level log-func)
+         (loop for (fm . fm-info) in fm-list
+               do (funcall fm stream fm-info logger level log-func)))
+       idx))))
 
 (defgeneric format-time (stream pattern universal-time utc-p)
   (:documentation "Prints UNIVERSAL-TIME to the STREAM according to
@@ -1109,3 +1165,31 @@ line"))
                        stream fmt-info)))
   (values))
 
+(define-pattern-formatter (#\< #\>)
+  "Wrap content inside into PPRINT-LOGICAL-BLOCK"
+  (declare (ignore fmt-info))
+  (pprint-logical-block (stream nil)
+    (funcall wrap stream logger log-level log-func)))
+
+(define-pattern-formatter (#\> #\<)
+  "Wrap content inside with *PRINT-PRETTY* bound to NIL"
+  (declare (ignore fmt-info))
+  (let ((*print-pretty* nil))
+    (funcall wrap stream logger log-level log-func)))
+
+(define-pattern-formatter (#\_)
+  "Issue conditional newline"
+  (declare (ignore logger log-level log-func))
+  (pprint-newline (if (format-empty-skip fmt-info) :fill :linear) stream))
+
+(define-pattern-formatter (#\N)
+  "Issue PPRINT-INDENT"
+  (declare (ignore logger log-level log-func))
+  (pprint-indent (if (format-empty-skip fmt-info) :current
+                     :block)
+                 (let ((n1 (format-min-len fmt-info))
+                       (n2 (format-max-len fmt-info)))
+                   (if (null n2) (if (format-right-justify fmt-info) (- n1) n1)
+                       (* (+ *log-indent* n1)
+                          (if (format-right-justify fmt-info) (- n2) n2))))
+                 stream))

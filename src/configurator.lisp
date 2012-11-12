@@ -40,12 +40,12 @@ appender"
   (log-info "Logging configuration was reset to sane defaults"))
 
 
-(defvar *default-oneline-pattern*
-  "[%D{%H:%M:%S}] [%P] <%c{}{}{:downcase}> - %m%n"
+(defparameter *default-oneline-pattern*
+  "%&[%D{%H:%M:%S}] [%P] <%c{}{}{:downcase}> - %m%n"
   "The default pattern layout for (LOG:CONFIG :SANE :ONELINE)")
 
-(defvar *default-twoline-pattern*
-  "%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase} %F %:;(;;);C{}{ }{:downcase}%n  *%I{>} %m%n"
+(defparameter *default-twoline-pattern*
+  "%&%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase} %F %:;(;;);C{}{ }{:downcase}%n  *%I{>} %m%n"
   "The default pattern layout for (LOG:CONFIG :SANE)")
 
 (defun log-config (&rest args)

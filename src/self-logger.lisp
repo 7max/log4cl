@@ -15,15 +15,9 @@
 
 (cl:in-package #:log4cl-impl)
 
-(defmethod package-wrapper ((pkg (eql *package*)) categories explitic-p)
-  "Make default logger in the log4cl package to be log4cl:self"
-  (if explitic-p categories
-      `(log4cl-impl self ,@categories)))
-
-
 (defvar *self-log-config* '(:sane :warn :own :two-line :immediate-flush))
 
 (defvar +self-logger+
-  (let ((logger (make-logger '(:log4cl-impl :self))))
+  (let ((logger (make-logger '(:log4cl-impl))))
     (setf (logger-additivity logger) nil)
     logger))

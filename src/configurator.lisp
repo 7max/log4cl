@@ -39,6 +39,15 @@ appender"
   (setf (logger-log-level *root-logger*) +log-level-warn+)
   (log-info "Logging configuration was reset to sane defaults"))
 
+
+(defvar *default-oneline-pattern*
+  "[%D{%H:%M:%S}] [%P] <%c{}{}{:downcase}> - %m%n"
+  "The default pattern layout for (LOG:CONFIG :SANE :ONELINE)")
+
+(defvar *default-twoline-pattern*
+  "%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase} %F %:;(;;);C{}{ }{:downcase}%n  *%I{>} %m%n"
+  "The default pattern layout for (LOG:CONFIG :SANE)")
+
 (defun log-config (&rest args)
   "User friendly way of configuring loggers. General syntax is:
 
@@ -92,8 +101,11 @@ Valid options can be:
  :PATTERN      | For any new appenders added, specifies the conversion pattern for the
                | PATTERN-LAYOUT
 ---------------|---------------------------------------------------------------
- :TWOLINE      | Changes default pattern layout to print user log message      
-  or :2LINE    | log message on 2nd line after the headers                     
+ :TWOLINE      | Changes pattern layout to print user log message      
+  or :2LINE    | log message on 2nd line after the headers. This is now default
+---------------|---------------------------------------------------------------
+ :ONELINE      | Changes default pattern layout to print user log message      
+  or :1LINE    | one line
 ---------------|---------------------------------------------------------------
  :PROPERTIES   | Configure with PROPERTY-CONFIGURATOR by parsing specified     
  FILE          | properties file                                               
@@ -135,7 +147,7 @@ Examples:
 " 
   (let ((logger nil)
         sane clear all own daily pattern 
-        twoline level layout console
+        default-pattern level layout console
         orig-args
         self appenders
         immediate-flush
@@ -152,8 +164,7 @@ Examples:
                        (log4cl-error "Logger named ~s not found. If you want to create it, ~
                        use (log:make) instead of explicit category list" cats)))))
           ((member :self args)
-           (setq logger (make-logger '(log4cl-impl self))
-                 self t)
+           (setq logger +self-logger+ self t)
            (setq args (remove :self args))))
     (setq logger (or logger *root-logger*))
     (unless (setq orig-args args)
@@ -168,7 +179,8 @@ Examples:
           (:all (setq all t))
           (:own (setq own t))
           (:immediate-flush (setq immediate-flush t))
-          ((:twoline :two-line) (setq twoline t))
+          ((:twoline :two-line :2line) (setq default-pattern *default-twoline-pattern*))
+          ((:oneline :one-line :1line) (setq default-pattern *default-oneline-pattern*))
           (:console (setq console t))
           (:this-console (setq this-console t
                                console t))
@@ -214,13 +226,9 @@ Examples:
     (when own
       (set-additivity logger nil nil))
     (when (or daily sane console)
-      (let ((default-pattern "[%D{%H:%M:%S}] [%P] <%c{}{}{:downcase}> - %m%n")
-            (twoline-pattern "[%D{%H:%M:%S}] [%-5P] <%c{}{}{:downcase}>%n  *%I{>} %m%n"))
-        (setq layout (make-instance 'pattern-layout
-                      :conversion-pattern
-                      (or pattern
-                          (if twoline twoline-pattern
-                              default-pattern)))))
+      (setq layout (make-instance 'pattern-layout
+                    :conversion-pattern
+                    (or pattern default-pattern *default-twoline-pattern*)))
       (if sane (remove-all-appenders-internal logger nil))
       ;; create daily appender
       (when daily
@@ -231,17 +239,17 @@ Examples:
                :name-format daily
                :backup-name-format (format nil "~a.%Y%m%d" daily)
                :layout layout)
-            appenders))
+              appenders))
       ;; create console appender
       (when (or (and sane (not daily))
                 console)
         (push
-            (if this-console
-                (make-instance 'fixed-stream-appender
-                 :stream (or stream *debug-io*)
-                 :layout layout)
-                (make-instance 'console-appender :layout layout))
-            appenders))
+         (if this-console
+             (make-instance 'fixed-stream-appender
+              :stream (or stream *debug-io*)
+              :layout layout)
+             (make-instance 'console-appender :layout layout))
+         appenders))
       ;; now add all of them to the logger
       (dolist (a appenders)
         (when immediate-flush
@@ -324,11 +332,13 @@ Example output:
                  (if present result
                      (setf (gethash l interesting-cache)
                            (or (eq l logger)
-                               (logger-appenders l)
-                               (not (logger-additivity l))
-                               (logger-log-level l)
-                               (and (not (typep l 'source-file-logger))
-                                    (some #'interesting-logger-p (logger-children l))))))))
+                               (and (not (eq l +self-logger+))
+                                    (or 
+                                     (logger-appenders l) 
+                                     (not (logger-additivity l)) 
+                                     (logger-log-level l) 
+                                     (and (not (typep l 'source-file-logger))
+                                          (some #'interesting-logger-p (logger-children l))))))))))
              (print-indent (&optional node-p)
                (dolist (elem (reverse indents))
                  (let* ((lastp (eq elem (car indents)))
@@ -356,7 +366,9 @@ Example output:
                (let* ((lvl (logger-log-level l))
                       (appenders (logger-appenders l))
                       (additivity (logger-additivity l))
-                      (children (remove-if-not #'interesting-logger-p (logger-children l)))
+                      (children
+                        (unless (typep l 'source-file-logger)
+                          (remove-if-not #'interesting-logger-p (logger-children l))))
                       (cnt-nodes (+ (length appenders)
                                     (length children))))
                  (print-indent t)
@@ -367,7 +379,7 @@ Example output:
                        (t (format t "~A" (logger-name l))
                           (push (cons 1 cnt-nodes) indents)))
                  (unless additivity
-                   (write-string " (non-additive)"))
+                   (write-string " non-additive"))
                  (when lvl
                    (format t ", ~A" (log-level-to-string lvl)))
                  (terpri)

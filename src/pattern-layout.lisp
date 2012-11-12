@@ -730,6 +730,7 @@ the log message to the stream with the specified format."
                            :fill-pointer t))
         (c #\Space) (fm-list '()) (state :normal)
         (minlen 0) (maxlen nil) (right-justify nil)
+        (start-idx idx)
         (empty-skip nil)
         (prefix nil)
         (suffix nil))
@@ -828,7 +829,9 @@ the log message to the stream with the specified format."
                           (next-or-error "Expecting conversion char"))
                          (t (setq state :pattern))))
           (:pattern
-           (when (eql c stopchar) (return))
+           (when (eql c stopchar)
+             (setq stopchar nil)
+             (return))
            (let ((formatter (gethash c *formatters*)))
              (or formatter
                  (signal-error (format nil "Unknown conversion char ~s" c)))
@@ -856,6 +859,10 @@ the log message to the stream with the specified format."
                      right-justify nil
                      empty-skip nil
                      prefix nil suffix nil))))))
+      (when stopchar
+        (signal-error (format nil "%~c formatter started at position ~d is missing closing %~c"
+                              (char pattern (- start-idx 1))
+                              (- start-idx 2) stopchar)))
       (add-literal)
       (setq fm-list (nreverse fm-list))
       (values 

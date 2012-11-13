@@ -175,7 +175,7 @@ Following pattern characters are recognized:
    %I Two spaces repeated *log-indent* times. Different padding string
    can be specified in an extra argument.
 
-   %n OS-dependent newline sequence.
+   %n OS-dependent newline sequence, issues (TERPRI) %:n issues (PPRINT-NEWLINE :mandatory)
 
    %& Optional newline, issues FRESH-LINE on the stream
 
@@ -189,16 +189,16 @@ Following pattern characters are recognized:
    %> and %< opposite pair, *PPRINT-PRETTY* is unbound inside
 
    %_ conditional newline, issues (PPRINT-NEWLINE :linear)
-
    %:_ conditional newline, issues (PPRINT-NEWLINE :fill)
 
    %[<n>]N does (PPRINT-INDENT :block n). 
-   %[<n>]N does (PPRINT-INDENT :current n).
+   %:[<n>]N does (PPRINT-INDENT :current n).
 
    %<n1>.<n2>N is similar to above but the second argument of
-   PPRINT-INDENT is calculated as (*log-indent* + n1) * n2
+   PPRINT-INDENT is calculated as (+ n1 (* n2 *LOG-INDENT*)).
 
-
+   For example with %5.2N the wrapped lines will be indented
+   default %I amount, plus extra 5 spaces.
    "))
 
 (defmethod property-alist ((instance pattern-layout))
@@ -1069,32 +1069,12 @@ strftime like PATTERN."))
   (format-string (slot-value fmt-info 'hostname) stream fmt-info)
   (values))
 
-(defclass pattern-newline-format-info (format-info)
-  ((width    :initarg :width)
-   (continue :initarg :continue))
-  (:documentation "Extra formatting flags for %n pattern. Currently
-this is unused, but in the future it may be implemented so that
-newline will be conditional, if underlaying stream supports
-STREAM-LINE-COLUMN, so that instead of two-line pattern layout, we can
-use conditional newline only user message does not fit on current
-line"))
-
-(defmethod parse-extra-args (fmt-info (char (eql #\n)) pattern start)
-  (destructuring-bind (next-pos &optional width continue)
-      (parse-extra-args-in-curly-braces pattern start)
-    (values next-pos
-            (change-class fmt-info 'pattern-newline-format-info
-                          :width (when width
-                                   (handler-case (parse-integer width)
-                                     (error (e)
-                                       (pattern-layout-error
-                                        "Invalid newline width ~s: ~a" width e))))
-                          :continue continue))))
-
 (define-pattern-formatter (#\n)
   "Output the %n (newline) pattern"
-  (declare (ignore fmt-info logger log-level log-func))
-  (terpri stream)
+  (declare (ignore logger log-level log-func))
+  (if (format-empty-skip fmt-info)
+      (pprint-newline :mandatory stream)
+      (terpri stream))
   (values))
 
 (define-pattern-formatter (#\&)
@@ -1197,6 +1177,6 @@ line"))
                  (let ((n1 (format-min-len fmt-info))
                        (n2 (format-max-len fmt-info)))
                    (if (null n2) (if (format-right-justify fmt-info) (- n1) n1)
-                       (* (+ *log-indent* n1)
-                          (if (format-right-justify fmt-info) (- n2) n2))))
+                       (+ n1 (* *log-indent*
+                                (if (format-right-justify fmt-info) (- n2) n2)))))
                  stream))

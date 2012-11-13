@@ -43,13 +43,40 @@ appender"
   (log-info "Logging configuration was reset to sane defaults"))
 
 
-(defparameter *default-oneline-pattern*
-  "%&[%D{%H:%M:%S}] [%P] <%c{}{}{:downcase}> - %m%n"
-  "The default pattern layout for (LOG:CONFIG :SANE :ONELINE)")
+(defparameter *default-patterns*
+  '((:oneline t :time t :file t :pattern
+     "%&%<%2.2N%I%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase}) - %:_%m%n%>")
+    (:oneline t :time t :file2 t :pattern
+     "%&%<%2.2N%I%;<;;>;-5p [%D{%H:%M:%S}] %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase}) - %:_%m%n%>")
+    (:oneline t :time nil :file t :pattern
+     "%&%<%2.2N%I%;<;;>;-5p %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase}) - %:_%m%n%>")
+    (:oneline t :time nil :file2 t :pattern
+     "%&%<%2.2N%I%;<;;>;-5p %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase}) - %:_%m%n%>")
+    (:oneline t :time t :pattern
+     "%&%<%2.2N%I%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase} (%C{}{ }{:downcase}) - %:_%m%n%>")
+    (:oneline t :time nil :pattern
+     "%&%<%2.2N%I%;<;;>;-5p %g{}{}{:downcase} (%C{}{ }{:downcase}) - %:_%m%n%>")
+    (:twoline t :time t :file t :pattern
+     "%&%<%2.2N%I%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%:n* %m%n%>")
+    (:twoline t :time t :file2 t :pattern
+     "%&%<%2.2N%I%;<;;>;-5p [%D{%H:%M:%S}] %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%:n* %m%n%>")
+    (:twoline t :time nil :file t :pattern
+     "%&%<%2.2N%I%;<;;>;-5p %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%:n* %m%n%>")
+    (:twoline t :time nil :file2 t :pattern
+     "%&%<%2.2N%I%;<;;>;-5p %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%:n* %m%n%>")
+    (:twoline t :time t :pattern
+     "%&%<%2.2N%I%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase} (%C{}{ }{:downcase})%:n* %m%n%>")
+    (:twoline t :time nil :pattern
+     "%&%<%2.2N%I%;<;;>;-5p %g{}{}{:downcase} (%C{}{ }{:downcase})%:n* %m%n%>")))
 
-(defparameter *default-twoline-pattern*
-  "%&%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase} %F %:;(;;);C{}{ }{:downcase}%n  *%I{>} %m%n"
-  "The default pattern layout for (LOG:CONFIG :SANE)")
+(defun figure-out-pattern (&rest args)
+  (let ((pat (find-if (lambda (elem)
+                        (every (lambda (prop)
+                                 (eql (getf args prop)
+                                      (getf elem prop)))
+                               '(:oneline :twoline :time :file :file2)))
+                      *default-patterns*)))
+    (getf (or pat (first *default-patterns*)) :pattern)))
 
 (defun log-config (&rest args)
   "User friendly way of configuring loggers. General syntax is:
@@ -105,10 +132,13 @@ Valid options can be:
                | PATTERN-LAYOUT
 ---------------|---------------------------------------------------------------
  :TWOLINE      | Changes pattern layout to print user log message      
-  or :2LINE    | log message on 2nd line after the headers. This is now default
+  or :2LINE    | log message on 2nd line after the headers.
 ---------------|---------------------------------------------------------------
- :ONELINE      | Changes default pattern layout to print user log message      
-  or :1LINE    | one line
+ :TIME/:NOTIME | Include time into default pattern, default is :TIME
+---------------|---------------------------------------------------------------
+ :FILE or      | Include file name into default pattern, :FILE2 uses alternate
+ :FILE2        | position for the file (in front of the package).
+ :NOFILE       | :NOFILE removes the file
 ---------------|---------------------------------------------------------------
  :PROPERTIES   | Configure with PROPERTY-CONFIGURATOR by parsing specified     
  FILE          | properties file                                               
@@ -121,8 +151,9 @@ Valid options can be:
                | startup of hierarchy watcher thread, which is used for
                | auto-flushing. 
 ---------------|---------------------------------------------------------------
- :OWN          | For :SANE and :DAILY makes logger non-additive                
-               | otherwise additive flag will be set                           
+ :OWN          | Makes logger non-additive (does not propagate to parent)
+ :NOADDITIVE   |
+ :ADDITIVE     | Sets additive flag back
 ---------------|---------------------------------------------------------------
 
 Examples:
@@ -149,8 +180,11 @@ Examples:
   parents.
 " 
   (let ((logger nil)
-        sane clear all own daily pattern 
-        default-pattern level layout console
+        sane clear all own noown daily pattern
+        file file2 nofile
+        time notime
+        level layout console
+        oneline twoline
         orig-args
         self appenders
         immediate-flush
@@ -178,12 +212,18 @@ Examples:
           (:self ; still in the arglist means 1st arg was a logger
            (log4cl-error "Specifying a logger is incompatible with :SELF"))
           (:sane (setq sane t))
-          (:clear (setq clear t))
+          ((:clear :reset) (setq clear t))
           (:all (setq all t))
-          (:own (setq own t))
+          ((:own :nonadditive :noadditive) (setq own t noown nil))
+          (:additive (setq own nil noown t))
+          (:file (setq file t file2 nil nofile nil))
+          (:file2 (setq file nil file2 t nofile nil))
+          (:nofile (setq file nil file2 nil nofile t))
+          (:time (setq time t notime nil))
+          (:notime (setq time nil notime t))
           (:immediate-flush (setq immediate-flush t))
-          ((:twoline :two-line :2line) (setq default-pattern *default-twoline-pattern*))
-          ((:oneline :one-line :1line) (setq default-pattern *default-oneline-pattern*))
+          ((:twoline :two-line :2line) (setq oneline nil twoline t))
+          ((:oneline :one-line :1line) (setq oneline t twoline nil))
           (:console (setq console t))
           (:this-console (setq this-console t
                                console t))
@@ -212,11 +252,20 @@ Examples:
                      (t (log4cl-error
                          "Don't know what do with argument ~S" arg))))))))
     (or logger (setq logger *root-logger*))
-    (or level sane clear daily properties own console
-        (log4cl-error "A log level or one of :SANE :CLEAR :OWN :DAILY :CONSOLE or :PROPERTIES must be specified"))
+    (or level sane clear daily properties own noown console
+        (log4cl-error "A log level or one of :SANE :CLEAR :OWN :ADDITIVE :DAILY :CONSOLE or :PROPERTIES must be specified"))
     (or (not properties)
-        (not (or sane daily pattern console level))
+        (not (or sane daily console level))
         (log4cl-error ":PROPERTIES can't be used with :SANE :DAILY :PATTERN or log level"))
+    (if (and pattern
+             (or twoline oneline file file2 nofile time notime))
+        (error ":PATTERN is not compatible with other pattern related flags"))
+    (unless (or daily sane console)
+      (when (or pattern twoline oneline
+                file file2 nofile time notime)
+        (error "Flags related to pattern can only be specified together with :SANE, :DAILY or :CONSOLE")))
+    (when (and own (eq logger *root-logger*))
+      (error "Can't set root logger non-additive"))
     (when level
       (set-log-level logger level nil))
     (when clear
@@ -226,12 +275,18 @@ Examples:
          (when (or (logger-additivity l) all)
            (remove-all-appenders-internal l nil)))
        logger))
-    (when own
-      (set-additivity logger nil nil))
-    (when (or daily sane console)
+    (when (or own noown)
+      (set-additivity logger (not own) nil))
+    (when (or daily sane console) 
+      ;; (format t "here file ~s file ~s nofile ~s ~%" file file2 nofile)
       (setq layout (make-instance 'pattern-layout
                     :conversion-pattern
-                    (or pattern default-pattern *default-twoline-pattern*)))
+                    (or pattern (figure-out-pattern
+                                 :oneline (if (or oneline twoline) oneline t)
+                                 :twoline (if (or oneline twoline) twoline nil)
+                                 :time (if (or time notime) time t)
+                                 :file (if (or file file2 nofile) file t)
+                                 :file2 (if (or file file2 nofile) file2 nil)))))
       (if sane (remove-all-appenders-internal logger nil))
       ;; create daily appender
       (when daily
@@ -269,29 +324,24 @@ Examples:
       (let ((config (cons :own
                           ;; we don't remember these
                           (remove-if (lambda (x)
-                                       (member x '(:own :self :clear :all)))
-                                     orig-args))))
+                                       (member x '(:own :self :clear :all :twoline :two-line
+                                                   :2line :oneline :one-line :1line
+                                                   :file :file2 :nofile
+                                                   :time :notime)))
+                                     orig-args)))
+            doit)
+        ;; If anything non-default was specified, remember
+        (when (or (some #'identity (list 
+                                    (and twoline (push :twoline config)) 
+                                    (and file (push :file config)) 
+                                    (and file2 (push :file2 config)) 
+                                    (and nofile (push :nofile config)) 
+                                    (and notime (push :notime config))
+                                    (and time (push :time config))))
+                  sane daily console)
+          (setq doit t))
         ;; if specified new appenders, simply remember new configuration
-        (if (or sane daily) (setq *self-log-config* config)
-            ;; otherwise merge specified config and the remembered one
-            ;; This is so (log-config :self :d) would still do same
-            ;; thing as (log-config :self :d :sane), if old value of
-            ;; *self-log-config* contained :sane
-            (let (tmp doit)
-              (when (setq tmp (member :sane *self-log-config*))
-                (push :sane config)
-                (setq doit t))
-              (when (setq tmp (member :daily *self-log-config*))
-                (setq config (append config (subseq tmp 0 2)))
-                (setq doit t))
-              (when (and (setq tmp (member :pattern *self-log-config*))
-                         (not pattern))
-                (setq config (append config (subseq tmp 0 2)))
-                (setq doit t))
-              (when (and (setq tmp (member :twoline *self-log-config*))
-                         (not pattern))
-                (setq config (cons :twoline (remove :twoline config))))
-              (when doit (setq *self-log-config* config))))))
+        (when doit (setq *self-log-config* config))))
     ;; finally recalculate reach-ability
     (adjust-logger logger)))
 
@@ -739,14 +789,12 @@ lift the older equivalent configuration to the top of the list"
 (defun log-setup (&key (package *package*)
                        (category-case nil category-casep)
                        category-separator
-                       expr-value-separator
-                       expr-value-suffix
+                       expr-print-format
                        (shortest-nickname t shortest-nicknamep))
   (let* ((nc (find-or-create-naming-configuration package t))
          (*naming-configuration* nc))
     (prog1 nc 
       (when category-casep (setf (category-case nc) category-case)) 
       (when category-separator (setf (category-separator nc) category-separator)) 
-      (when expr-value-separator (setf (expr-value-separator nc) expr-value-separator))
-      (when expr-value-suffix (setf (expr-value-separator nc) expr-value-suffix))
+      (when expr-print-format (setf (expr-print-format nc) expr-print-format))
       (when shortest-nicknamep (setf (use-shortest-nickname nc) shortest-nickname)))))

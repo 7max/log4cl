@@ -1172,11 +1172,9 @@ strftime like PATTERN."))
 (define-pattern-formatter (#\N)
   "Issue PPRINT-INDENT"
   (declare (ignore logger log-level log-func))
-  (pprint-indent (if (format-empty-skip fmt-info) :current
-                     :block)
-                 (let ((n1 (format-min-len fmt-info))
-                       (n2 (format-max-len fmt-info)))
-                   (if (null n2) (if (format-right-justify fmt-info) (- n1) n1)
-                       (+ n1 (* *log-indent*
-                                (if (format-right-justify fmt-info) (- n2) n2)))))
-                 stream))
+  (let ((n (let ((n1 (format-min-len fmt-info))
+                 (n2 (format-max-len fmt-info)))
+             (if (null n2) (if (format-right-justify fmt-info) (- n1) n1)
+                 (+ n1 (* *log-indent*
+                          (if (format-right-justify fmt-info) (- n2) n2))))))) 
+    (pprint-indent (if (format-empty-skip fmt-info) :current :block) n stream))) 

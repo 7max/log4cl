@@ -45,29 +45,29 @@ appender"
 
 (defparameter *default-patterns*
   '((:oneline t :time t :file t :pattern
-     "%&%<%2.2N%I%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase}) - %:_%m%n%>")
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
     (:oneline t :time t :file2 t :pattern
-     "%&%<%2.2N%I%;<;;>;-5p [%D{%H:%M:%S}] %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase}) - %:_%m%n%>")
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}] %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
     (:oneline t :time nil :file t :pattern
-     "%&%<%2.2N%I%;<;;>;-5p %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase}) - %:_%m%n%>")
+     "%&%<%I%;<;;>;-5p %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
     (:oneline t :time nil :file2 t :pattern
-     "%&%<%2.2N%I%;<;;>;-5p %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase}) - %:_%m%n%>")
+     "%&%<%I%;<;;>;-5p %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
     (:oneline t :time t :pattern
-     "%&%<%2.2N%I%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase} (%C{}{ }{:downcase}) - %:_%m%n%>")
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
     (:oneline t :time nil :pattern
-     "%&%<%2.2N%I%;<;;>;-5p %g{}{}{:downcase} (%C{}{ }{:downcase}) - %:_%m%n%>")
+     "%&%<%I%;<;;>;-5p %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
     (:twoline t :time t :file t :pattern
-     "%&%<%2.2N%I%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%:n* %m%n%>")
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
     (:twoline t :time t :file2 t :pattern
-     "%&%<%2.2N%I%;<;;>;-5p [%D{%H:%M:%S}] %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%:n* %m%n%>")
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}] %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
     (:twoline t :time nil :file t :pattern
-     "%&%<%2.2N%I%;<;;>;-5p %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%:n* %m%n%>")
+     "%&%<%I%;<;;>;-5p %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
     (:twoline t :time nil :file2 t :pattern
-     "%&%<%2.2N%I%;<;;>;-5p %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%:n* %m%n%>")
+     "%&%<%I%;<;;>;-5p %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
     (:twoline t :time t :pattern
-     "%&%<%2.2N%I%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase} (%C{}{ }{:downcase})%:n* %m%n%>")
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
     (:twoline t :time nil :pattern
-     "%&%<%2.2N%I%;<;;>;-5p %g{}{}{:downcase} (%C{}{ }{:downcase})%:n* %m%n%>")))
+     "%&%<%I%;<;;>;-5p %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")))
 
 (defun figure-out-pattern (&rest args)
   (let ((pat (find-if (lambda (elem)

@@ -278,7 +278,6 @@ everything inside into PPRINT-LOGICAL-BLOCK is implemented this way.
            :reader format-max-len)
    (right-justify :initform nil :initarg :right-justify :type boolean
                   :reader format-right-justify)
-
    (prefix :initform nil :initarg :prefix :reader format-prefix
            :type (or null simple-string))
    (suffix :initform nil :initarg :suffix :reader format-suffix
@@ -842,8 +841,10 @@ the log message to the stream with the specified format."
                               :maxlen maxlen
                               :right-justify right-justify
                               :empty-skip empty-skip
-                              :prefix (when (and prefix (plusp (length prefix))) prefix)
-                              :suffix (when (and suffix (plusp (length suffix))) suffix))))
+                              :prefix (when (and prefix (plusp (length prefix)))
+                                        (coerce prefix 'simple-string))
+                              :suffix (when (and suffix (plusp (length suffix)))
+                                        (coerce suffix 'simple-string)))))
                (multiple-value-setq (idx fmt-info)
                  (parse-extra-args fmt-info c pattern idx))
                (if (atom formatter) (add-formatter formatter fmt-info)

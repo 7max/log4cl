@@ -19,10 +19,18 @@
 
 (defclass appender ()
   ((layout :initform (make-instance 'simple-layout)
-           :initarg :layout)
-   (error :initform nil :accessor appender-error)
+           :initarg :layout :accessor appender-layout)
+   (last-error :initform nil :accessor appender-last-error)
+   (last-ignored-error :initform nil :accessor appender-last-ignored-error)
+   (error-count :initform 0 :accessor appender-error-count
+                :type (integer 0))
+   (ignored-error-count :initform 0 :accessor appender-ignored-error-count
+                        :type (integer 0))
+   (message-count :initform 0 :accessor appender-message-count
+                  :type (integer 0))
    (logger-count :initform 0 :accessor appender-logger-count
-                 :type (integer 0)))
+                 :type (integer 0))
+   (enabled :initform t :accessor appender-enabled-p))
   (:documentation "Appender is log message sink, and is responsible
 for physically delivering the log message, somewhere. The formatting
 of message is done by layout.
@@ -30,10 +38,12 @@ of message is done by layout.
 Appenders can be called from multiple threads and are responsible for
 serializing access to any resources.
 
-Appender will not be appended into if its ERROR slot is non-nil.
+Appender will not be appended into if ENABLED slot is NIL
 
-ERROR slot will be automatically set to the condition object, if a
-condition was raised while writing to the appender"))
+HANDLE-APPENDER-ERROR generic function is called if condition is
+signaled from APPENDER-DO-APPEND method. See description of that
+function for the protocol.
+"))
 
 (defgeneric appender-added (logger appender)
   (:documentation "Called when appender is added to a logger. Default
@@ -78,18 +88,27 @@ Return value of this function is ignored"))
 
 (defgeneric handle-appender-error (appender condition)
   (:documentation "Called when a condition is raised doing writing to
-  the appender by APPENDER-DO-APPEND call.
+the appender by APPENDER-DO-APPEND call, must return a keyword
+indicating action to take.
 
-  Before this method is called, the ERROR slot of the appender is set
-  to CONDITION, thus preventing this appender from being used
-  recursively. Thus its safe to use log statements from inside methods
-  implementing this function
+  :DISABLE -- Appender is permanently disabled by setting ENABLED slot
+  to NIL, any farther appends will be ignored.
 
-  Default method will log the condition.
+  :RETRY -- immediately retry logging the same log message. To prevent
+  forever loops, only up to three retries will be performed, and if
+  error persists on the third try, appender will be disabled
 
-  If this method resets the ERROR slot of the appender back to NIL, it
-  is assumed that method had fixed whatever was wrong the appender,
-  and the APPENDER-DO-APPEND will be attempted again"))
+  :IGNORE -- Do nothing. Log message will be lost, but appender will
+  be used again if more log messages come in.
+
+  Any other values are treated as :DISABLE
+
+After calling this function, LOG4CL will update the RETRY-COUNT,
+IGNORE-COUNT, LAST-ERROR and LAST-IGNORED-ERROR slots of the appender,
+based on the return value.
+
+Default primary method logs the error, and returns :DISABLE
+"))
 
 (defgeneric property-initarg-from-string (instance property value)
   (:documentation "Called on appenders and layouts to possibly convert

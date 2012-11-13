@@ -19,7 +19,7 @@
 (in-package #:log4cl-impl)
 
 (defun clear-logging-configuration ()
-  "Delete all loggers configuration, leaving only LOG4CL.SELF"
+  "Delete all loggers configuration, leaving only LOG4CL-IMPL"
   (labels ((reset (logger)
              (remove-all-appenders logger)
              (setf (svref (logger-state logger) *hierarchy*)
@@ -27,7 +27,10 @@
              (map-logger-children #'reset logger)))
     (reset *root-logger*)
     (when *self-log-config*
-      (apply 'log-config +self-logger+ *self-log-config*)))
+      (apply 'log-config +self-logger+ *self-log-config*))
+    (add-appender +self-meta-logger+ (make-instance 'console-appender
+                                      :layout (make-instance 'simple-layout)))
+    (log-config +self-meta-logger+ :own))
   (values))
 
 (defun reset-logging-configuration ()
@@ -430,13 +433,12 @@ Example output:
     (values)))
 
 ;; do default configuration
-(defvar *default-init-done-p* nil)
-
-(defun perform-default-init ()
-  (unless *default-init-done-p*
-    (setq *default-init-done-p* t)
-    (clear-logging-configuration)
-    (log-config :i :sane :immediate-flush)))
+(let ((done nil)) 
+  (defun perform-default-init ()
+    (unless done
+      (setq done t)
+      (clear-logging-configuration)
+      (log-config :i :sane :immediate-flush))))
 
 (perform-default-init)
 

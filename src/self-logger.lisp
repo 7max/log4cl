@@ -18,6 +18,11 @@
 (defvar *self-log-config* '(:sane :warn :own :two-line :immediate-flush))
 
 (defvar +self-logger+
-  (let ((logger (make-logger '(:log4cl-impl))))
+  (let ((logger (make-logger '(#:log4cl-impl))))
+    (setf (logger-additivity logger) nil)
+    logger))
+
+(defvar +self-meta-logger+
+  (let ((logger (make-logger '(#:log4cl-impl #:meta))))
     (setf (logger-additivity logger) nil)
     logger))

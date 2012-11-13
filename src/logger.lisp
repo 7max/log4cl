@@ -492,8 +492,10 @@ context of the current application."
                       (appenders
                         (logger-state-appenders state)))
                  (dolist (appender appenders)
-                   (with-slots (error) appender
-                     (unless error
+                   (with-slots (last-error last-ignored-error
+                                error-count ignored-error-count
+                                message-count enabled) appender
+                     (when enabled
                        (loop
                          for done = t
                          for error-cnt fixnum from 0
@@ -501,14 +503,32 @@ context of the current application."
                               (handler-bind
                                   ((error 
                                      (lambda (e)
+                                       ;; if error is inside the actual user log statement
+                                       ;; fall through, to invoke the debugger or such.
+                                       ;;
+                                       ;; Idea is that we want (log:info "~s" (something-causing-error))
+                                       ;; to pop the debugger rather then go through appender error logic.
                                        (unless *inside-user-log-function*
-                                         (setf error e)
-                                         (if (< error-cnt 3)
-                                             (handle-appender-error appender e)
-                                             (log-appender-error appender e))
-                                         (setq done error)
+                                         (case (handle-appender-error appender e)
+                                           (:retry
+                                            (incf error-count)
+                                            (setf last-error e)
+                                            (cond ((< error-cnt 2)
+                                                   (setf done nil))
+                                                  ;; manually disable if HANDLE-APPENDER-ERROR
+                                                  ;; can't fix it 3 times in a row
+                                                  (t (setf enabled nil)
+                                                     (log-appender-disabled appender e))))
+                                           (:ignore
+                                            (incf ignored-error-count)
+                                            (setf last-ignored-error e))
+                                           ;; treat any other same as :disable
+                                           (t
+                                            (incf error-count)
+                                            (setf last-error e enabled nil)))
                                          (return)))))
-                                (appender-do-append appender orig-logger level log-func)))
+                                (progn (appender-do-append appender orig-logger level log-func)
+                                       (incf message-count))))
                          until done))))
                  (let ((parent (logger-parent logger)))
                    (when (and parent (logger-state-additivity state))
@@ -566,6 +586,8 @@ including inherited one"
 (defun (setf logger-log-level) (level logger)
   "Set logger log level. Returns logger own log level"
   (declare (type logger logger))
+  ;; Note that set-log-level accepts various forms
+  ;; of levels, so we return the numeric one from SETF
   (nth-value 1 (set-log-level logger level)))
 
 (defun logger-additivity (logger)
@@ -576,7 +598,7 @@ including inherited one"
 (defun (setf logger-additivity) (additivity logger)
   "Set logger appender additivity. Returns new additivity"
   (declare (type logger logger))
-  (nth-value 1 (set-additivity logger additivity)))
+  (set-additivity logger additivity))
 
 (defun set-log-level (logger level &optional (adjust-p t))
   "Set the log level of a logger. Log level is passed to
@@ -608,8 +630,8 @@ second value."
          (old-additivity (logger-state-additivity state)))
     (unless (eql old-additivity additivity)
       (setf (logger-state-additivity state) additivity)
-      (when adjust-p (adjust-logger logger))
-      (values additivity))))
+      (when adjust-p (adjust-logger logger)))
+    (values additivity)))
 
 (defun add-appender-internal (logger appender &optional (adjust-p t))
   (declare (type logger logger) (type appender appender))

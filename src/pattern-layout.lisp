@@ -482,11 +482,11 @@ unchanged"
                           :universal-time
                           (when time
                             (handler-case (parse-integer time)
-                              (error ()
+                              (error (e)
                                 (pattern-layout-error
                                  "Invalid universal time in 2nd extra argument ~
-                                  around position ~d of pattern ~s"
-                                 start pattern))))))))
+                                  around position ~d of pattern ~s:  ~a"
+                                 start pattern e))))))))
 
 (defmethod parse-extra-args (fmt-info (char (eql #\d)) pattern start)
   (parse-date-format-extra-args fmt-info t pattern start))
@@ -1086,9 +1086,9 @@ line"))
             (change-class fmt-info 'pattern-newline-format-info
                           :width (when width
                                    (handler-case (parse-integer width)
-                                     (error (err)
+                                     (error (e)
                                        (pattern-layout-error
-                                        "Invalid newline width ~s: ~a" width err))))
+                                        "Invalid newline width ~s: ~a" width e))))
                           :continue continue))))
 
 (define-pattern-formatter (#\n)

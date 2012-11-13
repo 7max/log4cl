@@ -96,7 +96,6 @@
    #:logger-additivity
    #:appender-error
    #:handle-appender-error
-   #:counting-appender
    #:file-appender-base
    #:file-appender
    #:rolling-file-appender-base
@@ -149,7 +148,16 @@
    #:logger-file-namestring
    #:logger-file-logger
    #:logger-ancestors
-   #:inherited-log-level))
+   #:inherited-log-level
+   #:+self-meta-logger+
+   #:appender-layout
+   #:appender-last-error
+   #:appender-last-ignored-error
+   #:appender-error-count
+   #:appender-ignored-error-count
+   #:appender-message-count
+   #:appender-enabled-p
+   #:counting-appender))
 
 
 

@@ -20,25 +20,31 @@
   '())
 
 (defun log-appender-error (appender condition)
-  (log-error '(log4cl) "Appender ~s disabled because of ~s" appender condition))
+  (log-error +self-meta-logger+ "While appending to ~s caught error: ~:_~a" appender condition))
+
+(defun log-appender-disabled (appender condition)
+  (log-error +self-meta-logger+ "Appender ~s disabled: ~:_~a" appender condition))
 
 (defmethod handle-appender-error (appender condition)
-  (log-appender-error appender condition))
+  (log-appender-disabled appender condition)
+  :disable)
 
 (defclass counting-appender (appender)
   ((count :initform 0))
-  (:documentation "Count the number of times APPENDER-DO-APPEND was called"))
+  (:documentation "Appender that counts Count the number of times
+APPENDER-DO-APPEND was called, and writes its output to null sink"))
+
+(defmethod appender-do-append :before ((appender counting-appender) logger level log-func)
+  (incf (slot-value appender 'count)))
 
 (defmethod appender-do-append ((appender counting-appender) logger level log-func)
-  (with-slots (layout count)
-      appender
-    (incf count)
-    ;; we need to actually format the log message, to invoke any side effects
-    ;; that formatting it may produce, this is used in testing error handling
-    (with-output-to-string (s)
-      (layout-to-stream layout s logger level log-func))
-    (when (next-method-p)
-      (call-next-method))))
+  ;; we need to actually format the log message, to invoke any side effects
+  ;; that formatting it may produce, this is used in testing error handling
+  (with-output-to-string (s)
+    (layout-to-stream (slot-value appender 'layout) s logger level log-func))
+  (when (next-method-p)
+    (call-next-method)))
+
 
 (defclass serialized-appender (appender)
   ((%lock :initform (make-lock)))

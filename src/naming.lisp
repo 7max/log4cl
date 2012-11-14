@@ -197,8 +197,17 @@ Supported values for ARG are:
          (cat-case (naming-option package :category-case)))
     (multiple-value-bind (wrapped-categories file pkg-start pkg-end)
         (package-wrapper package categories explicitp)
-      (%get-logger wrapped-categories cat-separator cat-case nil createp file
-                   pkg-start pkg-end))))
+      (if (and (null categories)
+               (not explicitp)
+               (pathnamep file)
+               (zerop pkg-start)
+               (eql pkg-end (length wrapped-categories)))
+          ;; when creating a logger for the package, when we have no block name
+          ;; but are still instantiated from a file, return the source-file-logger
+          (%get-logger (append wrapped-categories (list (namestring file))) cat-separator cat-case nil createp file
+                       pkg-start pkg-end t)
+          (%get-logger wrapped-categories cat-separator cat-case nil createp file
+                       pkg-start pkg-end)))))
 
 (defmethod resolve-default-logger-form (package env args)
   "Returns the logger named after the enclosing lexical environment"

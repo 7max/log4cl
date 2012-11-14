@@ -647,11 +647,18 @@ unchanged"
                                   start-depth end-depth)))
   (values))
 
+(defun adjusted-logger-depth (logger)
+  (if (typep logger 'source-file-logger)
+      (1- (logger-depth logger))
+      (logger-depth logger)))
+
+(declaim (inline adjusted-logger-depth))
 
 (define-pattern-formatter (#\c)
   "Format the %c (full log category) pattern"
   (declare (ignore log-level log-func))
-  (format-categories-range stream fmt-info logger 0 (logger-depth logger))
+  (format-categories-range stream fmt-info logger 0
+                           (adjusted-logger-depth logger))
   (values))
 
 (define-pattern-formatter (#\C)
@@ -660,12 +667,17 @@ unchanged"
   (let* ((start-depth (logger-pkg-idx-start logger))
          (end-depth (logger-pkg-idx-end logger)))
     (cond ((zerop start-depth) 
-           ;; logger has no package info, format entire thing
-           (format-categories-range stream fmt-info logger 0 (logger-depth logger)))
+           (if (typep logger 'source-file-logger) 
+               (format-string "" stream fmt-info)
+               ;; logger has no package info, format entire thing
+               (format-categories-range stream fmt-info logger 0
+                                        (logger-depth logger))))
           ((= 1 start-depth)
-           ;; package is the prefix, so start from end of the package
-           (format-categories-range stream fmt-info logger (1- end-depth)
-                                    (logger-depth logger)))
+           (if (typep logger 'source-file-logger) 
+               (format-string "" stream fmt-info) 
+               ;; package is the prefix, so start from end of the package
+               (format-categories-range stream fmt-info logger (1- end-depth)
+                                        (logger-depth logger))))
           (t
            ;; weird case that is possible by achieve by overloading
            ;; PACKAGE-WRAPPER method, where categories representing

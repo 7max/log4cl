@@ -59,8 +59,12 @@ log level is printed"))
       (error "simulated appender error ~S" 'foobar)))
   (call-next-method))
 
-(defmethod handle-appender-error ((appender appender-ignore-errors) condition) :ignore)
-(defmethod handle-appender-error ((appender appender-retry-errors) condition) :retry)
+(defmethod handle-appender-error ((appender appender-ignore-errors) condition)
+  (declare (ignore condition))
+  :ignore)
+(defmethod handle-appender-error ((appender appender-retry-errors) condition)
+  (declare (ignore condition))
+  :retry)
 
 (deftest test-counting-appender ()
   (with-package-log-hierarchy

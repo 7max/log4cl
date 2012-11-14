@@ -141,19 +141,6 @@ situation"
     (reset-logging-configuration)
     (log-info "Here1")))
 
-(deftest test-counting-appender ()
-  (with-package-log-hierarchy
-    (clear-logging-configuration)
-    (let ((a (make-instance 'counting-appender)))
-      (add-appender *root-logger* a)
-      (log-config :i)
-      (log-info "hey")
-      (is (equal 1 (slot-value a 'count)))
-      (log-debug "moo")
-      (is (equal 1 (slot-value a 'count)))
-      (log-info "hey again")
-      (is (equal 2 (slot-value a 'count))))))
-
 (defun test-runtime-logger-of-wrong-type-helper (&optional arg)
   arg)
 

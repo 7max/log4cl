@@ -35,6 +35,7 @@
 APPENDER-DO-APPEND was called, and writes its output to null sink"))
 
 (defmethod appender-do-append :before ((appender counting-appender) logger level log-func)
+  (declare (ignore logger level log-func))
   (incf (slot-value appender 'count)))
 
 (defmethod appender-do-append ((appender counting-appender) logger level log-func)

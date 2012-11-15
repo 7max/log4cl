@@ -67,26 +67,20 @@ return \(FOOBAR FOO\)"
   (let* ((names-from-lexenv
            (nreverse
             (loop
-               with last = nil
-               as lambda = (sb-c::lexenv-lambda env)
-               then (sb-c::lambda-parent lambda)
-               while lambda
-               as debug-name = (include-block-debug-name? (sb-c::leaf-debug-name lambda))
-               if (and debug-name (not (eq last debug-name)))
-               collect debug-name
-               and do (setq last debug-name))))
+              with last = nil
+              as lambda = (sb-c::lexenv-lambda env)
+              then (sb-c::lambda-parent lambda)
+              while lambda
+              as debug-name = (include-block-debug-name? (sb-c::leaf-debug-name lambda))
+              if (and debug-name (not (eq last debug-name)))
+              collect debug-name
+              and do (setq last debug-name))))
          (name (or names-from-lexenv sb-pcl::*method-name*)))
     (when (and (consp (car name))
                (equal (length name) 1))
       (setq name (car name)))
-    (labels ((flatten (list)
-               (when list
-                 (loop for elem in list
-                       if (consp elem)
-                       ;; flatten method specializers and remove T ones
-                       append (flatten (remove t elem))
-                       else collect elem))))
-      (flatten name))))
+    (setq name (maybe-fix-method name))
+    (flatten name)))
 
 
 (defmethod enclosing-scope-block-name (package env)

@@ -146,7 +146,7 @@ values, for example for the :AROUND method FOO with lambda list
 of ((OBJ1 BAR) (OPTION (EQL :BAZ)) OBJ3) should strive to return
 '(FOO AROUND BAR BAZ) "))
 
-#-(or sbcl)
+#-(or sbcl ccl)
 (defmethod enclosing-scope-block-name (package env)
   "Default method that always return NIL"
   (declare (ignore package env)))
@@ -339,3 +339,32 @@ conversion."
                                        :end end)))
   (values))
 
+(defun flatten (tree)
+  ;; from ALEXANDRIA
+  (let (list)
+    (labels ((traverse (subtree)
+               (when subtree
+                 (if (consp subtree)
+                     (progn
+                       (traverse (car subtree))
+                       (traverse (cdr subtree)))
+                     (push subtree list)))))
+      (traverse tree))
+    (nreverse list)))
+
+(defun maybe-fix-specializer (spec)
+  (if (and (consp spec)
+           (eq 'eql (first spec))
+           (endp (cddr spec)))
+      (let ((result (eval (second spec))))
+        (when (atom result) result))
+      spec))
+
+(defun maybe-fix-method (spec)
+  (if (not (consp spec)) spec 
+      (if (and (<= 2 (length spec) 3)
+               (consp (first (last spec))))
+          (append (butlast spec)
+                  (mapcar #'maybe-fix-specializer
+                          (remove t (first (last spec)))))
+          spec)))

@@ -27,6 +27,7 @@
                               (:file "defs")
                               (:file "naming")
                               #+sbcl (:file "naming-sbcl")
+                              #+ccl (:file "naming-ccl")
                               (:file "appender-base")
                               (:file "hierarchy-base")
                               (:file "hierarchy")

@@ -328,20 +328,25 @@ Examples:
                                                    :2line :oneline :one-line :1line
                                                    :file :file2 :nofile
                                                    :time :notime)))
-                                     orig-args)))
-            doit)
+                                     orig-args))))
         ;; If anything non-default was specified, remember
-        (when (or (some #'identity (list 
-                                    (and twoline (push :twoline config)) 
-                                    (and file (push :file config)) 
-                                    (and file2 (push :file2 config)) 
-                                    (and nofile (push :nofile config)) 
-                                    (and notime (push :notime config))
-                                    (and time (push :time config))))
-                  sane daily console)
-          (setq doit t))
-        ;; if specified new appenders, simply remember new configuration
-        (when doit (setq *self-log-config* config))))
+        (let ((lst '(:sane :daily :console :this-console))) 
+          (if (null (intersection lst config))
+              (dolist (elem (reverse lst))
+                (when (member elem *self-log-config*)
+                  (push elem config)))))
+        (and twoline (push :twoline config)) 
+        (and file (push :file config)) 
+        (and file2 (push :file2 config)) 
+        (and nofile (push :nofile config)) 
+        (and notime (push :notime config))
+        (and time (push :time config))
+        (when (and (null level)
+                   (logger-log-level logger))
+          (push (aref +log-level-to-keyword+
+                      (logger-log-level logger))
+                config))
+        (setq *self-log-config* config)))
     ;; finally recalculate reach-ability
     (adjust-logger logger)))
 

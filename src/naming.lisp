@@ -19,7 +19,7 @@
 (defclass naming-configuration ()
   ((category-separator :initform "." :accessor category-separator)
    (category-case :initform nil :accessor category-case)
-   (expr-print-format :initform "~W=~W" :accessor expr-print-format)
+   (expr-print-format :initform "~W=~W~^ ~:_" :accessor expr-print-format)
    (use-shortest-nickname :initform  nil :accessor use-shortest-nickname))
   (:documentation "Contains configuration that affects expansion of logger macros."))
 

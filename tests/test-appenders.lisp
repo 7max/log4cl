@@ -275,6 +275,68 @@ forever loop."
       (is (search "disabled" (string-downcase output))))
     (values)))
 
+(defclass temp-appender-test-class (this-console-appender counting-appender) ())
+
+(deftest test-temp-stream-appender ()
+  "Verify that after TEMP-STREAM-APPENDER auto-removes itself on stream errors"
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (remove-all-appenders +self-logger+)
+    (let* ((logger (make-logger '(one two three)))
+           a2
+           (output
+             (with-output-to-string (s)
+               (with-output-to-string (ss) 
+                 (let* ((a1 (make-instance 'fixed-stream-appender :stream s))
+                        (*debug-io* ss))
+                   (setq a2 (make-instance 'temp-appender-test-class))
+                   (add-appender +self-meta-logger+ a1)
+                   (log:config +self-meta-logger+ :info)
+                   (add-appender logger a2)
+                   (is (equal ss (appender-stream a2)))
+                   (log-config :i)
+                   (log-info logger "hey")
+                   (is (equal 1 (slot-value a2 'count)))
+                   (is (equal 1 (appender-message-count a2)))))
+               (log-info logger "boo")
+               (is (null (appender-loggers a2)))
+               (is (equal 0 (appender-logger-count a2)))
+               (is (equal 2 (slot-value a2 'count)))
+               (is (equal 1 (appender-message-count a2))))))
+      (is (plusp (length output)))
+      (is (search "error" (string-downcase output)))
+      (is (search "removed" (string-downcase output))))
+    (values)))
+
+(deftest test-self-appender-double-fault ()
+  "Verify that error doing logging an error does not prevent temp appender from being removed"
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (remove-all-appenders +self-logger+)
+    (let* ((logger (make-logger '(one two three)))
+           a2
+           (output
+             (with-output-to-string (s)
+               (with-output-to-string (ss) 
+                 (let* ((a1 (make-instance 'fixed-stream-appender :stream s))
+                        (*debug-io* ss))
+                   (setq a2 (make-instance 'temp-appender-test-class))
+                   (add-appender +self-meta-logger+ a1)
+                   (log:config +self-meta-logger+ :info)
+                   (add-appender logger a2)
+                   (is (equal ss (appender-stream a2)))
+                   (log-config :i)
+                   (log-info logger "hey")
+                   (is (equal 1 (slot-value a2 'count)))
+                   (is (equal 1 (appender-message-count a2))))))))
+      (log-info logger "boo")
+      (is (null (appender-loggers a2)))
+      (is (equal 0 (appender-logger-count a2)))
+      (is (equal 2 (slot-value a2 'count)))
+      (is (equal 1 (appender-message-count a2)))
+      (is (zerop (length output))))
+    (values)))
+
 (defvar unbound-var)
 
 (defun function-with-error ()

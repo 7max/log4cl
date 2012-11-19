@@ -157,7 +157,10 @@
    #:appender-ignored-error-count
    #:appender-message-count
    #:appender-enabled-p
-   #:counting-appender))
+   #:counting-appender
+   #:this-console-appender
+   #:temp-stream-appender
+   #:appender-loggers))
 
 
 

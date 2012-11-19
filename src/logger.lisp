@@ -509,7 +509,8 @@ context of the current application."
                                        ;; Idea is that we want (log:info "~s" (something-causing-error))
                                        ;; to pop the debugger rather then go through appender error logic.
                                        (unless *inside-user-log-function*
-                                         (case (handle-appender-error appender e)
+                                         (case (if (eq orig-logger +self-meta-logger+) :ignore
+                                                   (handle-appender-error appender e))
                                            (:retry
                                             (incf error-count)
                                             (setf last-error e)
@@ -648,13 +649,20 @@ second value."
   (add-appender-internal logger appender))
 
 (defmethod appender-added (logger appender)
-  (declare (ignore logger))
-  (incf (slot-value appender 'logger-count)))
+  (incf (appender-logger-count appender))
+  (push logger (appender-loggers appender))
+  (assert (eql (appender-logger-count appender)
+               (length (appender-loggers appender)))))
 
 (defmethod appender-removed (logger appender)
   "Decrement logger count and call CLOSE-APPENDER if it reaches zero"
-  (declare (ignore logger))
-  (when (zerop (decf (slot-value appender 'logger-count)))
+  (setf (appender-loggers appender)
+        (remove logger
+                (appender-loggers appender)))
+  (decf (appender-logger-count appender))
+  (assert (eql (appender-logger-count appender)
+               (length (appender-loggers appender))))
+  (when (zerop (appender-logger-count appender))
     (close-appender appender)))
 
 (defun remove-appender-internal (logger appender &optional (adjust-p t))

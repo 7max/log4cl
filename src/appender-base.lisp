@@ -20,6 +20,10 @@
 (defclass appender ()
   ((layout :initform (make-instance 'simple-layout)
            :initarg :layout :accessor appender-layout)
+   (logger-count :initform 0 :accessor appender-logger-count
+                 :type (integer 0))
+   (loggers :initform nil :accessor appender-loggers)
+   (enabled :initform t :accessor appender-enabled-p)
    (last-error :initform nil :accessor appender-last-error)
    (last-ignored-error :initform nil :accessor appender-last-ignored-error)
    (error-count :initform 0 :accessor appender-error-count
@@ -27,10 +31,7 @@
    (ignored-error-count :initform 0 :accessor appender-ignored-error-count
                         :type (integer 0))
    (message-count :initform 0 :accessor appender-message-count
-                  :type (integer 0))
-   (logger-count :initform 0 :accessor appender-logger-count
-                 :type (integer 0))
-   (enabled :initform t :accessor appender-enabled-p))
+                  :type (integer 0)))
   (:documentation "Appender is log message sink, and is responsible
 for physically delivering the log message, somewhere. The formatting
 of message is done by layout.

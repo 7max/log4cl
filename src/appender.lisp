@@ -20,10 +20,12 @@
   '())
 
 (defun log-appender-error (appender condition)
-  (log-error +self-meta-logger+ "While appending to ~s caught error: ~:_~a" appender condition))
+  (ignore-errors 
+   (log-error +self-meta-logger+ "While appending to ~s caught error: ~:_~a" appender condition)))
 
 (defun log-appender-disabled (appender condition)
-  (log-error +self-meta-logger+ "Appender ~s disabled: ~:_~a" appender condition))
+  (ignore-errors 
+   (log-error +self-meta-logger+ "Appender ~s disabled: ~:_~a" appender condition)))
 
 (defmethod handle-appender-error (appender condition)
   (log-appender-disabled appender condition)
@@ -46,6 +48,9 @@ APPENDER-DO-APPEND was called, and writes its output to null sink"))
   (when (next-method-p)
     (call-next-method)))
 
+(defclass temp-stream-appender () ()
+  (:documentation "A mixing for STREAM-APPENDER that will remove the
+appender if it encounters a STREAM-ERROR"))
 
 (defclass serialized-appender (appender)
   ((%lock :initform (make-lock)))
@@ -101,6 +106,13 @@ value of that variable in the thread and at the moment of log message
 being written.  If instead you want an appender that would write log
 messages to the *debug-io* stream active when appender was created,
 use FIXED-STREAM-APPENDER class"))
+
+(defclass this-console-appender (fixed-stream-appender temp-stream-appender)
+  ((stream :initform *debug-io*))
+  (:documentation "An appender that remembers the value of *DEBUG-IO*
+that was in effect when appender is created, and prints its output to
+it, until it encounters STREAM-ERROR at which point it deletes
+itself."))
 
 #+bordeaux-threads
 (defmethod appender-added :after (logger (appender stream-appender))
@@ -401,3 +413,10 @@ switches to the new log file"
                 %next-backup-name new-bak))))))
 
 
+(defmethod handle-appender-error ((a temp-stream-appender) (c error))
+  (ignore-errors 
+   (log-error +self-meta-logger+ "Removing appender ~s because of: ~:_~a " a c))
+  (dolist (l (appender-loggers a))
+    (remove-appender l a)
+    (ignore-errors 
+     (log-info +self-meta-logger+ "Removed appender ~s from ~s" a l))))

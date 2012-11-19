@@ -303,7 +303,7 @@ Examples:
                 console)
         (push
          (if this-console
-             (make-instance 'fixed-stream-appender
+             (make-instance 'this-console-appender
               :stream (or stream *debug-io*)
               :layout layout)
              (make-instance 'console-appender :layout layout))

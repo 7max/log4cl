@@ -159,7 +159,8 @@
    #:appender-enabled-p
    #:counting-appender
    #:this-console-appender
-   #:temp-stream-appender
+   #:temp-appender
+   #:temp-appender-error-type
    #:appender-loggers))
 
 

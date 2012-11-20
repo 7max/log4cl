@@ -275,7 +275,7 @@ forever loop."
       (is (search "disabled" (string-downcase output))))
     (values)))
 
-(defclass temp-appender-test-class (this-console-appender counting-appender) ())
+(defclass temp-appender-test-class (counting-appender this-console-appender) ())
 
 (deftest test-temp-stream-appender ()
   "Verify that after TEMP-STREAM-APPENDER auto-removes itself on stream errors"

@@ -102,11 +102,11 @@ Valid options can be:
  :INFO         | Or any other keyword identifying a log level, which can be    
  :DEBUG        | shortened to its shortest unambiguous prefix, such as :D      
 ---------------|---------------------------------------------------------------
- :CLEAR        | Removes log level and appenders from any child loggers,       
-               | appenders are not removed from non-additive loggers           
+ :CLEAR        | Removes log level and appenders from any child loggers, except
+               | the non-additive ones, and self logger
 ---------------|---------------------------------------------------------------
  :ALL          | Changes :CLEAR to remove appenders from non-additive          
-               | loggers                                                       
+               | loggers 
 ---------------|---------------------------------------------------------------
  :SANE         | Removes logger appenders, adds console appender with          
                | pattern layout that makes messages look like this:            
@@ -123,8 +123,9 @@ Valid options can be:
  :CONSOLE      | Adds CONSOLE-APPENDER to the logger. Console appender logs
                | into the *DEBUG-IO* at the call site.
                |
- :THIS-CONSOLE | Adds FIXED-STREAM-APPENDER to the logger, with :stream argument
-               | taken from the current value of *DEBUG-IO*
+ :THIS-CONSOLE | Adds THIS-CONSOLE-APPENDER to the logger, which will log to
+               | the current value of *DEBUG-IO*, and will auto-remove itself
+               | on errors
 ---------------|---------------------------------------------------------------
 :STREAM stream | Adds FIXED-STREAM-APPENDER logging to specified stream
 ---------------|---------------------------------------------------------------
@@ -163,9 +164,10 @@ Examples:
 * (LOG-CONFIG :SANE) -- Changes root logger level to info, removes its
    appenders, adds console appender with pattern layout
 
-* (LOG-CONFIG :SANE :THIS-CONSOLE) -- Same as above but adds fixed
-   stream appender logging to current value of *DEBUG-IO* instead of
-   regular console appender..
+* (LOG-CONFIG :SANE :THIS-CONSOLE) -- Appender will log to the
+   value of *DEBUG-IO* at the time command was issued, not at the
+   call site. Can be useful if there is logging going on from different
+   threads, in which *DEBUG-IO* does not point to the right place.
 
 * (LOG-CONFIG :WARN :SANE :CLEAR :ALL) -- Changes root logger level to
   warnings, removes its appenders, adds console appender with pattern
@@ -312,8 +314,7 @@ Examples:
       (dolist (a appenders)
         (when immediate-flush
           (setf (slot-value a 'immediate-flush) t))
-        (add-appender-internal logger a nil))
-      (set-additivity logger (not own) nil))
+        (add-appender-internal logger a nil)))
     (when properties
       (configure (make-instance 'property-configurator) properties
                  :auto-reload watch))
@@ -531,7 +532,6 @@ Returns a list of CONFIGURATION-ELEMENT objects"
           (loop for logger in (logger-descendants logger)
                 for level = (logger-log-level logger)
                 if level collect (make-element logger level)))))
-
 
 (defun make-logger-configuration-load-form (logger)
   "Different version of loggers load-form, that does not

@@ -188,7 +188,8 @@ from parent"
                         (file-logger-file logger))))
     (if (and file-logger (logger-first-after-package-p logger))
         (effective-log-level file-logger)
-        (effective-log-level (logger-parent logger)))))
+        (unless (eq logger *root-logger*) 
+          (effective-log-level (logger-parent logger))))))
 
 (defun have-appenders-for-level (logger level)
   "Return non-NIL if logging with LEVEL will actually reach any

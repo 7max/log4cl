@@ -18,6 +18,48 @@
 (in-suite test)
 (defsuite* test-configurator)
 
+(deftest test-clear-ignores-self-logger ()
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (let ((logger log4cl-impl:+self-logger+))
+      (is (logger-log-level logger))
+      (log-config :clear)
+      (is (logger-log-level logger))
+      (log-config :clear :all)
+      (is (logger-log-level logger)))))
+
+(deftest test-clear-ignores-non-additive-logger ()
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (let ((logger1 (make-logger :one))
+          (logger2 (make-logger :one.two))
+          (logger3 (make-logger :one.two.three)))
+      (add-appender *root-logger* (make-instance 'console-appender))
+      (is (equal (logger-parent logger3) logger2))
+      (is (equal (logger-parent logger2) logger1))
+      (log-config logger1 :debug)
+      (log-config logger2 :nonadditive :trace)
+      (is (log-debug logger1))
+      (is (not (log-trace logger1)))
+      ;; no appenders
+      (is (not (log-warn logger2)))
+      (is (not (log-warn logger3)))
+      ;; appears after adding appenders
+      (add-appender logger2 (make-instance 'console-appender))
+      (is (log-trace logger2))
+      (is (log-trace logger3))
+      (log-config :clear)
+      ;; disappeared from normal loggers
+      (is (not (logger-log-level logger1)))
+      (is (not (log-debug logger1)))
+      ;; but not from additive
+      (is (log-trace logger2))
+      (is (log-trace logger3))
+      (log-config :clear :all)
+      (is (not (log-warn logger2)))
+      (is (not (log-warn logger3))))))
+
+
 (defclass ignore-extra-stuff-parser (property-parser)
   ())
 

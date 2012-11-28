@@ -102,32 +102,29 @@ Valid options can be:
  :INFO         | Or any other keyword identifying a log level, which can be    
  :DEBUG        | shortened to its shortest unambiguous prefix, such as :D      
 ---------------|---------------------------------------------------------------
- :CLEAR        | Removes log level and appenders from any child loggers, except
-               | the non-additive ones, and self logger
----------------|---------------------------------------------------------------
- :ALL          | Changes :CLEAR to remove appenders from non-additive          
-               | loggers 
----------------|---------------------------------------------------------------
  :SANE         | Removes logger appenders, adds console appender with          
                | pattern layout that makes messages look like this:            
                |                                                               
                | [11:22:25] INFO  {category.name} - message
                |
                | If used with :DAILY then console appender is not added, unless
-               | :CONSOLE or :THIS-CONSOLE is explicitly used
+               | :CONSOLE or :THIS-CONSOLE is also explicitly used
+---------------|---------------------------------------------------------------
+ :CONSOLE      | Adds CONSOLE-APPENDER to the logger. Console appender logs
+               | into the *DEBUG-IO* at the call site.
+               |
+ :THIS-CONSOLE | Adds THIS-CONSOLE-APPENDER to the logger. It stores a reference
+               | to current value of *DEBUG-IO*, and will continue to log to that
+               | specific stream, even in different threads.
+               |
+               | In addition THIS-CONSOLE-APPENDER will auto-remove itself on any
+               | errors, for example if remembered stream got closed externally
 ---------------|---------------------------------------------------------------
  :DAILY FILE   | Adds file appender logging to the named file, which will      
                | be rolled over every midnight into FILE.YYYYMMDD; Removes any 
                | other FILE-APPENDER-BASE'ed appenders from the logger
 ---------------|---------------------------------------------------------------
- :CONSOLE      | Adds CONSOLE-APPENDER to the logger. Console appender logs
-               | into the *DEBUG-IO* at the call site.
-               |
- :THIS-CONSOLE | Adds THIS-CONSOLE-APPENDER to the logger, which will log to
-               | the current value of *DEBUG-IO*, and will auto-remove itself
-               | on errors
----------------|---------------------------------------------------------------
-:STREAM stream | Adds FIXED-STREAM-APPENDER logging to specified stream
+ :STREAM stream| Adds FIXED-STREAM-APPENDER logging to specified stream
 ---------------|---------------------------------------------------------------
  :PATTERN      | For any new appenders added, specifies the conversion pattern for the
                | PATTERN-LAYOUT
@@ -155,6 +152,15 @@ Valid options can be:
  :OWN          | Makes logger non-additive (does not propagate to parent)
  :NOADDITIVE   |
  :ADDITIVE     | Sets additive flag back
+---------------|---------------------------------------------------------------
+ :CLEAR        | Removes log level and appenders from any child loggers, except
+               | the non-additive ones, and self logger
+---------------|---------------------------------------------------------------
+ :ALL          | Changes :CLEAR to process non-additive loggers also (will still
+               | ignore self logger)
+---------------|---------------------------------------------------------------
+ :SELF         | Configures the LOG4CL-IMPL logger, which can be used to debug
+               | Log4CL itself.
 ---------------|---------------------------------------------------------------
 
 Examples:
@@ -271,12 +277,22 @@ Examples:
     (when level
       (set-log-level logger level nil))
     (when clear
-      (map-logger-descendants
-       (lambda (l)
-         (set-log-level l +log-level-unset+ nil)
-         (when (or (logger-additivity l) all)
-           (remove-all-appenders-internal l nil)))
-       logger))
+      (labels ((map-descendants-ignoring-self (function logger) 
+                 (let ((child-hash (logger-child-hash logger)))
+                   (when child-hash
+                     (maphash (lambda (name logger)
+                                (declare (ignore name))
+                                (when (or self (not (eq logger +self-logger+))) 
+                                  (funcall function logger))
+                                (unless (typep logger 'source-file-logger) 
+                                  (map-descendants-ignoring-self function logger)))
+                              child-hash))))) 
+        (map-descendants-ignoring-self
+         (lambda (l)
+           (when (or (logger-additivity l) all)
+             (set-log-level l +log-level-unset+ nil)
+             (remove-all-appenders-internal l nil)))
+         logger)))
     (when (or own noown)
       (set-additivity logger (not own) nil))
     (when (or daily sane console) 

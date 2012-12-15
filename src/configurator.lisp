@@ -305,7 +305,13 @@ Examples:
                                  :time (if (or time notime) time t)
                                  :file (if (or file file2 nofile) file t)
                                  :file2 (if (or file file2 nofile) file2 nil)))))
-      (if sane (remove-all-appenders-internal logger nil))
+      (if sane
+          ;; Only remove all appenders if :clear was also given,
+          ;; otherwise don't touch file appenders
+          (if clear (remove-all-appenders-internal logger nil) 
+              (dolist (a (logger-appenders logger))
+                (unless (typep a 'file-appender-base)
+                  (remove-appender-internal logger a nil)))))
       ;; create daily appender
       (when daily
         (dolist (a (logger-appenders logger))

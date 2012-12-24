@@ -175,7 +175,8 @@ Following pattern characters are recognized:
    %I Two spaces repeated *log-indent* times. Different padding string
    can be specified in an extra argument.
 
-   %n OS-dependent newline sequence, issues (TERPRI) %:n issues (PPRINT-NEWLINE :mandatory)
+   %n Mandatory newline, issues (TERPRI) on the stream. %:n issues (TERPRI) if
+   *PRINT-PRETTY* is NIL or (PPRINT-NEWLINE :MANDATORY) otherwise
 
    %& Optional newline, issues FRESH-LINE on the stream
 
@@ -1085,7 +1086,7 @@ strftime like PATTERN."))
 (define-pattern-formatter (#\n)
   "Output the %n (newline) pattern"
   (declare (ignore logger log-level log-func))
-  (if (format-empty-skip fmt-info)
+  (if (and *print-pretty* (format-empty-skip fmt-info))
       (pprint-newline :mandatory stream)
       (terpri stream))
   (values))

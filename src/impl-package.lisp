@@ -26,20 +26,20 @@
   (:use #:cl #:bordeaux-threads)
   (:export
    ;; log levels
-   #:+log-level-unset+ #:+log-level-unset+ #:+log-level-user9+
-   #:+log-level-user8+ #:+log-level-user7+ #:+log-level-user6+
-   #:+log-level-user5+ #:+log-level-user4+ #:+log-level-user3+
-   #:+log-level-user2+ #:+log-level-user1+ #:+log-level-trace+
+   #:+log-level-unset+ #:+log-level-unset+ #:+log-level-debu9+
+   #:+log-level-debu8+ #:+log-level-debu7+ #:+log-level-debu6+
+   #:+log-level-debu5+ #:+log-level-debu4+ #:+log-level-debu3+
+   #:+log-level-debu2+ #:+log-level-debu1+ #:+log-level-trace+
    #:+log-level-debug+ #:+log-level-info+ #:+log-level-warn+
    #:+log-level-error+ #:+log-level-fatal+ #:+log-level-off+
    ;; logging macros
    #:log-fatal #:log-error #:log-warn #:log-info #:log-debug #:log-trace
-   #:log-user1 #:log-user2 #:log-user3 #:log-user4 #:log-user5 #:log-user6
-   #:log-user7 #:log-user8 #:log-user9 #:log-sexp #:log-sexp-with-level
+   #:log-debu1 #:log-debu2 #:log-debu3 #:log-debu4 #:log-debu5 #:log-debu6
+   #:log-debu7 #:log-debu8 #:log-debu9 #:log-sexp #:log-sexp-with-level
    ;; sexp version of logging macros
    #:log-sexp-fatal #:log-sexp-error #:log-sexp-warn #:log-sexp-info #:log-sexp-debug #:log-sexp-trace
-   #:log-sexp-user1 #:log-sexp-user2 #:log-sexp-user3 #:log-sexp-user4 #:log-sexp-user5 #:log-sexp-user6
-   #:log-sexp-user7 #:log-sexp-user8 #:log-sexp-user9 
+   #:log-sexp-debu1 #:log-sexp-debu2 #:log-sexp-debu3 #:log-sexp-debu4 #:log-sexp-debu5 #:log-sexp-debu6
+   #:log-sexp-debu7 #:log-sexp-debu8 #:log-sexp-debu9 
    #:log-indented
    ;; logger access functions
    #:make-log-level #:make-logger

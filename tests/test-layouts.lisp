@@ -41,16 +41,16 @@ specified PATTERN and compare its output to EXPECTED-RESULT"
                 ((eql level +log-level-warn+) (log-warn logger "~a" message))
                 ((eql level +log-level-info+) (log-info logger "~a" message))
                 ((eql level +log-level-debug+) (log-debug logger "~a" message))
-                ((eql level +log-level-user1+) (log-user1 logger "~a" message))
-                ((eql level +log-level-user2+) (log-user2 logger "~a" message))
-                ((eql level +log-level-user3+) (log-user3 logger "~a" message))
-                ((eql level +log-level-user4+) (log-user4 logger "~a" message))
+                ((eql level +log-level-debu1+) (log-debu1 logger "~a" message))
+                ((eql level +log-level-debu2+) (log-debu2 logger "~a" message))
+                ((eql level +log-level-debu3+) (log-debu3 logger "~a" message))
+                ((eql level +log-level-debu4+) (log-debu4 logger "~a" message))
                 ((eql level +log-level-trace+) (log-trace logger "~a" message))
-                ((eql level +log-level-user5+) (log-user5 logger "~a" message))
-                ((eql level +log-level-user6+) (log-user6 logger "~a" message))
-                ((eql level +log-level-user7+) (log-user7 logger "~a" message))
-                ((eql level +log-level-user8+) (log-user8 logger "~a" message))
-                ((eql level +log-level-user9+) (log-user9 logger "~a" message))))))
+                ((eql level +log-level-debu5+) (log-debu5 logger "~a" message))
+                ((eql level +log-level-debu6+) (log-debu6 logger "~a" message))
+                ((eql level +log-level-debu7+) (log-debu7 logger "~a" message))
+                ((eql level +log-level-debu8+) (log-debu8 logger "~a" message))
+                ((eql level +log-level-debu9+) (log-debu9 logger "~a" message))))))
       (is (equal output expected-result))))
   (values))
 
@@ -156,7 +156,7 @@ message")
 
 (deftest test-pattern-log-level ()
   "Test %p pattern"
-  (loop for level from +log-level-fatal+ to +log-level-user9+
+  (loop for level from +log-level-fatal+ to +log-level-debu9+
         do (test-pattern-layout "%p"
                                 (log-level-to-string level)
                                 :level level)))

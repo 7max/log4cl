@@ -153,13 +153,20 @@ will produce log message:
        "
                  `(log-sexp-with-level ,',log-macro-name ,@args))
               list)))
-    `(progn
-       ,@(reverse list)
-       ,(let ((debug (copy-list (find 'log-sexp-debug list :key 'second))))
-          (setf (second debug) 'log-sexp)
-          debug))))
+    `(progn ,@(reverse list))))
 
 (deflog-sexp-macros #.+log-level-macro-symbols+)
+
+(defmacro log-sexp (&rest args)
+  (with-package-naming-configuration (*package*) 
+    (let* ((level (naming-option *package* :expr-log-level))
+           (log-sexp-macro-name (intern (format nil "~a-~a"
+                                                (string '#:log-sexp)
+                                                (string (aref +log-level-to-keyword+ level)))
+                                        :log4cl-impl)))
+      `(,log-sexp-macro-name ,@args))))
+
+(setf (documentation 'log-sexp 'function) (documentation 'log-sexp-debug 'function))
 
 (defmacro with-log-hierarchy ((hierarchy) &body body)
   "Binds the *CURRENT-HIERARCHY* to the specified hierarchy for the

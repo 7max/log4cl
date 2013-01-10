@@ -105,8 +105,8 @@
                               #:in-hierarchy
                               #:with-indent))
                   ;; one letter logging macro forwarders
-                  (:shadow #:f #:e #:w #:i #:d #:u1 #:u2 #:u3 #:u4 #:t #:u5 #:u6 #:u7 #:u8 #:u9 #:c #:s)
-                  (:export #:f #:e #:w #:i #:d #:u1 #:u2 #:u3 #:u4 #:t #:u5 #:u6 #:u7 #:u8 #:u9 #:c #:s)))))
+                  (:shadow #:f #:e #:w #:i #:d #:d1 #:d2 #:d3 #:d4 #:t #:d5 #:d6 #:d7 #:d8 #:d9 #:c #:s)
+                  (:export #:f #:e #:w #:i #:d #:d1 #:d2 #:d3 #:d4 #:t #:d5 #:d6 #:d7 #:d8 #:d9 #:c #:s)))))
   (log4cl-defpackage))
 
 (defmacro forward-macro (name from-name)
@@ -165,16 +165,16 @@
 (forward-macro log:i log4cl-impl:log-info)
 
 (forward-macro log:d log4cl-impl:log-debug)
-(forward-macro log:u1 log4cl-impl:log-user1)
-(forward-macro log:u2 log4cl-impl:log-user2)
-(forward-macro log:u3 log4cl-impl:log-user3)
-(forward-macro log:u4 log4cl-impl:log-user4)
+(forward-macro log:d1 log4cl-impl:log-debu1)
+(forward-macro log:d2 log4cl-impl:log-debu2)
+(forward-macro log:d3 log4cl-impl:log-debu3)
+(forward-macro log:d4 log4cl-impl:log-debu4)
 (forward-macro log:t log4cl-impl:log-trace)
-(forward-macro log:u5 log4cl-impl:log-user5)
-(forward-macro log:u6 log4cl-impl:log-user6)
-(forward-macro log:u7 log4cl-impl:log-user7)
-(forward-macro log:u8 log4cl-impl:log-user8)
-(forward-macro log:u9 log4cl-impl:log-user9)
+(forward-macro log:d5 log4cl-impl:log-debu5)
+(forward-macro log:d6 log4cl-impl:log-debu6)
+(forward-macro log:d7 log4cl-impl:log-debu7)
+(forward-macro log:d8 log4cl-impl:log-debu8)
+(forward-macro log:d9 log4cl-impl:log-debu9)
 (forward-macro log:s log4cl-impl:log-sexp)
 
 (forward-macro log:with-hierarchy log4cl-impl:with-log-hierarchy)

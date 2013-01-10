@@ -817,11 +817,13 @@ lift the older equivalent configuration to the top of the list"
                        (category-case nil category-casep)
                        category-separator
                        expr-print-format
-                       (shortest-nickname t shortest-nicknamep))
+                       (shortest-nickname t shortest-nicknamep)
+                       expr-log-level)
   (let* ((nc (find-or-create-naming-configuration package t))
          (*naming-configuration* nc))
     (prog1 nc 
       (when category-casep (setf (category-case nc) category-case)) 
       (when category-separator (setf (category-separator nc) category-separator)) 
       (when expr-print-format (setf (expr-print-format nc) expr-print-format))
-      (when shortest-nicknamep (setf (use-shortest-nickname nc) shortest-nickname)))))
+      (when shortest-nicknamep (setf (use-shortest-nickname nc) shortest-nickname))
+      (when expr-log-level (setf (expr-log-level nc) (make-log-level expr-log-level))))))

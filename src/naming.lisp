@@ -20,7 +20,8 @@
   ((category-separator :initform "." :accessor category-separator)
    (category-case :initform nil :accessor category-case)
    (expr-print-format :initform "~W=~W~^ ~:_" :accessor expr-print-format)
-   (use-shortest-nickname :initform  nil :accessor use-shortest-nickname))
+   (use-shortest-nickname :initform  nil :accessor use-shortest-nickname)
+   (expr-log-level :initform +log-level-debug+ :accessor expr-log-level))
   (:documentation "Contains configuration that affects expansion of logger macros."))
 
 (defvar *naming-configuration* nil
@@ -262,7 +263,8 @@ SEPARATOR"
     (:category-separator (category-separator *naming-configuration*))
     (:category-case (category-case *naming-configuration*))
     (:expr-print-format (expr-print-format *naming-configuration*))
-    (:use-shortest-nickname (use-shortest-nickname *naming-configuration*))))
+    (:use-shortest-nickname (use-shortest-nickname *naming-configuration*))
+    (:expr-log-level (expr-log-level *naming-configuration*))))
 
 
 (defmethod resolve-logger-form (package env args)

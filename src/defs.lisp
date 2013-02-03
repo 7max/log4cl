@@ -101,8 +101,15 @@ when non-NIL to determine logger's parent file logger.")
 (define-condition log4cl-error (simple-error program-error) ()
   (:documentation "Base class for all LOG4CL errors"))
 
+(define-condition log4cl-style-warning (simple-warning style-warning) ())
+
 (defun log4cl-error (message &rest args)
   (error 'log4cl-error
+         :format-control message
+         :format-arguments args))
+
+(defun log4cl-style-warning (message &rest args)
+  (warn 'log4cl-style-warning
          :format-control message
          :format-arguments args))
 

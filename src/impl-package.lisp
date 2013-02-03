@@ -22,7 +22,14 @@
 ;; appenders
 
 
+(eval-when (:load-toplevel :compile-toplevel :execute)
+  (let ((p1 (find-package :log4cl))
+        (p2 (find-package :log4cl-impl)))
+    (when (and p2 p2 (not (eq p1 p2)))
+      (delete-package p1))))
+
 (cl:defpackage #:log4cl-impl
+  (:nicknames :log4cl)
   (:use #:cl #:bordeaux-threads)
   (:export
    ;; log levels

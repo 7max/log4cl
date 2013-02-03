@@ -101,7 +101,7 @@ configuration"
                "WARN - Hello World!
 "))
     (is (equal (with-output-to-string (*debug-io*)
-                 (log-warn '(log4cl test foobar)  "Hello World!"))
+                 (log-warn '(blah test foobar)  "Hello World!"))
                "WARN - Hello World!
 "))
     (is (equal (with-output-to-string (*debug-io*)

@@ -108,8 +108,12 @@
                               #:with-indent
                               #:logger))
                   ;; one letter logging macro forwarders
-                  (:shadow #:f #:e #:w #:i #:d #:d1 #:d2 #:d3 #:d4 #:t #:d5 #:d6 #:d7 #:d8 #:d9 #:c #:s)
-                  (:export #:f #:e #:w #:i #:d #:d1 #:d2 #:d3 #:d4 #:t #:d5 #:d6 #:d7 #:d8 #:d9 #:c #:s)))))
+                  (:shadow
+                   #:f #:e #:w #:i #:d #:d1 #:d2 #:d3 #:d4 #:t #:d5 #:d6 #:d7 #:d8 #:d9 #:c #:s
+                   #:ff #:ee #:ww #:ii #:dd #:dd1 #:dd2 #:dd3 #:dd4 #:tt #:dd5 #:dd6 #:dd7 #:dd8 #:dd9)
+                  (:export
+                   #:f #:e #:w #:i #:d #:d1 #:d2 #:d3 #:d4 #:t #:d5 #:d6 #:d7 #:d8 #:d9 #:c #:s
+                   #:ff #:ee #:ww #:ii #:dd #:dd1 #:dd2 #:dd3 #:dd4 #:tt #:dd5 #:dd6 #:dd7 #:dd8 #:dd9)))))
   (eval-when (:load-toplevel :compile-toplevel :execute)
     (let ((p1 (find-package :log4cl))
           (p2 (find-package :log4cl-impl)))
@@ -178,7 +182,7 @@
 
 ;; one letter logging macros
 (forward-macro log:f log4cl-impl:log-fatal)
-(forward-macro log:e log4cl-impl:log-error)
+(forward-macro log:e log4cl-impl:log-sexp)
 (forward-macro log:w log4cl-impl:log-warn)
 (forward-macro log:i log4cl-impl:log-info)
 
@@ -194,6 +198,24 @@
 (forward-macro log:d8 log4cl-impl:log-debu8)
 (forward-macro log:d9 log4cl-impl:log-debu9)
 (forward-macro log:s log4cl-impl:log-sexp)
+
+;; two letter logging macros for log-sexp
+(forward-macro log:ff log4cl-impl:log-sexp-fatal)
+(forward-macro log:ee log4cl-impl:log-sexp-error)
+(forward-macro log:ww log4cl-impl:log-sexp-warn)
+(forward-macro log:ii log4cl-impl:log-sexp-info)
+
+(forward-macro log:dd log4cl-impl:log-sexp-debug)
+(forward-macro log:dd1 log4cl-impl:log-sexp-debu1)
+(forward-macro log:dd2 log4cl-impl:log-sexp-debu2)
+(forward-macro log:dd3 log4cl-impl:log-sexp-debu3)
+(forward-macro log:dd4 log4cl-impl:log-sexp-debu4)
+(forward-macro log:tt log4cl-impl:log-sexp-trace)
+(forward-macro log:dd5 log4cl-impl:log-sexp-debu5)
+(forward-macro log:dd6 log4cl-impl:log-sexp-debu6)
+(forward-macro log:dd7 log4cl-impl:log-sexp-debu7)
+(forward-macro log:dd8 log4cl-impl:log-sexp-debu8)
+(forward-macro log:dd9 log4cl-impl:log-sexp-debu9)
 
 ;; depreciated forwards
 (forward-macro log:with-hierarchy log4cl-impl:with-log-hierarchy t log4cl-impl:with-log-hierarchy)

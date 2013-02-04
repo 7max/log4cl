@@ -20,27 +20,40 @@
   ((category-separator :initform "." :accessor category-separator)
    (category-case :initform nil :accessor category-case)
    (expr-print-format :initform "~W=~W~^ ~:_" :accessor expr-print-format)
-   (use-shortest-nickname :initform  nil :accessor use-shortest-nickname)
+   (use-shortest-nickname :initform  nil :initarg :use-shortest-nickname :accessor use-shortest-nickname)
    (expr-log-level :initform +log-level-debug+ :accessor expr-log-level))
   (:documentation "Contains configuration that affects expansion of logger macros."))
 
 (defvar *naming-configuration* nil
   "Naming configuration currently in effect")
 
-(defvar *default-naming-configuration* (make-instance 'naming-configuration)
+(defparameter *default-naming-configuration* (make-instance 'naming-configuration :use-shortest-nickname t)
   "Default naming configuration")
 
+(defparameter *dotted-naming-configuration*
+  (make-instance 'naming-configuration :use-shortest-nickname nil)
+  "Naming configuration for dotted packages")
+
 (defvar *naming-configurations* (make-hash-table :test #'equal))
+
+(defun dotted-package-p (package)
+  (not (null (position #\. (package-name package)))))
 
 (defun find-or-create-naming-configuration (p &optional createp)
   (declare (type package p))
   (let ((nc (gethash (package-name p) *naming-configurations*)))
     (or nc (and createp (setf (gethash (package-name p) *naming-configurations*)
-                              (make-instance 'naming-configuration))))))
+                              (make-instance 'naming-configuration
+                               :use-shortest-nickname (not (dotted-package-p p))))))))
+
+(defun ensure-naming-configuration (package) 
+  (or (find-or-create-naming-configuration package)
+      (if (dotted-package-p package)
+          *dotted-naming-configuration*
+          *default-naming-configuration*)))
 
 (defmacro with-package-naming-configuration ((package) &body body)
-  `(let ((*naming-configuration* (or (find-or-create-naming-configuration ,package)
-                                     *default-naming-configuration*)))
+  `(let ((*naming-configuration* (ensure-naming-configuration ,package)))
      ,@body))
 
 (defgeneric log-level-from-object (obj package)

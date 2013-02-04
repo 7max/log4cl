@@ -258,13 +258,15 @@ SEPARATOR"
 (defmethod naming-option (package option)
   "Return default values for naming options which are:
     :CATEGORY-SEPARATOR \":\""
-  (declare (ignore package))
-  (ecase option
-    (:category-separator (category-separator *naming-configuration*))
-    (:category-case (category-case *naming-configuration*))
-    (:expr-print-format (expr-print-format *naming-configuration*))
-    (:use-shortest-nickname (use-shortest-nickname *naming-configuration*))
-    (:expr-log-level (expr-log-level *naming-configuration*))))
+  (flet ((doit () 
+           (ecase option
+             (:category-separator (category-separator *naming-configuration*))
+             (:category-case (category-case *naming-configuration*))
+             (:expr-print-format (expr-print-format *naming-configuration*))
+             (:use-shortest-nickname (use-shortest-nickname *naming-configuration*))
+             (:expr-log-level (expr-log-level *naming-configuration*)))))
+    (if *naming-configuration* (doit)
+        (with-package-naming-configuration (package) (doit)))))
 
 
 (defmethod resolve-logger-form (package env args)

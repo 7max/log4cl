@@ -220,7 +220,9 @@ Supported values for ARG are:
 
 (defun make-package-categories (package)
   "Return package categories split as per package configuration"
-  (split-into-categories (shortest-package-name package)
+  (split-into-categories (if (naming-option package :use-shortest-nickname)
+                             (shortest-package-name package)
+                             (package-name package))
                          package))
 
 (defmethod package-wrapper (package categories explicit-p)

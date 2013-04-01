@@ -15,6 +15,33 @@
 
 (in-package #:log4cl-impl)
 
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun safe-intern (name)
+    (let* ((name (string-upcase name))
+           (pos (position #\: name))
+           (package-name (subseq name 0 pos))
+           (symbol-name (subseq name (+ pos
+                                        (if (char= #\: (char name (1+ pos)))
+                                            2 1))))
+           (pkg (find-package package-name)))
+      (find-symbol symbol-name pkg))))
+
+(sb-ext:defglobal +sbcl-wrapper-names+
+  (remove nil (mapcar #'safe-intern
+                      '("sb-c::hairy-arg-processor"
+                        "sb-c::varargs-entry"
+                        "sb-c::xep" "sb-c::tl-xep"
+                        "sb-c::&more-processor"
+                        "sb-c::top-level-form"
+                        "sb-c::&optional-processor"))))
+
+(sb-ext:defglobal +sbcl-wrapper-ignore+
+    (remove nil (mapcar #'safe-intern
+                        '("sb-c::.anonymous."
+                          "sb-thread::with-mutex-thunk"))))
+
+
 (defun include-block-debug-name? (debug-name)
   "Figures out if we should include the debug-name into the stack of
 nested blocks..  Should return the symbol to use.
@@ -47,18 +74,25 @@ will be: package.foo.bar.baz
 
 "
   (if (symbolp debug-name)
-      (when (and (not (member debug-name '(sb-c::.anonymous. 
-                                           sb-thread::with-mutex-thunk)))
+      (when (and (not (member debug-name +sbcl-wrapper-ignore+))
                  (not (equal 0 (search "CLEANUP-FUN-"
                                        (symbol-name debug-name)))))
         debug-name)
-      (case (first debug-name)
-        (labels (include-block-debug-name? (second debug-name)))
-        (flet (include-block-debug-name? (second debug-name)))
+      (cond 
+        ((member (first debug-name) '(flet labels lambda))
+         (let* ((in (member :in debug-name)))
+           (if (stringp (cadr in))
+               (append (ldiff debug-name in) (cddr in))
+               debug-name)))
+        ((eq 'labels (first debug-name))
+         (include-block-debug-name? (second debug-name)))
+        ((eq 'flet (first debug-name))
+         (include-block-debug-name? (second debug-name)))
         ;; (lambda 'lambda)
-        (sb-pcl::fast-method (rest debug-name))
-        (sb-c::hairy-arg-processor (include-block-debug-name? (second debug-name)))
-        (sb-c::varargs-entry (include-block-debug-name? (second debug-name))))))
+        ((eq 'sb-pcl::fast-method (first debug-name))
+         (rest debug-name))
+        ((member (first debug-name) +sbcl-wrapper-names+)
+         (include-block-debug-name? (second debug-name))))))
 
 (defun sbcl-get-block-name  (env)
   "Return a list naming SBCL lexical environment. For example when

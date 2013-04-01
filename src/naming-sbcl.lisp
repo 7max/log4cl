@@ -80,10 +80,7 @@ will be: package.foo.bar.baz
         debug-name)
       (cond 
         ((member (first debug-name) '(flet labels lambda))
-         (let* ((in (member :in debug-name)))
-           (if (stringp (cadr in))
-               (append (ldiff debug-name in) (cddr in))
-               debug-name)))
+         (include-block-debug-name? (second debug-name)))
         ((eq 'labels (first debug-name))
          (include-block-debug-name? (second debug-name)))
         ((eq 'flet (first debug-name))

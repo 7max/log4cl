@@ -1,3 +1,6 @@
+## 1.0.0
+ * (Bugfix): Fix SB-C package lock error when compiling on new SBCL. Last stable version
+
 ## 0.9.3
 
 * (Feature): Added ability to quick save/restore of named logging

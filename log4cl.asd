@@ -19,7 +19,7 @@
 (in-package :log4cl.system)
 
 (defsystem :log4cl
-  :version "0.9.1"
+  :version "1.0.0"
   :depends-on (:bordeaux-threads)
   :components
   ((module "src" :serial t

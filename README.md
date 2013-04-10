@@ -1,4 +1,10 @@
 # Quickstart
+
+## GIT repository changes.
+
+  A *stable* branch had created in GIT, which will only get bugfixes
+  from now on. Quicklisp will pull from the stable branch.
+
 ## Installation and loading
 
 ### From [QuickLisp](http://www.quicklisp.org) 
@@ -6,7 +12,7 @@
 LOG4CL is now included in [QuickLisp](http://www.quicklisp.org). To
 load it use the command `(ql:quickload :log4cl)` from `REPL`. If
 QuickLisp can't find it, you need to update your QuickLisp
-distribution.
+distribution. This will load stable branch of Log4CL
 
 ### Latest GIT version
 

@@ -1,3 +1,8 @@
+## 1.0.1
+ * Create stable branch, and submitted QuickLisp issue to pull from it
+   instead. Master branch will become unstable/development, with a
+   bunch of new stuff coming in soonish.
+
 ## 1.0.0
  * (Bugfix): Fix SB-C package lock error when compiling on new SBCL. Last stable version
 

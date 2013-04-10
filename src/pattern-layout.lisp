@@ -186,8 +186,13 @@ Following pattern characters are recognized:
 
    PRETTY-PRINTER CONTROL
 
-   %< and %> the formatting inside is wrapped into PPRINT-LOGICAL-BLOCK
-   %> and %< opposite pair, *PPRINT-PRETTY* is unbound inside
+   %< and %> the formatting inside is wrapped into
+   PPRINT-LOGICAL-BLOCK, the value of *PRINT-PRETTY* is not changed.
+
+   The colon flag %:< %> in addition to wrapping whats inside in
+   PPRINT-LOGICAL-BLOCK will also bind *PRINT-PRETTY* to T
+
+   %> and %< is the opposite pair, *PPRINT-PRETTY* is unbound inside
 
    %_ conditional newline, issues (PPRINT-NEWLINE :linear)
    %:_ conditional newline, issues (PPRINT-NEWLINE :fill)
@@ -866,7 +871,8 @@ the log message to the stream with the specified format."
                          (compile-pattern-format pattern idx stopchar)
                        (setq idx newidx)
                        (add-formatter (lambda (stream fmt-info logger level log-func)
-                                        (funcall formatter stream fmt-info logger level log-func wrap))))))
+                                        (funcall formatter stream fmt-info logger level log-func wrap))
+                                      fmt-info))))
                (setq state :normal
                      minlen 0
                      maxlen nil
@@ -1176,9 +1182,11 @@ strftime like PATTERN."))
 
 (define-pattern-formatter (#\< #\>)
   "Wrap content inside into PPRINT-LOGICAL-BLOCK"
-  (declare (ignore fmt-info))
   (pprint-logical-block (stream nil)
-    (funcall wrap stream logger log-level log-func)))
+    (if (format-empty-skip fmt-info) 
+        (let ((*print-pretty* t)) 
+          (funcall wrap stream logger log-level log-func))
+        (funcall wrap stream logger log-level log-func))))
 
 (define-pattern-formatter (#\> #\<)
   "Wrap content inside with *PRINT-PRETTY* bound to NIL"

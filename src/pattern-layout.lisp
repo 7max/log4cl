@@ -1108,9 +1108,17 @@ strftime like PATTERN."))
                  (or *ndc-context* "") "")))
     (cond 
       ((stringp ndc) (format-string ndc stream fmt-info))
+      ;; Directly output he object without consing if
+      ;; there is no padding or justification
       ((and (zerop (slot-value fmt-info 'minlen))
             (null (slot-value fmt-info 'maxlen)))
-       (prin1 ndc stream))
+       (when (format-prefix fmt-info)
+         (write-string (format-prefix fmt-info) stream))
+       (prin1 ndc stream)
+       (when (format-suffix fmt-info)
+         (write-string (format-suffix fmt-info) stream)))
+      ;; have to do indirect formatting, because we have padding or
+      ;; justification, and object was not a string
       (t (format-string (with-output-to-string (s)
                           (prin1 ndc s))
                         stream fmt-info))))

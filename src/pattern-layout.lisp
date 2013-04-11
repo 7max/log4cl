@@ -1114,7 +1114,6 @@ strftime like PATTERN."))
                  (or *ndc-context* "") "")))
     (cond 
       ((stringp ndc) (format-string ndc stream fmt-info))
-      ((symbolp ndc) (format-string (symbol-name ndc) stream fmt-info))
       ;; Directly output he object without consing if
       ;; there is no padding or justification
       ((and (zerop (slot-value fmt-info 'minlen))

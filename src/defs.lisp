@@ -83,8 +83,9 @@
   "Indent level can be used to indent logging info, is printed by %I
 pattern format")
 
-(defvar *ndc-context* nil
-  "Value that is printed by %x pattern format")
+(defvar *ndc-context*)
+(eval-when (:load-toplevel :execute) 
+  (setf (documentation '*ndc-context* 'variable) "Value that is printed by %x pattern format"))
 
 (defvar *log-event-time* nil
   "Value of (GET-UNIVERSAL-TIME) for the current log event")

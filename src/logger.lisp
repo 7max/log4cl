@@ -31,7 +31,7 @@
 #+sbcl
 (declaim (sb-ext:always-bound
           *log-indent*
-          *ndc-context* *log-event-time*
+          *log-event-time*
           *inside-user-log-function*))
 
 ;; Circularity, *root-logger* needs to be referenced by logger

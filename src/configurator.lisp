@@ -45,29 +45,29 @@ appender"
 
 (defparameter *default-patterns*
   '((:oneline t :time t :file t :pattern
-     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
     (:oneline t :time t :file2 t :pattern
-     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}] %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
     (:oneline t :time nil :file t :pattern
-     "%&%<%I%;<;;>;-5p %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+     "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
     (:oneline t :time nil :file2 t :pattern
-     "%&%<%I%;<;;>;-5p %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+     "%&%<%I%;<;;>;-5p%t %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
     (:oneline t :time t :pattern
-     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
     (:oneline t :time nil :pattern
-     "%&%<%I%;<;;>;-5p %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+     "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
     (:twoline t :time t :file t :pattern
-     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
     (:twoline t :time t :file2 t :pattern
-     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}] %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
     (:twoline t :time nil :file t :pattern
-     "%&%<%I%;<;;>;-5p %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
+     "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
     (:twoline t :time nil :file2 t :pattern
-     "%&%<%I%;<;;>;-5p %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
+     "%&%<%I%;<;;>;-5p%t %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
     (:twoline t :time t :pattern
-     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}] %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
     (:twoline t :time nil :pattern
-     "%&%<%I%;<;;>;-5p %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")))
+     "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")))
 
 (defun figure-out-pattern (&rest args)
   (let ((pat (find-if (lambda (elem)
@@ -76,7 +76,31 @@ appender"
                                       (getf elem prop)))
                                '(:oneline :twoline :time :file :file2)))
                       *default-patterns*)))
-    (getf (or pat (first *default-patterns*)) :pattern)))
+    (let ((pat (getf (or pat (first *default-patterns*)) :pattern)))
+      ;; handle pretty, ndc and thread
+      (flet ((frob (x y)
+               (let ((n (search x pat)))
+                 (when n
+                   (setq pat (concatenate
+                              'string
+                              (subseq pat 0 n)
+                              y
+                              (subseq pat (+ n (length x)))))))))
+        (cond ((getf args :pretty)
+               (frob "%<" "%:<"))
+              ((getf args :nopretty)
+               (frob "%>" "%<")
+               (frob "%<" "%>")))
+        (cond
+          ((and (getf args :thread)
+                (getf args :ndc))
+           (frob "%t" " [%t%:;-;x]"))
+          ((getf args :thread)
+           (frob "%t" " [%t]"))
+          ((getf args :ndc)
+           (frob "%t" "%:; [;;];x"))
+          (t (frob "%t" "")))
+        pat))))
 
 (defun log-config (&rest args)
   "User friendly way of configuring loggers. General syntax is:
@@ -138,6 +162,20 @@ Valid options can be:
  :FILE2        | position for the file (in front of the package).
  :NOFILE       | :NOFILE removes the file
 ---------------|---------------------------------------------------------------
+ :THREAD       | Include thread name into default pattern, it will be after the
+               | time, in [%t] format
+---------------|---------------------------------------------------------------
+ :NDC          | Include NDC context into default pattern, if thread is also
+               | specified, it will be after the thread name, separated by dash
+               | like this: [threadname-ndc], and will not be shown if NIL or
+               | unbound
+               |
+               | If thread name is not specified, it will be included in place
+               | of a thread name, in [%x] format, not taking any space if unset
+               | or NIL
+---------------|---------------------------------------------------------------
+ :PRETTY       | Force pretty printing, or opposite bind *PRINT-PRETTY* to NIL
+---------------|---------------------------------------------------------------
  :PROPERTIES   | Configure with PROPERTY-CONFIGURATOR by parsing specified     
  FILE          | properties file                                               
 ---------------|---------------------------------------------------------------
@@ -198,6 +236,8 @@ Examples:
         immediate-flush
         properties watch
         this-console
+        pretty nopretty
+        thread ndc
         stream)
     (declare (type (or null stream) stream))
     (cond ((logger-p (car args))
@@ -217,7 +257,7 @@ Examples:
     (loop
       (let ((arg (or (pop args) (return))))
         (case arg
-          (:self ; still in the arglist means 1st arg was a logger
+          (:self     ; still in the arglist means 1st arg was a logger
            (log4cl-error "Specifying a logger is incompatible with :SELF"))
           (:sane (setq sane t))
           ((:clear :reset) (setq clear t))
@@ -233,6 +273,10 @@ Examples:
           ((:twoline :two-line :2line) (setq oneline nil twoline t))
           ((:oneline :one-line :1line) (setq oneline t twoline nil))
           (:console (setq console t))
+          (:thread (setq thread t))
+          (:ndc (setq ndc t))
+          (:pretty (setq pretty t nopretty nil))
+          (:nopretty (setq nopretty t pretty nil))
           (:this-console (setq this-console t
                                console t))
           (:watch (setq watch t))
@@ -304,7 +348,11 @@ Examples:
                                  :twoline (if (or oneline twoline) twoline nil)
                                  :time (if (or time notime) time t)
                                  :file (if (or file file2 nofile) file t)
-                                 :file2 (if (or file file2 nofile) file2 nil)))))
+                                 :file2 (if (or file file2 nofile) file2 nil)
+                                 :pretty pretty
+                                 :nopretty nopretty
+                                 :thread thread
+                                 :ndc ndc))))
       (if sane
           ;; Only remove all appenders if :clear was also given,
           ;; otherwise don't touch file appenders
@@ -344,14 +392,18 @@ Examples:
       ;; This is special adhoc case of configuring the LOG4CL-iMPL:SELF.  We need
       ;; special processing, because we want self-logging to survive
       ;; the (clear-logging-configuration), which is done doing tests
-      (let ((config (cons :own
-                          ;; we don't remember these
-                          (remove-if (lambda (x)
-                                       (member x '(:own :self :clear :all :twoline :two-line
-                                                   :2line :oneline :one-line :1line
-                                                   :file :file2 :nofile
-                                                   :time :notime)))
-                                     orig-args))))
+      (let ((config
+              (cons
+               :own
+               ;; we don't remember these
+               (remove-if (lambda (x)
+                            (member x '(:own :self :clear :all :twoline :two-line
+                                        :2line :oneline :one-line :1line
+                                        :file :file2 :nofile
+                                        :time :notime
+                                        :pretty :nopretty
+                                        :thread :ndc)))
+                          orig-args))))
         ;; If anything non-default was specified, remember
         (let ((lst '(:sane :daily :console :this-console))) 
           (if (null (intersection lst config))
@@ -364,6 +416,10 @@ Examples:
         (and nofile (push :nofile config)) 
         (and notime (push :notime config))
         (and time (push :time config))
+        (and pretty (push :pretty config))
+        (and nopretty (push :nopretty config))
+        (and thread (push :thread config))
+        (and ndc (push :ndc config))
         (when (and (null level)
                    (logger-log-level logger))
           (push (aref +log-level-to-keyword+

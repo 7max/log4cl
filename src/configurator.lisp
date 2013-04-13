@@ -148,7 +148,8 @@ Valid options can be:
                | be rolled over every midnight into FILE.YYYYMMDD; Removes any 
                | other FILE-APPENDER-BASE'ed appenders from the logger
 ---------------|---------------------------------------------------------------
- :STREAM stream| Adds FIXED-STREAM-APPENDER logging to specified stream
+ :STREAM stream| Adds THIS-CONSOLE-APPENDER logging to specified stream, assumes
+               | :THIS-CONSOLE option
 ---------------|---------------------------------------------------------------
  :PATTERN      | For any new appenders added, specifies the conversion pattern for the
                | PATTERN-LAYOUT
@@ -191,11 +192,10 @@ Valid options can be:
  :NOADDITIVE   |
  :ADDITIVE     | Sets additive flag back
 ---------------|---------------------------------------------------------------
- :CLEAR        | Removes log level and appenders from any child loggers, except
-               | the non-additive ones, and self logger
+ :CLEAR        | Unset log level from all child loggers, and remove any
+               | appenders from them, except the ones with non-additive flag
 ---------------|---------------------------------------------------------------
- :ALL          | Changes :CLEAR to process non-additive loggers also (will still
-               | ignore self logger)
+ :ALL          | Changes :CLEAR to process non-additive loggers
 ---------------|---------------------------------------------------------------
  :SELF         | Configures the LOG4CL-IMPL logger, which can be used to debug
                | Log4CL itself.
@@ -238,7 +238,9 @@ Examples:
         this-console
         pretty nopretty
         thread ndc
-        stream)
+        stream
+        pattern-specified-p
+        appender-specified-p)
     (declare (type (or null stream) stream))
     (cond ((logger-p (car args))
            (setq logger (pop args)))
@@ -303,19 +305,38 @@ Examples:
                       (log4cl-error "Invalid LOG-CONFIG keyword ~s" arg))
                      (t (log4cl-error
                          "Don't know what do with argument ~S" arg))))))))
+    (setq
+     pattern-specified-p (or pattern oneline twoline thread
+                             ndc file file2 time notime
+                             pretty nopretty)
+     appender-specified-p (or daily sane console))
+    
     (or logger (setq logger *root-logger*))
-    (or level sane clear daily properties own noown console
-        (log4cl-error "A log level or one of :SANE :CLEAR :OWN :ADDITIVE :DAILY :CONSOLE or :PROPERTIES must be specified"))
+    (or level sane clear daily properties own noown console pattern-specified-p
+        (log4cl-error "Bad combination of options"))
     (or (not properties)
-        (not (or sane daily console level))
-        (log4cl-error ":PROPERTIES can't be used with :SANE :DAILY :PATTERN or log level"))
+        (not (or sane daily console level pattern-specified-p))
+        (log4cl-error ":PROPERTIES can't be used with other options"))
     (if (and pattern
-             (or twoline oneline file file2 nofile time notime))
-        (error ":PATTERN is not compatible with other pattern related flags"))
-    (unless (or daily sane console)
-      (when (or pattern twoline oneline
-                file file2 nofile time notime)
-        (error "Flags related to pattern can only be specified together with :SANE, :DAILY or :CONSOLE")))
+             (or twoline oneline file file2 nofile time notime
+                 thread ndc pretty nopretty))
+        (error ":PATTERN isn't  compatible with built-in pattern selection flags"))
+    ;; ZZZ
+    ;; Then if specified daily/console/sane/etc, create new appender
+    ;; otherwise go change layout on existing appenders, or self
+    (when (or appender-specified-p pattern-specified-p)
+      (setq layout (make-instance 'pattern-layout
+                    :conversion-pattern
+                    (or pattern (figure-out-pattern
+                                 :oneline (if (or oneline twoline) oneline t)
+                                 :twoline (if (or oneline twoline) twoline nil)
+                                 :time (if (or time notime) time t)
+                                 :file (if (or file file2 nofile) file t)
+                                 :file2 (if (or file file2 nofile) file2 nil)
+                                 :pretty pretty
+                                 :nopretty nopretty
+                                 :thread thread
+                                 :ndc ndc)))))
     (when (and own (eq logger *root-logger*))
       (error "Can't set root logger non-additive"))
     (when level
@@ -337,22 +358,10 @@ Examples:
              (set-log-level l +log-level-unset+ nil)
              (remove-all-appenders-internal l nil)))
          logger)))
+    ;; kind of separate from appender stuff
     (when (or own noown)
       (set-additivity logger (not own) nil))
     (when (or daily sane console) 
-      ;; (format t "here file ~s file ~s nofile ~s ~%" file file2 nofile)
-      (setq layout (make-instance 'pattern-layout
-                    :conversion-pattern
-                    (or pattern (figure-out-pattern
-                                 :oneline (if (or oneline twoline) oneline t)
-                                 :twoline (if (or oneline twoline) twoline nil)
-                                 :time (if (or time notime) time t)
-                                 :file (if (or file file2 nofile) file t)
-                                 :file2 (if (or file file2 nofile) file2 nil)
-                                 :pretty pretty
-                                 :nopretty nopretty
-                                 :thread thread
-                                 :ndc ndc))))
       (if sane
           ;; Only remove all appenders if :clear was also given,
           ;; otherwise don't touch file appenders
@@ -370,7 +379,10 @@ Examples:
                :backup-name-format (format nil "~a.%Y%m%d" daily)
                :layout layout)
               appenders))
-      ;; create console appender
+      ;; Add new console appender, only in these situations
+      ;; 
+      ;; a) :console or :this-console is explicitly used
+      ;; b) :sane is specified and :daily not
       (when (or (and sane (not daily))
                 console)
         (push
@@ -388,6 +400,19 @@ Examples:
     (when properties
       (configure (make-instance 'property-configurator) properties
                  :auto-reload watch))
+    ;; When pattern options are specified, but not the option to add
+    ;; new appender, we assume user wants to change layout for
+    ;; existing console appenders
+    (when (and pattern-specified-p (not appender-specified-p))
+      (dolist (a (logger-appenders logger))
+        ;; Only change global console appenders, or specific console
+        ;; appender that log to console at log site
+        (when (and (typep a 'console-appender)
+                   (or (not (typep a 'this-console-appender))
+                       (eq (appender-stream a) *debug-io*)))
+          ;; Assumes slot assignments atomic, but so is everything
+          ;; else in log4cl
+          (setf (appender-layout a) layout))))
     (when self
       ;; This is special adhoc case of configuring the LOG4CL-iMPL:SELF.  We need
       ;; special processing, because we want self-logging to survive

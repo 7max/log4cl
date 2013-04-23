@@ -15,8 +15,9 @@
 
 (in-package #:log4cl-test)
 
-(in-suite test)
-(defsuite* test-appenders)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (in-suite test) 
+  (defsuite* test-appenders))
 
 (deftest test-appender-refcounts ()
   (with-package-log-hierarchy
@@ -73,10 +74,10 @@ log level is printed"))
           (logger (make-logger '(one two three))))
       (add-appender logger a1)
       (log-config :i)
-      (log-info logger "hey")
+      (log-info :logger logger "hey")
       (is (equal 1 (appender-message-count a1)))
       (is (equal 1 (slot-value a1 'count)))
-      (log-info logger "hey2")
+      (log-info :logger logger "hey2")
       (is (equal 2 (appender-message-count a1)))
       (is (equal 2 (slot-value a1 'count))))))
 
@@ -92,10 +93,10 @@ appended to it"
       (add-appender logger a1)
       (add-appender logger a2)
       (log-config :i)
-      (log-info logger "hey")
+      (log-info :logger logger "hey")
       (is (equal 1 (slot-value a1 'count)))
       (is (equal 1 (slot-value a2 'count)))
-      (log-info logger "hey again")
+      (log-info :logger logger "hey again")
       (is (equal 2 (slot-value a1 'count)))
       (is (equal 2 (slot-value a2 'count)))
 
@@ -105,7 +106,7 @@ appended to it"
       (is (equal 0 (appender-ignored-error-count a2)))
 
       ;; throws an error
-      (log-warn logger "its a warning")
+      (log-warn :logger logger "its a warning")
       (is (equal 3 (slot-value a1 'count)))
       (is (equal 3 (slot-value a2 'count)))
       (is (equal 3 (appender-message-count a1)))
@@ -120,14 +121,14 @@ appended to it"
       (is (appender-enabled-p a1))
       (is (not (appender-enabled-p a2)))
       
-      (log-info logger "info once more")
+      (log-info :logger logger "info once more")
       (is (equal 4 (slot-value a1 'count)))
       (is (equal 3 (slot-value a2 'count)))
 
       ;; clear the error
       (setf (appender-enabled-p a2) t)
 
-      (log-info logger "info again")
+      (log-info :logger logger "info again")
       (is (equal 5 (slot-value a1 'count)))
       (is (equal 4 (slot-value a2 'count)))
 
@@ -146,10 +147,10 @@ appended to it"
                 (add-appender (make-logger +self-meta-logger+) a1)
                 (add-appender logger a2)
                 (log-config :i)
-                (log-info logger "hey")
+                (log-info :logger logger "hey")
                 (is (equal 1 (slot-value a2 'count)))
                 (is (equal 1 (appender-message-count a2)))
-                (finishes (log-warn logger "its a warning"))
+                (finishes (log-warn :logger logger "its a warning"))
                 ;; counting appender counts number of times
                 ;; APPENDER-DO-APPEND is called, and message count
                 ;; counts number of times in succeeded
@@ -158,7 +159,7 @@ appended to it"
                 (is (equal 1 (appender-error-count a2)))
                 (is (equal 1 (appender-message-count a2)))
                 ;; now since its disabled, count should not increase
-                (log-info logger "hey again")
+                (log-info :logger logger "hey again")
                 (is (equal 2 (slot-value a2 'count)))))))
       (is (plusp (length output)))
       (is (search "error" (string-downcase output)))
@@ -181,14 +182,14 @@ appended to it"
                 (log-config :i)
                 (setf (logger-additivity logger) nil)
 
-                (log-info logger "hey")
+                (log-info :logger logger "hey")
                 (is (equal 1 (slot-value a2 'count)))
                 (is (equal 1 (appender-message-count a2)))
                 (is (equal 0 (appender-error-count a2)))
                 (is (equal 0 (appender-ignored-error-count a2)))
                 
                 ;; throws error, will be retried
-                (finishes (log-warn logger "its a warning"))
+                (finishes (log-warn :logger logger "its a warning"))
 
                 ;; +1 for initial try, +1 for retry
                 (is (equal 3 (slot-value a2 'count)))
@@ -198,7 +199,7 @@ appended to it"
                 (is (equal 0 (appender-ignored-error-count a2)))
 
                 ;; back to usual
-                (log-info logger "hey again")
+                (log-info :logger logger "hey again")
                 (is (equal 4 (slot-value a2 'count)))
                 (is (equal 3 (appender-message-count a2)))
                 (is (equal 1 (appender-error-count a2)))
@@ -221,14 +222,14 @@ appended to it"
                 (log-config :i)
                 (setf (logger-additivity logger) nil)
 
-                (log-info logger "hey")
+                (log-info :logger logger "hey")
                 (is (equal 1 (slot-value a2 'count)))
                 (is (equal 1 (appender-message-count a2)))
                 (is (equal 0 (appender-error-count a2)))
                 (is (equal 0 (appender-ignored-error-count a2)))
                 
                 ;; throws error, will be retried
-                (finishes (log-warn logger "its a warning"))
+                (finishes (log-warn :logger logger "its a warning"))
                 (is (appender-enabled-p a2))
 
                 ;; +1 for initial try, +1 for retry
@@ -238,7 +239,7 @@ appended to it"
                 (is (equal 1 (appender-ignored-error-count a2)))
 
                 ;; back to usual
-                (log-info logger "hey again")
+                (log-info :logger logger "hey again")
                 (is (equal 3 (slot-value a2 'count)))
                 (is (equal 2 (appender-message-count a2)))
                 (is (equal 0 (appender-error-count a2)))
@@ -260,11 +261,11 @@ forever loop."
                 (add-appender logger a2)
                 (log-config :i)
                 (setf (logger-additivity logger) nil)
-                (log-info logger "hey")
+                (log-info :logger logger "hey")
                 (is (equal 1 (slot-value a2 'count)))
                 (is (equal 1 (appender-message-count a2)))
                 ;; Throw error, with :retry always returned
-                (log-warn logger "its a warning")
+                (log-warn :logger logger "its a warning")
                 ;; 1 was there + 3 retries 
                 (is (equal 4 (slot-value a2 'count)))
                 ;; none succeeded, and should have been auto disabled
@@ -295,10 +296,10 @@ forever loop."
                    (add-appender logger a2)
                    (is (equal ss (appender-stream a2)))
                    (log-config :i)
-                   (log-info logger "hey")
+                   (log-info :logger logger "hey")
                    (is (equal 1 (slot-value a2 'count)))
                    (is (equal 1 (appender-message-count a2)))))
-               (log-info logger "boo")
+               (log-info :logger logger "boo")
                (is (null (appender-loggers a2)))
                (is (equal 0 (appender-logger-count a2)))
                (is (equal 2 (slot-value a2 'count)))
@@ -326,10 +327,10 @@ forever loop."
                    (add-appender logger a2)
                    (is (equal ss (appender-stream a2)))
                    (log-config :i)
-                   (log-info logger "hey")
+                   (log-info :logger logger "hey")
                    (is (equal 1 (slot-value a2 'count)))
                    (is (equal 1 (appender-message-count a2))))))))
-      (log-info logger "boo")
+      (log-info :logger logger "boo")
       (is (null (appender-loggers a2)))
       (is (equal 0 (appender-logger-count a2)))
       (is (equal 2 (slot-value a2 'count)))
@@ -406,7 +407,8 @@ user log statement, its raised and does not disable the appender"
    (merge-pathnames (format nil "~a/" (rand-filename))
                     *temp-dir*)))
 
-(defsuite* test-file-appenders)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defsuite* test-file-appenders))
 
 (deftest test-normal-file-appender ()
   (with-package-log-hierarchy
@@ -417,7 +419,7 @@ user log statement, its raised and does not disable the appender"
       (setf (logger-additivity logger) nil)
       (add-appender logger a)
       (log-config :i)
-      (log-info logger "Hello World")
+      (log-info :logger logger "Hello World")
       (is (appender-stream a))
       (is (probe-file fname))
       (remove-appender logger a)
@@ -439,11 +441,11 @@ user log statement, its raised and does not disable the appender"
       (add-appender logger a)
       ;; (add-appender *root-logger* (make-instance 'console-appender))
       (log-config :d)
-      (log-info logger "Hey")
+      (log-info :logger logger "Hey")
       (let ((fname1 (appender-filename a)))
         (log-sexp fname1)
         (sleep 1.2)
-        (log-info logger "Hey again")
+        (log-info :logger logger "Hey again")
         (let ((fname2 (appender-filename a)))
           (log-sexp fname2)
           (unwind-protect
@@ -473,11 +475,11 @@ user log statement, its raised and does not disable the appender"
       (add-appender logger a1)
       ;; (add-appender *root-logger* (make-instance 'console-appender))
       (log-config :d)
-      (log-info logger "Hey")
+      (log-info :logger logger "Hey")
       (let ((fname-bak (appender-next-backup-file a1)))
         (log-sexp fname-bak)
         (sleep 1.2)
-        (log-info logger "Hey again")
+        (log-info :logger logger "Hey again")
         (unwind-protect
              (progn
                (is (not (equal fname-bak fname)))
@@ -513,7 +515,7 @@ user log statement, its raised and does not disable the appender"
         (setf (logger-additivity logger) nil)
         (add-appender logger a)
         (log-config :i)
-        (log-info logger "Hello World 1")
+        (log-info :logger logger "Hello World 1")
         (is (appender-stream a))
         (is (probe-file fname))
         ;; first log statement will flush because last flush time was
@@ -521,7 +523,7 @@ user log statement, its raised and does not disable the appender"
         (with-open-file (s fname)
           (is (equal (read-line s nil) "INFO - Hello World 1")))
         ;; this log statement should not flush
-        (log-info logger "Hello World 2")
+        (log-info :logger logger "Hello World 2")
         ;; verify it did not flush, (this will fail on non-threaded lisp
         ;; so only do it if its threaded lisp, and therefore immediate-flush
         ;; defaulted to NIL
@@ -564,7 +566,7 @@ based on the file modification time"
       (add-appender logger a1)
       ;; (add-appender *root-logger* (make-instance 'console-appender))
       (log-config :d)
-      (log-info logger "Hey")
+      (log-info :logger logger "Hey")
       (let ((fname-bak (appender-last-backup-file a1)))
         (log-sexp fname-bak)
         (unwind-protect

@@ -168,7 +168,8 @@
    #:this-console-appender
    #:temp-appender
    #:temp-appender-error-type
-   #:appender-loggers))
+   #:appender-loggers
+   #:dwim-logging-macros))
 
 
 

@@ -19,11 +19,9 @@
 (in-package :log4cl-test.file-category)
 
 (eval-when (:load-toplevel :compile-toplevel :execute)
-  (log4cl-impl:log-setup :category-separator "."))
-
-(in-suite log4cl-test:test)
-
-(defsuite* test-file-categories)
+  (log4cl-impl:log-setup :category-separator ".")
+  (in-suite log4cl-test:test)
+  (defsuite* test-file-categories))
 
 ;; (setup-logging)
 
@@ -85,11 +83,11 @@
               (logger-file-logger logger-2)))
 
       (log-config *root-logger* :warn :console)
-      (is (log-warn logger-1))
-      (is (log-warn logger-2))
-      (is (not (log-info logger-1)))
+      (is (log-warn :logger logger-1))
+      (is (log-warn :logger logger-2))
+      (is (not (log-info :logger logger-1)))
       (log-config logger-2 :info)
-      (is (log-info logger-1))
-      (is (log-info logger-2)))))
+      (is (log-info :logger logger-1))
+      (is (log-info :logger logger-2)))))
 
 

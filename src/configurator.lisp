@@ -899,7 +899,8 @@ lift the older equivalent configuration to the top of the list"
                        category-separator
                        expr-print-format
                        (shortest-nickname t shortest-nicknamep)
-                       expr-log-level)
+                       expr-log-level
+                       (dwim-logging-macros t dwim-logging-macrosp))
   (let* ((nc (find-or-create-naming-configuration package t))
          (*naming-configuration* nc))
     (prog1 nc 
@@ -907,4 +908,5 @@ lift the older equivalent configuration to the top of the list"
       (when category-separator (setf (category-separator nc) category-separator)) 
       (when expr-print-format (setf (expr-print-format nc) expr-print-format))
       (when shortest-nicknamep (setf (use-shortest-nickname nc) shortest-nickname))
-      (when expr-log-level (setf (expr-log-level nc) (make-log-level expr-log-level))))))
+      (when expr-log-level (setf (expr-log-level nc) (make-log-level expr-log-level)))
+      (when dwim-logging-macrosp (setf (dwim-logging-macros nc) dwim-logging-macros)))))

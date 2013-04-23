@@ -21,7 +21,8 @@
    (category-case :initform nil :accessor category-case)
    (expr-print-format :initform "~W=~W~^ ~:_" :accessor expr-print-format)
    (use-shortest-nickname :initform  nil :initarg :use-shortest-nickname :accessor use-shortest-nickname)
-   (expr-log-level :initform +log-level-debug+ :accessor expr-log-level))
+   (expr-log-level :initform +log-level-debug+ :accessor expr-log-level)
+   (dwim-logging-macros :initform t :accessor dwim-logging-macros))
   (:documentation "Contains configuration that affects expansion of logger macros."))
 
 (defvar *naming-configuration* nil
@@ -279,7 +280,9 @@ SEPARATOR"
              (:category-case (category-case *naming-configuration*))
              (:expr-print-format (expr-print-format *naming-configuration*))
              (:use-shortest-nickname (use-shortest-nickname *naming-configuration*))
-             (:expr-log-level (expr-log-level *naming-configuration*)))))
+             (:expr-log-level (expr-log-level *naming-configuration*))
+             (:dwim-logging-macros
+              (dwim-logging-macros *naming-configuration*)))))
     (if *naming-configuration* (doit)
         (with-package-naming-configuration (package) (doit)))))
 
@@ -295,30 +298,153 @@ SEPARATOR"
   <current-package>.<symbol>
 
 - Otherwise returns the form `(GET-LOGGER ,(FIRST ARGS) ,@(REST ARGS))'"
-  (cond
-    ((or (null args)
-         (stringp (first args)))
-     (resolve-default-logger-form package env args))
-    ((keywordp (first args))
-     (values (instantiate-logger package
-                                 (split-into-categories
-                                  (symbol-name (first args)) package)
-                                 nil t)
-             (rest args)))
-    ((constantp (first args))
-     (let ((value (eval (first args))))
-       (cond ((symbolp value)
-              (values (instantiate-logger
-                       package
-                       (split-into-categories (symbol-name value) package)
-                       nil t)
-                      (rest args)))
-             ((listp value)
-              (values (instantiate-logger package value t t)
-                      (rest args)))
-             (t (values (first args) (rest args))))))
-    (t
-     (values (first args) (rest args)))))
+  ;;
+  ;; zzz, new way
+  ;;
+  
+  (assert *naming-configuration*)
+  ;; stupid hack, but I don't want to change signature of the generic
+  (let ((from-log-expr-p
+          (when (eq (first args) 'from-log-expr)
+            (pop args)
+            t))
+        (from-make-logger-p
+          (when (eq (first args) 'from-make-logger)
+            (pop args)
+            t)))
+    (if (or (dwim-logging-macros *naming-configuration*)
+            from-log-expr-p
+            from-make-logger-p)
+        ;; new way
+        (let (logger-expr format-expr) 
+          (unless (or from-log-expr-p from-make-logger-p) 
+            (loop
+              (cond
+                ((and (not logger-expr) (eq (first args) :logger))
+                 (setq logger-expr (check-arg :logger (second args))))
+                ((and (not format-expr) (eq (first args) :format-control))
+                 (setq format-expr (check-arg :format-control (second args))))
+                (t (return)))
+              (setq args (cddr args))))
+          (when (and (null logger-expr)
+                     (not (null args)))
+            (cond
+              ((keywordp (first args))
+               (setq logger-expr
+                     (instantiate-logger package
+                                         (split-into-categories
+                                          (symbol-name (first args)) package)
+                                         nil t)
+                     args (rest args)))
+              ((constantp (first args))
+               (let ((value (eval (first args))))
+                 (cond ((symbolp value)
+                        (setq logger-expr
+                              (instantiate-logger
+                               package
+                               (split-into-categories (symbol-name value) package)
+                               nil t)
+                              args (rest args)))
+                       ((listp value)
+                        (setq logger-expr (instantiate-logger package value t t)
+                              args  (rest args))))))))
+          (when (and (null logger-expr)
+                     from-make-logger-p
+                     (not (null args)))
+            (assert (null (rest args)))
+            (setq logger-expr (first args)))
+          (or logger-expr (setq logger-expr
+                                (instantiate-logger
+                                 package
+                                 (enclosing-scope-block-name package env)
+                                 nil t)))
+          (assert logger-expr)
+          (cond ((not (null format-expr))
+                 (values logger-expr `(,format-expr ,@args)))
+                ((null args) logger-expr)
+                ((and (not from-log-expr-p)
+                      (stringp (first args))
+                      (position #\~ (first args)))
+                 (values logger-expr args))
+                (t (when (and (cddr args)
+                              (typep (first args) '(or symbol list))
+                              (stringp (second args))
+                              (position #\~ (second args)))
+                     (log4cl-style-warning "Tilde in second argument, missing :LOGGER?"))
+                   (values logger-expr (make-log-expr-format args))))) 
+        ;; old way
+        (cond
+          ((or (null args)
+               (stringp (first args)))
+           (resolve-default-logger-form package env args))
+          ((keywordp (first args))
+           (values (instantiate-logger package
+                                       (split-into-categories
+                                        (symbol-name (first args)) package)
+                                       nil t)
+                   (rest args)))
+          ((constantp (first args))
+           (let ((value (eval (first args))))
+             (cond ((symbolp value)
+                    (values (instantiate-logger
+                             package
+                             (split-into-categories (symbol-name value) package)
+                             nil t)
+                            (rest args)))
+                   ((listp value)
+                    (values (instantiate-logger package value t t)
+                            (rest args)))
+                   (t (values (first args) (rest args))))))
+          (t
+           (values (first args) (rest args)))))))
+
+(defun make-log-expr-format (args)
+  "Implement the parsing for (log:expr) arguments. Should return the
+list of arguments to FORMAT starting with control string"
+  (assert *naming-configuration*)
+  (let* ((expr-format (expr-print-format *naming-configuration*))
+         fmt-string fmt-args arg)
+    (setq
+     fmt-string
+     (with-output-to-string (*standard-output*)
+       (loop
+         (if (null args) (return)
+             (setq arg (first args)
+                   args (rest args)))
+         (cond ((stringp arg)
+                ;; trim spaces
+                (let* ((n1 (position #\Space arg :test-not #'char=))
+                       (n2 (position #\Space arg :test-not #'char=
+                                                 :from-end t))) 
+                  (when n1 (setq arg (substr arg n1 (1+ n2)))) 
+                  ;; if either last arg, or literal string contains
+                  ;; tildes, print it indirectly via ~A format, so
+                  ;; that ~^ stop out in the separator expression
+                  ;; does not exit if log statement has literal suffix
+                  ;; like so (log:debug a b c "blah")
+                  (cond ((or (null args)
+                             (position #\~ arg))
+                         (princ "~A")
+                         (push arg fmt-args))
+                        (t (princ arg)))
+                  ;; Don't add extra space after literal if current or
+                  ;; next arg is all whitespace literal
+                  (unless (or (not n1)    ; current arg is whitespace
+                              (null args) ; last arg
+                              ;; next arg is whitespace or empty string
+                              (and (stringp (first args))
+                                   (null (position #\Space (first args)
+                                                   :test-not #'char=)))) 
+                    (princ #\Space))))
+               ((search "~:>" expr-format)
+                ;; if expression format is pretty-print logical block
+                ;; put arguments into a list
+                (princ expr-format)
+                (push `(list (quote ,arg) ,arg) fmt-args))
+               (t (princ expr-format)
+                  (push `(quote ,arg) fmt-args)
+                  (push arg fmt-args))))))
+    (cons fmt-string (nreverse fmt-args))))
 
 (defun write-string-modify-case (string stream
                                  &optional

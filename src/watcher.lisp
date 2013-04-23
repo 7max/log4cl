@@ -31,16 +31,16 @@
            (unwind-protect
                 (handler-case 
                     (progn
-                      (log-info logger "Hierarchy watcher started")
+                      (log-info :logger logger "Hierarchy watcher started")
                       (loop
                         (let ((*watcher-event-time* (get-universal-time)))
                           (hierarchy-watcher-once))
                         (sleep *hierarchy-watcher-heartbeat*)))
                   (error (e)
-                    (log-error logger "Error in hierarchy watcher thread:~%~A" e)))
+                    (log-error :logger logger "Error in hierarchy watcher thread:~%~A" e)))
              (with-hierarchies-lock
                (setf *watcher-thread* nil))
-             (log-info logger "Hierarchy watcher thread ended"))))
+             (log-info :logger logger "Hierarchy watcher thread ended"))))
        :name "Hierarchy Watcher"
        :initial-bindings
        `((*hierarchy* . 0)

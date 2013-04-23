@@ -15,8 +15,9 @@
 
 (in-package #:log4cl-test)
 
-(in-root-suite)
-(defsuite* test-speed)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (in-root-suite) 
+  (defsuite* test-speed))
 
 ;; Logging case, with default optimizations
 ;;

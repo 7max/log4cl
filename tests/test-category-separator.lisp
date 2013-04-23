@@ -14,15 +14,15 @@
 ;;; limitations under the License.
 
 (cl:defpackage :log4cl-test.dots
-  (:use :cl :log4cl-impl :stefil))
+  (:use :cl :log4cl-impl :stefil)
+  (:export #:test))
 
 (in-package #:log4cl-test.dots)
 
 (eval-when (:load-toplevel :compile-toplevel :execute)
-  (log4cl-impl:log-setup :category-separator "."))
-
-(in-root-suite)
-(defsuite* test)
+  (log4cl-impl:log-setup :category-separator ".")
+  (in-suite log4cl-test:test)
+  (defsuite* test))
 
 ;;
 ;; Test in a different package, where logger category separator is dot
@@ -76,20 +76,20 @@ correctly parsed into multiple loggers"
       (add-appender one a1)
       (add-appender one-two a2)
       (add-appender one-two-three a3)
-      (is (log-info one-two-three))
+      (is (log-info :logger one-two-three))
       (setf (logger-additivity one-two) nil)
-      (is (log-info one-two-three))
-      (log-info one "hey")
-      (log-info one-two "hey")
+      (is (log-info :logger one-two-three))
+      (log-info :logger one "hey")
+      (log-info :logger one-two "hey")
       (is (equal 1 (slot-value a1 'count)))
       (is (equal 1 (slot-value a2 'count)))
       (is (equal 0 (slot-value a3 'count)))
-      (log-info one-two-three "hey")
+      (log-info :logger one-two-three "hey")
       (is (equal 1 (slot-value a1 'count)))
       (is (equal 2 (slot-value a2 'count)))
       (is (equal 1 (slot-value a3 'count)))
       (setf (logger-additivity one-two) t)
-      (log-info one-two-three "hey")
+      (log-info :logger one-two-three "hey")
       (is (equal 2 (slot-value a1 'count)))
       (is (equal 3 (slot-value a2 'count)))
       (is (equal 2 (slot-value a3 'count)))
@@ -98,16 +98,16 @@ correctly parsed into multiple loggers"
       ;; I forgot to update it for additivity... Test that (log-whatever)
       ;; expressions take additivity into account as well
       (log-config one-two-three :d)
-      (is (log-debug one-two-three))
+      (is (log-debug :logger one-two-three))
       (setf (logger-additivity one-two-three) nil)
-      (is (log-debug one-two-three))
+      (is (log-debug :logger one-two-three))
       (remove-appender one-two-three a3)
-      (is (not (log-debug one-two-three)))
+      (is (not (log-debug :logger one-two-three)))
       (setf (logger-additivity one-two-three) t)
       (setf (logger-additivity one-two) nil)
-      (is (log-debug one-two-three))
+      (is (log-debug :logger one-two-three))
       (remove-appender one-two a2)
-      (is (not (log-debug one-two-three))))))
+      (is (not (log-debug :logger one-two-three))))))
 
 (deftest appender-additivity-2 ()
   "Test appender additivity works"
@@ -148,27 +148,27 @@ correctly parsed into multiple loggers"
       ;; verify no logging
       (is (eql +log-level-off+ (effective-log-level logger)))
       (is (null (log-warn)))
-      (is (null (log-warn logger)))
+      (is (null (log-warn :logger logger)))
       ;; now set root log level to info, and verify that
       ;; the levels are right
       (setf (logger-log-level parent) :info)
       (is (null (logger-log-level logger)))
       (is (eql +log-level-info+ (effective-log-level logger)))
       ;; debugging is still off because of no appenders
-      (is (null (log-debug logger)))
-      (is (null (log-warn logger)))
+      (is (null (log-debug :logger logger)))
+      (is (null (log-warn :logger logger)))
       ;; add appender, verify debugging is now on
       (add-appender parent (make-instance 'console-appender))
-      (is (log-warn logger))
-      (is (null (log-debug logger)))
+      (is (log-warn :logger logger))
+      (is (null (log-debug :logger logger)))
       ;; turn debug on on :one.two.three logger
       (setf (logger-log-level logger) :debug)
       ;; verify the level
       (is (eql +log-level-debug+ (logger-log-level logger)))
       (is (eql +log-level-debug+ (effective-log-level logger)))
       ;; verify both debug and info are on for logger
-      (is (log-debug logger))
-      (is (log-warn logger))
+      (is (log-debug :logger logger))
+      (is (log-warn :logger logger))
       ;; verify only info is on for root logger
       (is (null (log-debug :one)))
       (is (log-warn :one))
@@ -180,8 +180,8 @@ correctly parsed into multiple loggers"
       (setf (logger-log-level parent) :off)
       (is (null (log-debug)))
       (is (null (log-warn)))
-      (is (log-debug logger))
-      (is (log-warn logger))
+      (is (log-debug :logger logger))
+      (is (log-warn :logger logger))
       (values logger parent))))
 
 (deftest make-logger-with-dotted-symbol-name ()
@@ -194,12 +194,4 @@ correctly parsed into multiple loggers"
                               "."
                               (symbol-name :one.two.three)))))))
 
-;; Include the "dots" package test suite into main one
-(in-package #:log4cl-test)
-(in-suite test)
 
-(deftest dots ()
-  (log4cl-test.dots::test))
-
-(in-package #:log4cl-test.dots)
- 

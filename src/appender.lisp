@@ -21,11 +21,11 @@
 
 (defun log-appender-error (appender condition)
   (ignore-errors 
-   (log-error +self-meta-logger+ "While appending to ~s caught error: ~:_~a" appender condition)))
+   (log-error :logger +self-meta-logger+ "While appending to ~s caught error: ~:_~a" appender condition)))
 
 (defun log-appender-disabled (appender condition)
   (ignore-errors 
-   (log-error +self-meta-logger+ "Appender ~s disabled: ~:_~a" appender condition)))
+   (log-error :logger +self-meta-logger+ "Appender ~s disabled: ~:_~a" appender condition)))
 
 (defmethod handle-appender-error (appender condition)
   (log-appender-disabled appender condition)
@@ -417,10 +417,10 @@ switches to the new log file"
 (defmethod handle-appender-error ((a temp-appender) c)
   (cond ((typep c (temp-appender-error-type a)) 
          (ignore-errors 
-          (log-error +self-meta-logger+ "Removing appender ~s because of: ~:_~a " a c)) 
+          (log-error  :logger +self-meta-logger+ "Removing appender ~s because of: ~:_~a " a c)) 
          (dolist (l (appender-loggers a))
            (remove-appender l a)
            (ignore-errors 
-            (log-info +self-meta-logger+ "Removed appender ~s from ~s" a l)))
+            (log-info :logger +self-meta-logger+ "Removed appender ~s from ~s" a l)))
          :ignore)
         (t (if (next-method-p) (call-next-method) :ignore))))

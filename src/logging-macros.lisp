@@ -97,33 +97,9 @@ and a suffix after each value, which defaults to \" ~:_\" (a space
 followed by conditional newline) can be customized per package via
 NAMING-OPTION generic function
 "
+  (declare (ignore env))
   (with-package-naming-configuration (*package*) 
-    (multiple-value-bind (logger-form sexps)
-        (resolve-logger-form *package* env
-                             (cond
-                               ((or (stringp (first sexps))
-                                    (and
-                                     (symbolp (first sexps))
-                                     (not (constantp (first sexps))))
-                                    (and (listp (first sexps))
-                                         (not (constantp (first sexps)))
-                                         (not (member (caar sexps)
-                                                      +make-logger-symbols+))))
-                                `((make-logger) ,@sexps))
-                               (t sexps)))
-      (let* ((args nil)
-             (format 
-               (with-output-to-string (*standard-output*)  
-                 (setq args
-                       (loop 
-                         for arg in sexps
-                         if (stringp arg)
-                         do (format t "~a " arg)
-                         else
-                         do (princ (naming-option *package* :expr-print-format))
-                         and collect `(quote ,arg)
-                         and collect arg)))))
-        `(,level ,logger-form ,format ,@args)))))
+    `(,level from-log-expr ,@sexps)))
 
 (defmacro deflog-sexp-macros (levels)
   (let (list)
@@ -191,7 +167,7 @@ package for the dynamic scope of BODY."
 
 (defmacro make-logger (&optional (arg nil arg-p) &environment env)
   (with-package-naming-configuration (*package*) 
-    (resolve-logger-form *package* env (if arg-p (list arg)))))
+    (resolve-logger-form *package* env (if arg-p `(from-make-logger ,arg)))))
 
 (defmacro with-ndc-context ((&optional (ndc nil ndcp)) &body body)
   "Execute forms in BODY with *NDC-CONTEXT* set to CONTEXT. The

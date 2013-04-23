@@ -15,14 +15,17 @@
 
 (cl:defpackage :log4cl-test
   (:use :cl :log4cl-impl :stefil)
-  (:export :test :test-speed
-           :test-pattern-layout
-           :make-expected))
+  (:export
+   :test :test-speed
+   :test-pattern-layout
+   :make-expected))
 
 (in-package #:log4cl-test)
 
-(in-root-suite)
-(defsuite* test)
+(eval-when (:compile-toplevel :load-toplevel :execute) 
+  (in-root-suite) 
+  (defsuite* test)
+  (export 'test))
 
 (deftest basics (logger)
   "Test some basic facts about the logger structure"
@@ -97,7 +100,7 @@ configuration"
   (with-package-log-hierarchy
     (reset-logging-configuration)
     (is (equal (with-output-to-string (*debug-io*)
-                 (log-warn (make-logger)  "Hello World!"))
+                 (log-warn :logger (make-logger)  "Hello World!"))
                "WARN - Hello World!
 "))
     (is (equal (with-output-to-string (*debug-io*)
@@ -131,7 +134,12 @@ situation"
   (with-package-log-hierarchy
     (reset-logging-configuration)
     (let ((logger (make-logger :foobar)))
-      (is (log-warn logger)))))
+      (is (log-warn :logger logger)))))
+
+(defun returns-a-logger ()
+  (let ((logger (make-logger)))
+    (log-config logger :d)
+    logger))
 
 (deftest logger-by-expression ()
   "Test logging macros to verify that we can make a function returning
@@ -139,7 +147,11 @@ a logger, and that logging macros are correctly handling this
 situation"
   (with-package-log-hierarchy
     (reset-logging-configuration)
-    (log-info "Here1")))
+    (is (equal (with-output-to-string (*debug-io*)
+                 (log-debug :logger
+                            (returns-a-logger)  "Hello World!"))
+               "DEBUG - Hello World!
+"))))
 
 (defun test-runtime-logger-of-wrong-type-helper (&optional arg)
   arg)
@@ -150,7 +162,20 @@ situation"
     (clear-logging-configuration)
     (log:config :i)
     (let ((e (test-runtime-logger-of-wrong-type-helper)))
-      (signals type-error (log:info e))
+      ;; tests with NIL
+      (signals type-error (log:info :logger e))
+      ;; tests with condition
       (setq e (test-runtime-logger-of-wrong-type-helper (make-condition 'error)))
-      (signals type-error (log:info e))))
+      (signals type-error (log:info :logger e))))
   (values))
+
+
+
+;; (deftest explicit-make-of-child-of-packaged-parent ()
+;;   (with-package-log-hierarchy 
+;;     (clear-logging-configuration)
+;;     (log:config :i)
+;;     (let ((parent (log:make))
+;;           (parent-explicit (log:make '(log4cl))))
+;;       (is (eq parent parent-explicit))
+;;       (is (plusp (logger-pkg-idx-start parent))))))

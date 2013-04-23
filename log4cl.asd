@@ -55,7 +55,8 @@
                              (:file "test-appenders")
                              (:file "test-configurator")
                              (:file "test-speed")
-                             (:file "test-file-category")))))
+                             (:file "test-file-category")
+                             (:file "test-compat")))))
 
 (defmethod perform ((op test-op) (system (eql (find-system :log4cl))))
   (operate 'load-op :log4cl-test)

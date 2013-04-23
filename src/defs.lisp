@@ -102,7 +102,7 @@ when non-NIL to determine logger's parent file logger.")
 (define-condition log4cl-error (simple-error program-error) ()
   (:documentation "Base class for all LOG4CL errors"))
 
-(define-condition log4cl-style-warning (simple-warning style-warning) ())
+(define-condition log4cl-style-warning (simple-condition style-warning) ())
 
 (defun log4cl-error (message &rest args)
   (error 'log4cl-error
@@ -113,6 +113,10 @@ when non-NIL to determine logger's parent file logger.")
   (warn 'log4cl-style-warning
          :format-control message
          :format-arguments args))
+
+(defun check-arg (name value)
+  (or value 
+      (log4cl-error "Required argument ~@[~S ~]missing." name)))
 
 (defconstant +logger-category-depth-bits+ 6)
 (deftype logger-cat-idx () `(unsigned-byte ,+logger-category-depth-bits+))

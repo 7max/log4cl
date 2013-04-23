@@ -49,7 +49,8 @@
   :depends-on (:log4cl :stefil)
   :components ((:module "tests"
                 :serial t
-                :components ((:file "test-logger")
+                :components ((:file "test-defs")
+                             (:file "test-logger")
                              (:file "test-category-separator")
                              (:file "test-layouts")
                              (:file "test-appenders")

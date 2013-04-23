@@ -13,15 +13,10 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(defpackage :log4cl-test.file-category
-  (:use :cl :stefil :log4cl-impl :log4cl-test))
 
-(in-package :log4cl-test.file-category)
 
-(eval-when (:load-toplevel :compile-toplevel :execute)
-  (log4cl-impl:log-setup :category-separator ".")
-  (in-suite log4cl-test:test)
-  (defsuite* test-file-categories))
+(log4cl-test:subsuite-package :log4cl-test.file-category)
+(log4cl-test:subsuite-start)
 
 ;; (setup-logging)
 

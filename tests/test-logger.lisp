@@ -12,20 +12,9 @@
 ;;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
-
-(cl:defpackage :log4cl-test
-  (:use :cl :log4cl-impl :stefil)
-  (:export
-   :test :test-speed
-   :test-pattern-layout
-   :make-expected))
-
 (in-package #:log4cl-test)
 
-(eval-when (:compile-toplevel :load-toplevel :execute) 
-  (in-root-suite) 
-  (defsuite* test)
-  (export 'test))
+(in-suite test)
 
 (deftest basics (logger)
   "Test some basic facts about the logger structure"

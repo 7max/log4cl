@@ -13,9 +13,8 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(in-package #:log4cl-test)
-
-(in-suite test)
+(log4cl-test:subsuite-package :log4cl-test.layouts)
+(log4cl-test:subsuite-start)
 
 (deftest test-pattern-layout (pattern expected-result
                                       &key

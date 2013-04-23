@@ -1,17 +1,8 @@
-(cl:defpackage :log4cl-test.compat
-  (:use :cl :log4cl :stefil)
-  (:import-from :log4cl-test #:test-runtime-logger-of-wrong-type-helper)
-  (:export #:test))
-
-(in-package :log4cl-test.compat)
+(log4cl-test:subsuite-package :log4cl-test.compat)
+(log4cl-test:subsuite-start)
 
 (eval-when (:load-toplevel :compile-toplevel :execute)
-  (progn 
-    #+sbcl (declaim (sb-ext:muffle-conditions stefil::test-style-warning)) 
-    (log4cl:log-setup :dwim-logging-macros nil) 
-    (in-suite log4cl-test::test)
-    (defsuite* test)
-    (export 'test)))
+  (log4cl:log-setup :dwim-logging-macros nil))
 
 (deftest produces-output-with-explicit-logger ()
   "Test that log statement with explicit logger produce output"
@@ -58,6 +49,9 @@ situation"
                  (log-debug (returns-a-logger)  "Hello World!"))
                "DEBUG - Hello World!
 "))))
+
+(defun test-runtime-logger-of-wrong-type-helper (&optional arg)
+  arg)
 
 (deftest test-runtime-logger-of-wrong-type ()
   "Test that specifying logger at run time checks its type"

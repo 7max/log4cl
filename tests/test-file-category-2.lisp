@@ -14,6 +14,7 @@
 ;;; limitations under the License.
 
 (in-package :log4cl-test.file-category)
+(in-suite test)
 
 (deftest test-file-category-5 ()
   (with-package-log-hierarchy

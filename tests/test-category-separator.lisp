@@ -13,16 +13,8 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(cl:defpackage :log4cl-test.dots
-  (:use :cl :log4cl-impl :stefil)
-  (:export #:test))
-
-(in-package #:log4cl-test.dots)
-
-(eval-when (:load-toplevel :compile-toplevel :execute)
-  (log4cl-impl:log-setup :category-separator ".")
-  (in-suite log4cl-test:test)
-  (defsuite* test))
+(log4cl-test:subsuite-package :log4cl-test.dots)
+(log4cl-test:subsuite-start) 
 
 ;;
 ;; Test in a different package, where logger category separator is dot

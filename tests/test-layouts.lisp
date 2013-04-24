@@ -13,45 +13,9 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(log4cl-test:subsuite-package :log4cl-test.layouts)
+(log4cl-test:defsubsuite :log4cl-test.layouts)
+(in-package :log4cl-test.layouts)
 (log4cl-test:subsuite-start)
-
-(deftest test-pattern-layout (pattern expected-result
-                                      &key
-                                      (level +log-level-info+)
-                                      (logger (make-logger '(one two three)))
-                                      (message "message"))
-  "Output a log message into an appender with a pattern layout with
-specified PATTERN and compare its output to EXPECTED-RESULT"
-  (with-package-log-hierarchy
-    (clear-logging-configuration)
-    (let ((output
-            (with-output-to-string (s)
-              (add-appender *root-logger*
-                            (make-instance 'fixed-stream-appender
-                             :stream s
-                             :layout (make-instance 'pattern-layout
-                                      :conversion-pattern pattern)))
-              (setf (logger-log-level *root-logger*) level)
-              ;; TODO need a macro that logs with specified level
-              (cond 
-                ((eql level +log-level-fatal+) (log-fatal :logger logger "~a" message))
-                ((eql level +log-level-error+) (log-error :logger logger "~a" message))
-                ((eql level +log-level-warn+) (log-warn :logger logger "~a" message))
-                ((eql level +log-level-info+) (log-info :logger logger "~a" message))
-                ((eql level +log-level-debug+) (log-debug :logger logger "~a" message))
-                ((eql level +log-level-debu1+) (log-debu1 :logger logger "~a" message))
-                ((eql level +log-level-debu2+) (log-debu2 :logger logger "~a" message))
-                ((eql level +log-level-debu3+) (log-debu3 :logger logger "~a" message))
-                ((eql level +log-level-debu4+) (log-debu4 :logger logger "~a" message))
-                ((eql level +log-level-trace+) (log-trace :logger logger "~a" message))
-                ((eql level +log-level-debu5+) (log-debu5 :logger logger "~a" message))
-                ((eql level +log-level-debu6+) (log-debu6 :logger logger "~a" message))
-                ((eql level +log-level-debu7+) (log-debu7 :logger logger "~a" message))
-                ((eql level +log-level-debu8+) (log-debu8 :logger logger "~a" message))
-                ((eql level +log-level-debu9+) (log-debu9 :logger logger "~a" message))))))
-      (is (equal output expected-result))))
-  (values))
 
 
 (deftest test-pattern-parsing ()

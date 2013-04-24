@@ -1,4 +1,5 @@
-(log4cl-test:subsuite-package :log4cl-test.compat)
+(log4cl-test:defsubsuite :log4cl-test.compat)
+(in-package :log4cl-test.compat)
 (log4cl-test:subsuite-start)
 
 (eval-when (:load-toplevel :compile-toplevel :execute)

@@ -13,7 +13,8 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(log4cl-test:subsuite-package #:log4cl-test.configurator)
+(log4cl-test:defsubsuite #:log4cl-test.configurator)
+(in-package #:log4cl-test.configurator)
 (log4cl-test:subsuite-start)
 
 (deftest test-clear-ignores-self-logger ()

@@ -15,7 +15,8 @@
 
 
 
-(log4cl-test:subsuite-package :log4cl-test.file-category)
+(log4cl-test:defsubsuite :log4cl-test.file-category)
+(in-package :log4cl-test.file-category)
 (log4cl-test:subsuite-start)
 
 ;; (setup-logging)

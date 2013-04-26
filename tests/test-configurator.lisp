@@ -20,7 +20,7 @@
 (deftest test-clear-ignores-self-logger ()
   (with-package-log-hierarchy
     (clear-logging-configuration)
-    (let ((logger log4cl-impl:+self-logger+))
+    (let ((logger log4cl:+self-logger+))
       (is (logger-log-level logger))
       (log-config :clear)
       (is (logger-log-level logger))
@@ -62,7 +62,7 @@
 (defclass ignore-extra-stuff-parser (property-parser)
   ())
 
-(defmethod log4cl-impl::parse-property-keyword ((parser ignore-extra-stuff-parser)
+(defmethod log4cl::parse-property-keyword ((parser ignore-extra-stuff-parser)
                                    keyword
                                    tokens
                                    value)
@@ -159,7 +159,7 @@ one.two=three
         (is (equal (effective-log-level (make-logger)) +log-level-debug+))
         (is (equal 1 (length (effective-appenders (make-logger)))))
         (let ((appender (first (effective-appenders (make-logger)))))
-          (is (equal t (slot-value appender 'log4cl-impl::immediate-flush)))))
+          (is (equal t (slot-value appender 'log4cl::immediate-flush)))))
       (dolist (val '("off" "false" "nil" ""))
         (clear-logging-configuration)
         (finishes
@@ -169,7 +169,7 @@ one.two=three
                               log4cl:appender:A1 = console-appender" val))
             (configure config s)))
         (let ((appender (first (effective-appenders (make-logger)))))
-          (is (equal nil (slot-value appender 'log4cl-impl::immediate-flush))))))))
+          (is (equal nil (slot-value appender 'log4cl::immediate-flush))))))))
 
 (deftest test-property-configurator-number-property ()
   (with-package-log-hierarchy
@@ -185,7 +185,7 @@ one.two=three
       (is (equal (effective-log-level (make-logger)) +log-level-debug+))
       (is (equal 1 (length (effective-appenders (make-logger)))))
       (let ((appender (first (effective-appenders (make-logger)))))
-        (is (equal 123 (slot-value appender 'log4cl-impl::flush-interval)))))))
+        (is (equal 123 (slot-value appender 'log4cl::flush-interval)))))))
 
 (deftest test-property-configurator-errors ()
   (with-package-log-hierarchy

@@ -20,9 +20,9 @@
   "Test some basic facts about the logger structure"
   (with-package-log-hierarchy
     (is (not (null logger)))
-    (is (not (null (log4cl-impl::logger-state logger))))
+    (is (not (null (log4cl::logger-state logger))))
     (is (not (null (logger-category logger))))
-    (is (eql (length (log4cl-impl::logger-state logger)) log4cl-impl::*hierarchy-max*))))
+    (is (eql (length (log4cl::logger-state logger)) log4cl::*hierarchy-max*))))
 
 (deftest make-logger-by-list-of-categories ()
   "Test MAKE-LOGGER macro with static list of categories"

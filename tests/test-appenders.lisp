@@ -487,7 +487,7 @@ user log statement, its raised and does not disable the appender"
         ;; so only do it if its threaded lisp, and therefore immediate-flush
         ;; defaulted to NIL
         ;; Under CCL the flusher thread sometimes manages to race us 
-        ;; (unless (slot-value a 'log4cl-impl::immediate-flush)
+        ;; (unless (slot-value a 'log4cl::immediate-flush)
         ;;   (with-open-file (s fname)
         ;;     (is (read-line s nil))
         ;;     (is (not (read-line s nil)))))

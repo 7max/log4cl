@@ -578,14 +578,14 @@ two asserts "
         ;; If dst is in effect in the summer, test that %z is
         ;; different from winter one
         (is (not (equal (with-output-to-string (s)
-                            (log4cl-impl::format-time s "%z" ut-winter nil))
+                            (log4cl::format-time s "%z" ut-winter nil))
                         (with-output-to-string (s)
-                            (log4cl-impl::format-time s "%z" ut-summer nil)))))
+                            (log4cl::format-time s "%z" ut-summer nil)))))
         ;; Otherwise should be same
         (is (equal (with-output-to-string (s)
-                       (log4cl-impl::format-time s "%z" ut-winter nil))
+                       (log4cl::format-time s "%z" ut-winter nil))
                    (with-output-to-string (s)
-                       (log4cl-impl::format-time s "%z" ut-summer nil)))))))
+                       (log4cl::format-time s "%z" ut-summer nil)))))))
 
 (deftest test-pattern-layout-ndc-nonstring ()
   "Unit test for bug where numbers were not printed correctly as NDC"

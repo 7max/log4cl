@@ -87,3 +87,31 @@
       (is (log-info :logger logger-2)))))
 
 
+(deftest logger-package-override ()
+  "If a logger is first retrieved via exploit category, ie
+\(LOG:LOGGER '(P A)\) it won't have any package info, and %g (package
+category) pattern format will print empty string for the logger.
+
+Test that if later the same logger is referenced from the package P,
+for example from (defun P:A () (LOG-DEBUG whatever)), that we store
+the package info, even if logger already exist, and did not have one."
+
+  (let* ((name-sym (gensym "SOME-PACKAGE.ONE"))
+         (logger (eval `(make-logger '(,@(log4cl::split-string (symbol-name name-sym) ".")
+                                       one two)))))
+    (test-pattern-layout "%g" "" :logger logger)
+    ;; now instantiate it from a package
+    (let* ((*package* (find-package :keyword))
+           (form-string (with-output-to-string (*standard-output*)
+                          (write 
+                           `(progn
+                              (in-package ,name-sym)
+                              (make-logger :one.two))
+                           :readably t)))
+           (*package* (make-package name-sym))
+           (form (read-from-string form-string))
+           (logger2 (eval form)))
+      (is (eq logger logger2)) 
+      (test-pattern-layout "%g" (symbol-name name-sym)
+                           :logger logger))))
+

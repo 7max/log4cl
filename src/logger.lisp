@@ -386,15 +386,19 @@ represents the package name."
                                (logger-children logger)))
                  (and hash
                       (let ((cached (gethash name hash)))
-                        ;; in case logger moved from one file to another
+                        ;; We only do below two checks for part of the
+                        ;; category after the package
                         (when (and cached (typep cached 'file-logger)
                                    (not is-file-p)
-                                   (or (and (null categories)
-                                            (> (logger-depth cached) 
-                                               (or pkg-idx-end 0))) 
-                                       (> (logger-depth logger)
-                                          (or pkg-idx-end 0))))
-                          ;; old and new are source file loggers
+                                   (or
+                                    ;; leaf, but not part of the package name
+                                    (and (null categories)
+                                         (> (logger-depth cached) 
+                                            (or pkg-idx-end 0))) 
+                                    ;; parent is not part of package name 
+                                    (> (logger-depth logger)
+                                       (or pkg-idx-end 0))))
+                          ;; Check if logger source file had changed
                           (let ((old (file-logger-file cached))
                                 (new (ensure-source-logger cached))
                                 (didit nil))
@@ -419,7 +423,17 @@ represents the package name."
                               ;; issued from REPL do not reset
                               ;; logger's file
                               (when didit
-                                (adjust-logger cached)))))
+                                (adjust-logger cached))))
+                          ;; Check if the part of the logger that
+                          ;; represents package had changed
+                          (when (and pkg-idx-start (<= pkg-idx-end (logger-depth cached))
+                                     (or (/= (1+ pkg-idx-start)
+                                             (logger-pkg-idx-start cached))
+                                         (/= (1+ pkg-idx-end)
+                                             (logger-pkg-idx-end cached))))
+                            (setf (logger-flags cached) 
+                                  (make-logger-flags (logger-depth cached)
+                                                     (1+ pkg-idx-start) (1+ pkg-idx-end)))))
                         cached))
                  (unless createp (return-from %get-logger nil))
                  (setf (gethash name (or hash

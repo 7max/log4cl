@@ -894,13 +894,71 @@ lift the older equivalent configuration to the top of the list"
         for cnf in *configurations*
         do (format stream "~4:<~d.~> ~A~%" cnt cnf)))
 
-(defun log-setup (&key (package *package*)
-                       (category-case nil category-casep)
-                       category-separator
-                       expr-print-format
-                       (shortest-nickname t shortest-nicknamep)
-                       expr-log-level
-                       (dwim-logging-macros t dwim-logging-macrosp))
+(defmacro package-options (&whole args
+                           &key package category-case category-separator
+                                shortest-nickname
+                                expr-print-format 
+                                expr-log-level
+                                old-logging-macros
+                           &allow-other-keys)
+  "Set custom options for expansion of logging macros in a specified
+package. 
+
+  PACKAGE - the package options are being set for, defaults to
+  *PACKAGE*. No references to the package itself will be retained,
+  instead options are keyed by package name string
+
+
+  CATEGORY-CASE - Determining how logger naming converts symbols to in
+  the category name.
+
+    Valid values are: 
+    - NIL        :  As printed by PRINC (ie affected by active *READTABLE*)
+    - :UPCASE    :  Convert to upper case
+    - :DOWNCASE  :  Convert to lower case
+    - :INVERT    :  Invert in the same way inverted READTABLE-CASE does it
+    - :PRESERVE  :  Do not change
+
+  Note that pattern layout offers similar facility that changes how
+  logger category is printed on the output side
+
+
+  SHORTEST-NICKNAME  - When T (default), the shortest of package name or
+  any of its nicknames will be used as logger category, otherwise official
+  package name will be used.
+
+  CATEGORY-SEPARATOR - String that separates logging categories, defaults to dot.
+
+  EXPR-PRINT-FORMAT - The FORMAT control string, for two arguments
+  used to print expressions, first argument is quoted expression form,
+  and second argument is value. Default is \"~W=~W~^ ~:_\". If
+  format string contains ~:> directive (terminate pretty printing block),
+  then corresponding format argument will be a (NAME VALUE) list
+
+  EXPR-LOG-LEVEL - the log level for the (LOG:EXPR) macro. Default
+  is :DEBUG.
+
+  OLD-LOGGING-MACROS - If set, log statement without constant format
+  string such as (LOG:DEBUG a b c d) will be interpreted as logging to
+  logger stored in variable A with format string B and more format
+  arguments, instead of treating them as (LOG:EXPR a b c d)
+  "
+  ;; Lambda list only for Slime-doc 
+  (declare (ignorable package category-case category-separator
+                      expr-print-format shortest-nickname
+                      expr-log-level
+                      old-logging-macros))
+  `(eval-when (:compile-toplevel :load-toplevel :execute)
+     (%set-package-options ,@(rest args))))
+
+(defun %set-package-options (&key (package *package*)
+                                  (category-case nil category-casep)
+                                  category-separator
+                                  expr-print-format
+                                  (shortest-nickname t shortest-nicknamep)
+                                  expr-log-level
+                                  (old-logging-macros nil old-logging-macrosp))
+  "Processes the naming configuration options"
   (let* ((nc (find-or-create-naming-configuration package t))
          (*naming-configuration* nc))
     (prog1 nc 
@@ -909,4 +967,4 @@ lift the older equivalent configuration to the top of the list"
       (when expr-print-format (setf (expr-print-format nc) expr-print-format))
       (when shortest-nicknamep (setf (use-shortest-nickname nc) shortest-nickname))
       (when expr-log-level (setf (expr-log-level nc) (make-log-level expr-log-level)))
-      (when dwim-logging-macrosp (setf (dwim-logging-macros nc) dwim-logging-macros)))))
+      (when old-logging-macrosp (setf (old-logging-macros nc) old-logging-macros)))))

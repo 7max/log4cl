@@ -22,7 +22,7 @@
    (expr-print-format :initform "~W=~W~^ ~:_" :accessor expr-print-format)
    (use-shortest-nickname :initform  nil :initarg :use-shortest-nickname :accessor use-shortest-nickname)
    (expr-log-level :initform +log-level-debug+ :accessor expr-log-level)
-   (dwim-logging-macros :initform t :accessor dwim-logging-macros))
+   (old-logging-macros :initform nil :accessor old-logging-macros))
   (:documentation "Contains configuration that affects expansion of logger macros."))
 
 (defvar *naming-configuration* nil
@@ -65,32 +65,7 @@ parses \"fatal\" \"debug\" and so on. Called by MAKE-LOG-LEVEL
 function"))
 
 (defgeneric naming-option (package option)
-  (:documentation "DEPRECIATED. Use naming configuration instead.
-
-  Return the automatic logger naming option
-for the specified package. Valid options are keywords:
-
-  :CATEGORY-SEPARATOR
-    : String that separates category names, default method returns
-      \":\"
-
-  :CATEGORY-CASE
-    : Determining how logger naming converts symbols to in the
-      category name.
-
-    Valid values are: 
-    - NIL        :  As printed by PRINC (ie affected by active *READTABLE*)
-    - :UPCASE    :  Convert to upper case
-    - :DOWNCASE  :  Convert to lower case
-    - :INVERT    :  Invert in the same way inverted READTABLE-CASE does it
-    - :PRESERVE  :  Do not change
-
-    Note that pattern layout offers similar facility that changes how
-    logger category is printed on the output side
-
-  :EXPR-PRINT-FORMAT
-    : A string used to format the expression and its value, must
-      consume two FORMAT arguments. Default value is ~W=~W"))
+  (:documentation "DEPRECIATED. Use PACKAGE-OPTIONS macro instead "))
 
 
 (defgeneric package-wrapper (package categories explicit-p)
@@ -281,8 +256,8 @@ SEPARATOR"
              (:expr-print-format (expr-print-format *naming-configuration*))
              (:use-shortest-nickname (use-shortest-nickname *naming-configuration*))
              (:expr-log-level (expr-log-level *naming-configuration*))
-             (:dwim-logging-macros
-              (dwim-logging-macros *naming-configuration*)))))
+             (:old-logging-macros
+              (old-logging-macros *naming-configuration*)))))
     (if *naming-configuration* (doit)
         (with-package-naming-configuration (package) (doit)))))
 
@@ -312,7 +287,7 @@ SEPARATOR"
           (when (eq (first args) 'from-make-logger)
             (pop args)
             t)))
-    (if (or (dwim-logging-macros *naming-configuration*)
+    (if (or (null (old-logging-macros *naming-configuration*))
             from-log-expr-p
             from-make-logger-p)
         ;; new way

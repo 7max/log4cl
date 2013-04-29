@@ -148,7 +148,6 @@
    #:logger-file
    #:*default-naming-configuration*
    #:*naming-configuration*
-   #:log-setup
    #:naming-configuration
    #:appender-next-backup-file
    #:appender-last-backup-file
@@ -169,7 +168,8 @@
    #:temp-appender
    #:temp-appender-error-type
    #:appender-loggers
-   #:dwim-logging-macros))
+   #:old-logging-macros
+   #:packge-options))
 
 
 

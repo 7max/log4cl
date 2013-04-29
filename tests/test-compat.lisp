@@ -2,8 +2,7 @@
 (in-package :log4cl-test.compat)
 (log4cl-test:subsuite-start)
 
-(eval-when (:load-toplevel :compile-toplevel :execute)
-  (log4cl:log-setup :dwim-logging-macros nil))
+(log:package-options :old-logging-macros t)
 
 (deftest produces-output-with-explicit-logger ()
   "Test that log statement with explicit logger produce output"

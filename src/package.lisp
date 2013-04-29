@@ -32,7 +32,7 @@
                   (:use)
                   ,@(reexport-from
                      '#:log4cl-impl
-                     '(;; class names
+                     '(                 ;; class names
                        ;; #:fixed-stream-appender
                        ;; #:console-appender
                        ;; #:file-appender
@@ -87,6 +87,7 @@
                        ;; quick save/restore of configurations
                        #:save
                        #:restore
+                       #:package-options
                        ;; #:configuration-element
                        ;; #:configuration
                        ;; #:same-configuration-p
@@ -100,7 +101,6 @@
                   ,@(shadow-and-export
                      `(#:sexp #:expr #:config #:make ,@+log-level-macro-symbols+ ,@(level-expr-syms)
                               #:with-hierarchy
-                              #:setup
                               #:push #:pop
                               #:with-package-hierarchy
                               #:in-package-hierarchy
@@ -229,6 +229,5 @@
 (forward-function log:c log-config)
 (forward-function log:pop restore)
 (forward-function log:push save)
-(forward-function log:setup log-setup)
 
 

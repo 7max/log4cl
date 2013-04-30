@@ -83,9 +83,12 @@
    #:with-package-log-hierarchy
    #:in-package-log-hierarchy
    ;; layouts & appenders 
-   #:layout #:layout-to-stream #:appender-do-append
+   #:layout
+   #:layout-to-stream
+   #:appender-do-append
    ;; standard layouts
-   #:default-layout #:simple-layout
+   #:default-layout
+   #:simple-layout
    ;; standard appenders
    #:appender
    #:stream-appender
@@ -173,7 +176,8 @@
    #:appender-do-flush
    #:flush-appender
    #:flush-all-appenders
-   #:save-appender))
+   #:save-appender
+   #:all-appenders))
 
 
 

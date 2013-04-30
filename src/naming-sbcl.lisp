@@ -75,6 +75,7 @@ will be: package.foo.bar.baz
 "
   (if (symbolp debug-name)
       (when (and (not (member debug-name +sbcl-wrapper-ignore+))
+                 (symbol-package debug-name)
                  (not (equal 0 (search "CLEANUP-FUN-"
                                        (symbol-name debug-name)))))
         debug-name)

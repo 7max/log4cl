@@ -391,19 +391,18 @@ switches to the new log file"
       ;; Handle roll over of the log file that we never written to,
       ;; based on its modification time, only happens once at initial
       ;; log into the newly created appender
-      (if (and (null %current-file-name)
-               (probe-file new-file))
-          (let ((old-bak (expand-name-format
-                          (or backup-name-format name-format)
-                          (file-write-date new-file)
-                          utc-p)))
-            (unless (equal new-file old-bak)
-              (backup-log-file appender new-file old-bak))))
+      (when (and (null %current-file-name)
+                 (null %next-backup-name)
+                 (probe-file new-file))
+        (setq %current-file-name new-file
+              %next-backup-name (expand-name-format
+                                 (or backup-name-format name-format)
+                                 (file-write-date new-file)
+                                 utc-p)))
       ;; Normal code path
       (let ((new-bak (expand-name-format
                       (or backup-name-format name-format)
                       time utc-p))) 
-        ;; (log-sexp time new-file new-bak %current-file-name %next-backup-name)
         (unless (and (equal new-file %current-file-name)
                      (equal new-bak %next-backup-name))
           (when %current-file-name 

@@ -540,3 +540,37 @@ based on the file modification time"
                  (is (equal (read-line s) "INFO - Hey"))))
           (ignore-errors (delete-file fname-bak))
           (ignore-errors (delete-file fname)))))))
+
+(deftest test-daily-file-appender-4 ()
+  "The fix for above problem actually broke the append, we always roll
+the log file initially, make test for the new problem"
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (let* ((fname (merge-pathnames (rand-filename) *tests-dir*))
+           ;; fixed name, and formatted backup
+           (bak-name (make-pathname :defaults fname :type "bak"))
+           (a1 (make-instance 'daily-file-appender
+                :name-format fname
+                ;; :backup-name-format (format nil "~a-%H-%M-%S.log" fname)
+                :backup-name-format (format nil "~a.bak" fname)
+                ::rollover-check-period 1))
+           (logger (make-logger '(one two three))))
+      ;; create 
+      (with-open-file (s fname :direction :output :if-does-not-exist :create :if-exists :supersede)
+        (format s "First line~%"))
+      ;; test its there
+      (with-open-file (s fname)
+        (is (equal "First line" (read-line s))))
+      (is (not (probe-file bak-name)))
+      ;; ;; make sure its not old enough for rollover
+      ;; (loop while (>= (file-write-date fname) (get-universal-time))
+      ;;       do (sleep 0.5))
+      (add-appender logger a1)
+      ;; (add-appender *root-logger* (make-instance 'console-appender))
+      (log-config :d)
+      (log-info :logger logger "Hey")
+      (is (not (probe-file bak-name)))
+      (with-open-file (s fname)
+        (is (equal "First line" (read-line s)))
+        (is (equal (read-line s) "INFO - Hey"))))))
+

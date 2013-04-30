@@ -574,3 +574,34 @@ the log file initially, make test for the new problem"
         (is (equal "First line" (read-line s)))
         (is (equal (read-line s) "INFO - Hey"))))))
 
+(deftest test-flush-all-appenders ()
+  (with-package-log-hierarchy 
+    (clear-logging-configuration)
+    (let* ((logger (make-logger '(one two three)))
+           a
+           (output
+             (with-output-to-string (s)
+               (setq a (make-instance 'this-console-appender :stream s))
+               (add-appender logger a)
+               (log:config :i)
+               ;; lash flush time is zero with no output
+               (is (zerop (slot-value a 'log4cl::%last-flush-time)))
+               (log-info :logger logger "hey there")
+               (let ((time (slot-value a 'log4cl::%last-flush-time)))
+                 ;; should have flushed because NOW - 0 > interval
+                 (is (plusp time))
+                 (log-info :logger logger "hey again")
+                 ;; flush time should remain the same
+                 (is (equal time (slot-value a 'log4cl::%last-flush-time)))
+                 (is (slot-value a 'log4cl::%output-since-flush))
+                 (flush-appender a)
+                 (is (not (slot-value a 'log4cl::%output-since-flush)))
+                 ;; One more time but through FLUSH-ALL-APPENDERS
+                 (log-info :logger logger "hey yet again")
+                 (is (slot-value a 'log4cl::%output-since-flush))
+                 (flush-all-appenders a)
+                 (is (not (slot-value a 'log4cl::%output-since-flush)))))))
+      (is (plusp (length output)))
+      (is (search "hey there" (string-downcase output)))
+      (is (search "hey again" (string-downcase output)))
+      (is (search "hey yet again" (string-downcase output))))))

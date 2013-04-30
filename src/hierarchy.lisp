@@ -98,3 +98,5 @@ function. Holds per-hierarchy lock doing its operation"
   (with-slots (watch-tokens) hierarchy
     (with-hierarchy-lock (hierarchy)
       (setf watch-tokens (remove token watch-tokens :test test :key key)))))
+
+

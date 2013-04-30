@@ -29,7 +29,8 @@
     (when *self-log-config*
       (apply 'log-config +self-logger+ *self-log-config*))
     (add-appender +self-meta-logger+ (make-instance 'console-appender
-                                      :layout (make-instance 'simple-layout)))
+                                      :layout (make-instance 'simple-layout)
+                                      :immediate-flush t))
     (log-config +self-meta-logger+ :own))
   (values))
 

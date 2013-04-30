@@ -48,7 +48,7 @@ WATCHER-HOOK of each hierarchy")
    ;;
    ;; Used for auto-reloading the modified files in
    ;; PROPERTY-CONFIGURATOR but can be used for other stuff.
-   (watch-tokens :initform nil)
+   (watch-tokens :initform nil :accessor watch-tokens)
    (%lock :initform (make-lock))))
 
 (defvar *hierarchies*
@@ -70,5 +70,6 @@ WATCHER-HOOK of each hierarchy")
 when hierarchy watcher thread is started. If a unhandled condition is
 signaled from this function the watcher thread will remove
 corresponding token from the list"))
+
 
 

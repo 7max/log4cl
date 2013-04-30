@@ -15,6 +15,12 @@
 
 (in-package #:log4cl-impl)
 
+(defmethod close-appender (appender)
+  (declare (ignore appender)))
+
+(defmethod save-appender (appender)
+  (declare (ignore appender)))
+
 (defmethod property-alist ((instance appender))
   "Abstract appender has no properties"
   '())
@@ -89,12 +95,18 @@ ADD-WATCH-TOKEN"))
   (:documentation "Should return the stream to which appender will write log messages"))
 
 (defclass fixed-stream-appender-base (stream-appender)
-  ((stream :accessor appender-stream))
+  ((stream :accessor appender-stream) 
+   (stream-owner :initarg :stream-owner :initform nil))
   (:documentation "Appender that writes message to the stream in STREAM slot"))
 
 (defclass fixed-stream-appender (fixed-stream-appender-base)
   ((stream :initarg :stream :accessor appender-stream))
-  (:documentation "Appender that writes message to the stream in STREAM slot"))
+  (:documentation "Appender that writes message to the stream in
+STREAM slot."))
+
+(defmethod property-alist ((instance fixed-stream-appender-base))
+  (append (call-next-method)
+          '((:stream-owner stream-owner nil))))
 
 (defmethod property-alist ((instance fixed-stream-appender))
   (append (call-next-method)
@@ -161,7 +173,9 @@ unless IMMEDAITE-FLUSH property is set."
               (finish-output (appender-stream appender)))))))))
 
 (defun maybe-flush-appender-stream (appender stream)
-  "Flush the APPENDER's stream if needed"
+  "Flush the APPENDER's stream if needed, assumes that output had been
+just made to an appender. Should be called with the appender lock
+held"
   (with-slots (immediate-flush flush-interval %last-flush-time
                %output-since-flush)
       appender
@@ -175,6 +189,35 @@ unless IMMEDAITE-FLUSH property is set."
                (finish-output stream)
                (setf %output-since-flush nil
                      %last-flush-time    time)))))))
+
+(defmethod appender-do-flush ((appender stream-appender) time)
+  "Flush the non-immediate-flush appender unconditionally if there
+been any output. TIME will be used to mark the time of the flush"
+  (with-slots (immediate-flush  %last-flush-time %lock
+               %output-since-flush)
+      appender
+    (when (and (not immediate-flush)
+               %output-since-flush)
+      (with-lock-held (%lock)
+        (setf %last-flush-time    time
+              %output-since-flush nil)
+        (finish-output (appender-stream appender))))))
+
+(defun flush-appender (appender &optional (time (get-universal-time)))
+  "Immediately flush the appender output if necessary, marking the
+time of the flush with TIME"
+  (appender-do-flush appender time))
+
+(defun flush-all-appenders (&optional (all-hierarchies t))
+  "Flush any appenders that had output since being flushed"
+  (let ((time (get-universal-time)))
+    (map nil (lambda (x) (flush-appender x time))
+         (all-appenders all-hierarchies))))
+
+(defun save-all-appenders (&optional (all-hierarchies t))
+  "Flush any appenders that had output since being flushed"
+  (map nil (lambda (x) (save-appender x))
+       (all-appenders all-hierarchies)))
 
 (defmethod appender-do-append :around
     ((this serialized-appender) logger level log-func)
@@ -214,17 +257,22 @@ unless IMMEDAITE-FLUSH property is set."
 (defgeneric appender-last-backup-file (appender)
   (:documentation "Returns the appenders last backup file name"))
 
-(defun maybe-close-file (appender)
-  (when (and (slot-boundp appender 'stream))
+(defun maybe-close-stream (appender)
+  (when (and (slot-boundp appender 'stream)
+             (slot-value appender 'stream-owner))
     (close (slot-value appender 'stream))
     (slot-makunbound appender 'stream)))
 
-(defclass file-appender-base (fixed-stream-appender-base) () 
+(defclass file-appender-base (fixed-stream-appender-base)
+  ((stream-owner :initform t))
   (:documentation "Appender that writes to a file and closes it when
 its no longer attached to loggers"))
 
-(defmethod close-appender ((appender file-appender-base))
-  (maybe-close-file appender))
+(defmethod close-appender ((appender fixed-stream-appender-base))
+  (maybe-close-stream appender))
+
+(defmethod save-appender ((appender fixed-stream-appender-base))
+  (maybe-close-stream appender))
 
 (defclass file-appender (file-appender-base)
   ((filename :initarg :file :reader appender-filename)) 
@@ -346,7 +394,7 @@ CHECK-PERIOD seconds "
 
 (defun create-appender-file (appender)
   (let ((filename (appender-filename appender)))
-    (maybe-close-file appender)
+    (maybe-close-stream appender)
     (setf (slot-value appender 'stream)
           (open (ensure-directories-exist filename)
                 #+ccl :sharing #+ccl :external
@@ -406,7 +454,7 @@ switches to the new log file"
         (unless (and (equal new-file %current-file-name)
                      (equal new-bak %next-backup-name))
           (when %current-file-name 
-            (maybe-close-file appender) 
+            (maybe-close-stream appender) 
             (unless (equal %current-file-name %next-backup-name)
               (backup-log-file appender %current-file-name %next-backup-name)))
           (setq %current-file-name new-file
@@ -423,3 +471,4 @@ switches to the new log file"
             (log-info :logger +self-meta-logger+ "Removed appender ~s from ~s" a l)))
          :ignore)
         (t (if (next-method-p) (call-next-method) :ignore))))
+

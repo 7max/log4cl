@@ -169,7 +169,11 @@
    #:temp-appender-error-type
    #:appender-loggers
    #:old-logging-macros
-   #:packge-options))
+   #:packge-options
+   #:appender-do-flush
+   #:flush-appender
+   #:flush-all-appenders
+   #:save-appender))
 
 
 

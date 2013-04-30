@@ -116,8 +116,8 @@ Following pattern characters are recognized:
    the package name.
 
    Example: assuming category separator setup for the package was a
-   dot, and a (log:make-logger :one.two.three) was instantiated in
-   package cl.dotted.package:
+   dot, and a (log:logger :one.two.three) was instantiated in package
+   cl.dotted.package:
 
      %g                    => CL.DOTTED.PACKAGE
      %g{}{--}{:downcase}   => cl--dotted--package

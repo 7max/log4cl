@@ -707,9 +707,6 @@ will be called if appender was removed"
   "Removes all appenders from the logger."
   (remove-all-appenders-internal logger))
 
-(defmethod close-appender (appender)
-  (declare (ignore appender)))
-
 (defun logger-name (logger)
   "Return the name of the logger category itself (without parent loggers)"
   (if (logger-parent logger) 

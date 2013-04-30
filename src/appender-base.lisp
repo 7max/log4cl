@@ -62,6 +62,10 @@ the (CALL-NEXT-METHOD) needs to be called"))
 being positive. Should close any streams or files that appender had
 opened."))
 
+(defgeneric save-appender (appender)
+  (:documentation "Called from SAVE-HOOKS, must close appenders that
+own their stream in a such way, so its possible to reopen them"))
+
 (defgeneric appender-do-append (appender logger level log-func)
   (:documentation
    "Writes the log message into the appender. Text of the log message
@@ -139,3 +143,10 @@ needed to allow extra properties in custom appenders/layouts to be
 configurable from by property file configurator. See also
 PROPERTY-INITARG-FROM-STRING"))
 
+(defgeneric appender-do-flush (appender time)
+  (:documentation 
+   "Perform any flushes of appender output if needed, marking the that
+output was performed at time TIME. This function can be called from
+any thread and should take care of serializing")
+  (:method (appender time)
+    (declare (ignore appender time))))

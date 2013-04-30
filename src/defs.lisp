@@ -83,6 +83,11 @@
   "Indent level can be used to indent logging info, is printed by %I
 pattern format")
 
+(eval-when (:compile-toplevel :execute)
+  (declaim (special)))
+
+(declaim (special +self-meta-logger+))
+
 (defvar *ndc-context*)
 (eval-when (:load-toplevel :execute) 
   (setf (documentation '*ndc-context* 'variable) "Value that is printed by %x pattern format"))

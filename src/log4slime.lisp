@@ -21,8 +21,9 @@
 
 (defun emacs-helper (info)
   (handler-case 
-      (destructuring-bind (&key package file rest package-offset action level root) info
-        (log:expr package file rest package-offset action level)
+      (destructuring-bind (&key package file rest package-offset action level root
+                                rest-all) info
+        (log:expr package file rest package-offset action level rest-all)
         (labels ((frob (logger display-name)
                    (log:expr logger display-name)
                    (when logger 
@@ -54,6 +55,29 @@
                            (format nil "~a effective log level is ~a"
                                    (logger-name-for-emacs logger)
                                    (log-level-to-string (effective-log-level logger))))))
+                       ((eq :get-location action)
+                        (let* ((cats (mapcar #'read-from-string
+                                             (log4cl::split-string rest-all " ")))
+                               ;; Below uses swank-backend package for
+                               ;; defun/defmethod and such in case
+                               ;; swank ever starts using closer-mop
+                               defs
+                               (defs-all (swank::find-definitions (first cats)))
+                               (defs-novar
+                                 (remove 'swank-backend::defvar
+                                         (swank::find-definitions (first cats))
+                                         :key #'caar)))
+                          (log:expr cats)
+                          (cond ((<= (length defs-all) 1) (setq defs defs-all))
+                                ((= (length defs-novar) 1) (setq defs defs-novar))
+                                (t (setq defs (remove cats defs-novar
+                                                      :test-not #'equal
+                                                      :key
+                                                      (lambda (x)
+                                                        (log:sexp (cdar x) (remove t (cdar x)))
+                                                        (remove t (cdar x)))))))
+                          (log:sexp defs)
+                          (mapcar #'swank::xref>elisp defs)))
                        (t (error "Invalid action ~s" action)))))
                  ;
                  (logger-name-for-emacs (logger)
@@ -150,3 +174,5 @@
         (let ((*logger-truename* filename))
           (funcall *old-compile-string-for-emacs*
                    string buffer position filename policy))))
+
+

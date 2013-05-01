@@ -165,7 +165,7 @@ event originated in"
   "COMMAND for menu items that will change the log level"
   (let* ((info (symbol-value info-symbol))
          (id (log4cl-logger-id info)))
-    ;; (log-sexp info id level)
+    ;; (log-expr info id level)
     (let ((result 
            (log4cl-eval `(log4cl.slime:emacs-helper
                          '(,@id :action :set :level ,level)))))
@@ -436,7 +436,7 @@ multiple prefixes"
     (let ((pkg (slime-current-package))
           (file (buffer-file-name))
           (current-defun (add-log-current-defun)))
-      ;; (log-sexp pkg file current-defun log4cl-root-logger)
+      ;; (log-expr pkg file current-defun log4cl-root-logger)
       (when (null log4cl-root-logger) 
         (let ((result (log4cl-eval `(log4cl.slime:get-buffer-log-menu
                                     :package ,pkg :file ,file :defun ,current-defun))))
@@ -445,8 +445,10 @@ multiple prefixes"
                 log4cl-file-logger (third result)
                 log4cl-defun-logger (fourth result)))))))
 
-(defun log4cl-log-category-menu (event)
-  (interactive "e")
+(defun log4cl-logger-id-at-mouse (event)
+  "Find the package,file,and logger name at the site of the mouse click,
+returning them in the plist form, suitable for Lisp side
+EMACS-HELPER."
   (let* ((point (if (featurep 'xemacs) (event-point event) 
                   (posn-point (event-end event))))
          (window (if (featurep 'xemacs) (event-window event) (caadr event)))
@@ -454,7 +456,8 @@ multiple prefixes"
          (click-face (get-text-property point 'face buffer))
          package file rest
          package-offset
-         click-target)
+         click-target
+         rest-all)
     (with-current-buffer buffer
       (save-excursion 
         (goto-char point)
@@ -476,6 +479,9 @@ multiple prefixes"
                    (when (and (>= point start) (< point next))
                      (setq click-target :file)))
                   ((eq prev 'log4cl-function-category-face)
+                   (unless rest-all 
+                     (setq rest-all (buffer-substring-no-properties
+                                     start next)))
                    (when (and (>= point start) (< point next)) 
                      (setq rest (buffer-substring-no-properties
                                  start
@@ -483,24 +489,42 @@ multiple prefixes"
                                    (goto-char point)
                                    (if (re-search-forward "[ )]" end 'noerror)
                                        (1- (point))
-                                       next)))
+                                     next)))
                            click-target :rest))))
             (setq start next)))
-        (let* ((id
-                (ecase click-target
-                  (:package `(:package ,package :package-offset ,package-offset))
-                  (:file `(:package ,package :file ,file))
-                  (:rest `(:package ,package :rest ,rest))))
-               (log4cl-popup-logger (log4cl-eval `(log4cl.slime:emacs-helper
-                                                     '(,@id :action :info))))
-               (result (and log4cl-popup-logger
-                            (log4cl-popup-menu event))))
-          (when result
-            (log4cl-set-level 'log4cl-popup-logger (first result))))))))
+        (ecase click-target
+          (:package `(:package ,package :package-offset ,package-offset :rest-all ,rest-all))
+          (:file `(:package ,package :file ,file :rest-all ,rest-all))
+          (:rest `(:package ,package :rest ,rest :rest-all ,rest-all)))))))
+
+(defun log4cl-log-category-menu (event)
+  (interactive "e")
+  (let ((id (log4cl-logger-id-at-mouse event))) 
+    ;; (log-expr id)
+    (let* ((log4cl-popup-logger (log4cl-eval `(log4cl.slime:emacs-helper
+                                               '(,@id :action :info))))
+           (result (and log4cl-popup-logger
+                        (log4cl-popup-menu event))))
+      (when result
+        (log4cl-set-level 'log4cl-popup-logger (first result))))))
+
+(defun log4cl-goto-definition (event)
+  (interactive "e")
+  (let ((id (log4cl-logger-id-at-mouse event))) 
+    (let* ((xrefs (log4cl-eval `(log4cl.slime:emacs-helper
+                                 '(,@id :action :get-location)))))
+      (when (not xrefs)
+        (if (log4cl-logger-rest id) 
+            (error "No known definition for: %s (in %s)"
+                   (log4cl-logger-rest id)
+                   (log4cl-logger-package id))
+            (error "No definition found")))
+      (slime-edit-definition-cont xrefs (log4cl-logger-rest id) nil))))
 
 (defvar log4cl-category-mouse-map (make-sparse-keymap))
 
 (define-key log4cl-category-mouse-map [mouse-3] 'log4cl-log-category-menu)
+(define-key log4cl-category-mouse-map [mouse-1] 'log4cl-goto-definition)
 
 (defvar log4cl-category-package-properties)
 (defvar log4cl-category-file-properties)

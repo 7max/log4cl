@@ -57,12 +57,12 @@
                                    (log-level-to-string (effective-log-level logger))))))
                        ((eq :get-location action)
                         (let* ((cats (mapcar #'read-from-string
-                                             (log4cl::split-string rest-all " ")))
+                                             (log4cl::split-string (or rest-all "") " ")))
                                ;; Below uses swank-backend package for
                                ;; defun/defmethod and such in case
                                ;; swank ever starts using closer-mop
                                defs
-                               (defs-all (swank::find-definitions (first cats)))
+                               (defs-all (when cats (swank::find-definitions (first cats))))
                                (defs-novar
                                  (remove 'swank-backend::defvar
                                          (swank::find-definitions (first cats))

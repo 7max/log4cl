@@ -240,6 +240,9 @@ multiple prefixes"
   :set 'log4cl-set-prefix-keys
   :group 'log4cl)
 
+(defvar log4cl-goto-definition-window nil
+  "Passed as WHERE to `slime-pop-to-location', can be 'WINDOW or 'FRAME too")
+
 (log4cl-init-keymaps)
 
 ;; Probably there are some smarter ways to do it, but it was faster
@@ -511,15 +514,28 @@ EMACS-HELPER."
 (defun log4cl-goto-definition (event)
   (interactive "e")
   (let ((id (log4cl-logger-id-at-mouse event))) 
-    (let* ((xrefs (log4cl-eval `(log4cl.slime:emacs-helper
+    (let* ((name (log4cl-logger-rest id))
+           (package (log4cl-logger-package id))
+           (where log4cl-goto-definition-window)
+           (xrefs (log4cl-eval `(log4cl.slime:emacs-helper
                                  '(,@id :action :get-location)))))
-      (when (not xrefs)
-        (if (log4cl-logger-rest id) 
-            (error "No known definition for: %s (in %s)"
-                   (log4cl-logger-rest id)
-                   (log4cl-logger-package id))
-            (error "No definition found")))
-      (slime-edit-definition-cont xrefs (log4cl-logger-rest id) nil))))
+      ;; Pasted from `slime-edit-definition-cont'
+      (destructuring-bind (1loc file-alist) (slime-analyze-xrefs xrefs)
+        (cond ((null xrefs) 
+               (if name (error "No known definition for: %s (in %s)" name package)
+                 (error "No definition found")))
+              (1loc
+               (slime-push-definition-stack)
+               (slime-pop-to-location (slime-xref.location (car xrefs)) where)
+               (let ((end (save-excursion (forward-sexp) (point))))
+                 (when (re-search-forward "^[ \t]*\\((log:\\)" end t)
+                   (goto-char (match-beginning 1)))))
+              ((slime-length= xrefs 1)  ; ((:error "..."))
+               (error "%s" (cadr (slime-xref.location (car xrefs)))))
+              (t
+               (slime-push-definition-stack)
+               (slime-show-xrefs file-alist 'definition name
+                                 package)))))))
 
 (defvar log4cl-category-mouse-map (make-sparse-keymap))
 

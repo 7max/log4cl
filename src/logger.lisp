@@ -370,6 +370,9 @@ represents the package name."
                               (not force-string-case))
                          cat
                          (with-output-to-string (s)
+                           (when (and (keywordp cat)
+                                      (not (position #\: cat-sep)))
+                             (write-char #\: s))
                            (write-string-modify-case (string cat) s cat-case))))
                (hash (logger-child-hash logger)))
           (vector-push-extend name names)

@@ -137,3 +137,16 @@
       `(:action :info
         :package ,package
         :rest ,defun)))))
+
+;;
+;; Support for snippets compiled via C-c C-c correctly identifying the source file
+;; 
+(defvar *old-compile-string-for-emacs*
+  (fdefinition 'swank::compile-string-for-emacs))
+
+;; patch the COMPILE-STRING-FOR-EMACS
+(setf (fdefinition 'swank::compile-string-for-emacs)
+      (lambda (string buffer position filename policy)
+        (let ((*logger-truename* filename))
+          (funcall *old-compile-string-for-emacs*
+                   string buffer position filename policy))))

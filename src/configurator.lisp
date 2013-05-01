@@ -960,7 +960,7 @@ package.
                                   expr-log-level
                                   (old-logging-macros nil old-logging-macrosp))
   "Processes the naming configuration options"
-  (let* ((nc (find-or-create-naming-configuration package t))
+  (let* ((nc (find-or-create-naming-configuration (find-package package) t))
          (*naming-configuration* nc))
     (prog1 nc 
       (when category-casep (setf (category-case nc) category-case)) 

@@ -15,6 +15,7 @@
 
 (require 'slime)
 (require 'font-lock)
+(require 'cl)
 
 (defface log4cl-package-face
     '((((background dark)) (:foreground "#7474FFFFFFFF" :background "DimGray")) ; ~ cyan
@@ -398,11 +399,15 @@ multiple prefixes"
 
 (defun log4cl-make-levels-menu (info-symbol &optional nodisplay noinherit)
   "Create a levels menu for logger specified in the value of the INFO-SYMBOL"
-  (let* ((C `(and (slime-connected-p) ,info-symbol))
+  (let* ((C
+          ;; For non-popup-menu `log4cl-check-connection' is done in parent
+          (if (eq info-symbol 'log4cl-popup-logger)
+              `(and ,info-symbol)
+            `(and (log4cl-check-connection) ,info-symbol)))
          (menu `(nil :active ,C
                      ,@(unless nodisplay
                          `("--space" 
-                           [nil nil :label (log4cl-logger-display-name ,info-symbol)] 
+                           [nil nil :label (log4cl-logger-display-name ,info-symbol)]
                            "--space" 
                            "--single-line"))
                      ;; inherit
@@ -662,7 +667,7 @@ EMACS-HELPER."
          (setq ad-return-value ad-do-it)))))
 
 (defun log4cl-make-menubar-menu ()
-  (let ((C '(slime-connected-p)))
+  (let ((C '(log4cl-check-connection)))
     ;; First level is dynamic
     ;; :filter function 
     ;;    determine current defun
@@ -737,13 +742,19 @@ EMACS-HELPER."
                           (>= (- (float-time) try) 5)))
                  ;; mark it that we trying to do it
                  (process-put conn 'log4cl-loaded (float-time)) 
-                 (if (not (slime-eval `(cl:ignore-errors (asdf:load-system :log4slime))))
-                     (progn 
-                       (process-put conn 'log4cl-loaded (float-time))
-                       (message "Failed to load log4cl lisp support"))
-                   (message "Successfully loaded log4cl lisp support")
-                   (process-put conn 'log4cl-loaded t)
-                   t))))))))
+                 (let* ((result (slime-eval `(cl:multiple-value-bind
+                                              (ok err) (cl:ignore-errors 
+                                                        (asdf:load-system :log4slime))
+                                              (cl:if ok :ok (cl:prin1-to-string err)))))) 
+                   (log-expr result)
+                   (if (not (eq :ok result))
+                       (progn 
+                         (process-put conn 'log4cl-loaded (float-time))
+                         (message "Can't load log4cl lisp support: %s" result)
+                         nil)
+                     (message "Successfully loaded log4cl lisp support")
+                     (process-put conn 'log4cl-loaded t)
+                     t)))))))))
 
 (define-minor-mode log4cl-mode
   "\\<log4cl-mode-map>\

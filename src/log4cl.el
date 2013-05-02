@@ -50,7 +50,7 @@ event originated in"
 (defun log4cl-level-name (level)
   (if level 
       (nth level log4cl-log-level-names)
-    "Parent"))
+    "unset"))
 
 ;; Logger info is used to communicate information about a logger both from Emacs to Lisp
 ;; and the other way around. The first three elements below are used to identify or find
@@ -145,7 +145,7 @@ event originated in"
   "Create the easy-menu menu item that toggles the log level"
   (let* ((S `(eql ,level (log4cl-logger-level ,info-symbol)))
          (T (if level (log4cl-level-name level)
-              `(format "Parent (%s)"
+              `(format "Inherit - %s"
                        (log4cl-level-name
                         (log4cl-logger-inherited-level ,info-symbol)))))
          (cmd 
@@ -159,7 +159,7 @@ event originated in"
       :label ,T
       :style radio
       :selected ,S
-      :active (not ,S)
+      ;; :active (not ,S)
       ]))
 
 (defun log4cl-set-level (info-symbol level)
@@ -202,14 +202,14 @@ event originated in"
    for section-char = (aref section 0)
    for section-map = (make-sparse-keymap)
    do (progn
-        (dolist (level '("parent" "off" "fatal" "error" "warn" "info" "debug"
+        (dolist (level '("unset" "off" "fatal" "error" "warn" "info" "debug"
                          "debu1" "debu2" "debu3" "debu4" "trace"
                          "debu5" "debu6" "debu7" "debu8" "debu9"
                          "reset"))
           (let ((level-char (aref level (if (string-match "debu[0-9]" level)
                                             4 0)))
                 (cmd (unless (and (equal section "root")
-                                  (equal level "parent")) 
+                                  (equal level "unset")) 
                        (intern (format "log4cl-%s-%s" section level)))))
             (when cmd 
               (define-key section-map (read-kbd-macro (format "C-%c" level-char)) cmd)
@@ -267,7 +267,7 @@ multiple prefixes"
   (defun log4cl-root-debu9 (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 15))
   (defun log4cl-root-reset (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg :reset))
 
-  (defun log4cl-package-parent   (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg nil))
+  (defun log4cl-package-unset   (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg nil))
   (defun log4cl-package-off   (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 0))
   (defun log4cl-package-fatal (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 1))
   (defun log4cl-package-error (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 2))
@@ -286,7 +286,7 @@ multiple prefixes"
   (defun log4cl-package-debu9 (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 15))
   (defun log4cl-package-reset (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg :reset))
 
-  (defun log4cl-file-parent   (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg nil))
+  (defun log4cl-file-unset   (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg nil))
   (defun log4cl-file-off   (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 0))
   (defun log4cl-file-fatal (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 1))
   (defun log4cl-file-error (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 2))
@@ -305,7 +305,7 @@ multiple prefixes"
   (defun log4cl-file-debu9 (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 15))
   (defun log4cl-file-reset (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg :reset))
 
-  (defun log4cl-defun-parent   (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg nil))
+  (defun log4cl-defun-unset   (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg nil))
   (defun log4cl-defun-off   (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 0))
   (defun log4cl-defun-fatal (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 1))
   (defun log4cl-defun-error (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 2))
@@ -693,7 +693,7 @@ EMACS-HELPER."
        ,@(rest (log4cl-make-levels-menu 'log4cl-package-logger)))
       ("Source File" :filter log4cl-filter-file
        ,@(rest (log4cl-make-levels-menu 'log4cl-file-logger)))
-      ("Current Form" :filter log4cl-filter-defun
+      ("Defun" :filter log4cl-filter-defun
        ,@(rest (log4cl-make-levels-menu 'log4cl-defun-logger))))))
 
 (defun log4cl-filter-root (args)
@@ -831,3 +831,4 @@ By default they do not show up in the menus, but you can customize the variable
 (define-globalized-minor-mode global-log4cl-mode log4cl-mode turn-on-log4cl-mode)
 
 (provide 'log4cl)
+

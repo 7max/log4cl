@@ -52,7 +52,7 @@
                                    (logger-name-for-emacs logger)
                                    (log-level-to-string (effective-log-level logger))))
                           (t
-                           (format nil "~a effective log level is ~a"
+                           (format nil "~a now inherits level ~a"
                                    (logger-name-for-emacs logger)
                                    (log-level-to-string (effective-log-level logger))))))
                        ((eq :get-location action)

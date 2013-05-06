@@ -152,12 +152,24 @@ event originated in"
     `(:package ,package :file ,file :rest ,rest :package-offset ,package-offset
                :root ,(getf info :root))))
 
-(defun log4cl-info-symbol-to-string (info-symbol)
-  (ecase info-symbol
-    (log4cl-root-logger "root")
-    (log4cl-package-logger "package")
-    (log4cl-file-logger "file")
-    (log4cl-defun-logger "defun")))
+(defun log4cl-make-keys-string (info-symbol level)
+  "Return a string describing keyboard shortcut"
+  (let* ((1st-level-char 
+          (ecase info-symbol
+            (log4cl-root-logger ?r)
+            (log4cl-package-logger ?p)
+            (log4cl-file-logger ?f)
+            (log4cl-defun-logger ?d)))
+         (name (log4cl-level-name level))
+         (2nd-level-char
+          (downcase (aref name
+                          (if (string-match "debu[0-9]" name)
+                              4 0))))
+         (result 
+          (format "\\[log4cl-fast-level-selection] %c %c" 
+                  1st-level-char 2nd-level-char)))
+    (log-expr result)
+    result))
 
 (defun log4cl-level-menu-item (info-symbol level)
   "Create the easy-menu menu item that toggles the log level"
@@ -166,17 +178,14 @@ event originated in"
               `(format "Inherit - %s"
                        (log4cl-level-name
                         (log4cl-logger-inherited-level ,info-symbol)))))
-         (cmd 
-          (if (eq info-symbol 'log4cl-popup-logger)
-              `((log4cl-set-level ',info-symbol ,level)) 
-            `(,(intern (format "log4cl-%s-%s" 
-                               (log4cl-info-symbol-to-string info-symbol)
-                               (downcase (log4cl-level-name level))))))))
+         (cmd `(log4cl-set-level ',info-symbol ,level)))
     `[,(or level :unset)
-      ,@cmd
+      ,cmd
       :label ,T
       :style radio
       :selected ,S
+      ,@(unless (eq info-symbol 'log4cl-popup-logger) 
+          `(:keys ,(log4cl-make-keys-string info-symbol level)))
       ;; :active (not ,S)
       ]))
 
@@ -196,151 +205,10 @@ event originated in"
   (when (log4cl-check-connection) 
     (slime-eval `(cl:ignore-errors ,form))))
 
-(defvar log4cl-mode-map (make-sparse-keymap))
-
-(defvar log4cl-root-map (make-sparse-keymap) "Keymap for changing level of the root logger")
-(defvar log4cl-package-map (make-sparse-keymap) "Keymap for changing level of the package logger")
-(defvar log4cl-file-map (make-sparse-keymap) "Keymap for changing level of the file logger")
-(defvar log4cl-defun-map (make-sparse-keymap) "Keymap for changing level of the current defun logger")
-(defvar log4cl-section-map (make-sparse-keymap)
-  "Keymap that dispatches to one of `log4cl-root-map'
-`log4cl-package-map' `log4cl-file-map' or
-`log4cl-defun-map'")
-
 (defvar log4cl-last-prefix-keys nil)
-
-(defun log4cl-init-logging-maps ()
-  (setq log4cl-section-map (make-sparse-keymap))
-  (loop
-   for section in '("root" "package" "file" "defun")
-   for section-map-sym in '(log4cl-root-map
-                            log4cl-package-map
-                            log4cl-file-map
-                            log4cl-defun-map)
-   for section-char = (aref section 0)
-   for section-map = (make-sparse-keymap)
-   do (progn
-        (dolist (level '("unset" "off" "fatal" "error" "warn" "info" "debug"
-                         "debu1" "debu2" "debu3" "debu4" "trace"
-                         "debu5" "debu6" "debu7" "debu8" "debu9"
-                         "reset"))
-          (let ((level-char (aref level (if (string-match "debu[0-9]" level)
-                                            4 0)))
-                (cmd (unless (and (equal section "root")
-                                  (equal level "unset")) 
-                       (intern (format "log4cl-%s-%s" section level)))))
-            (when cmd 
-              (define-key section-map (read-kbd-macro (format "C-%c" level-char)) cmd)
-              (define-key section-map (read-kbd-macro (format "%c" level-char)) cmd))))
-        (set section-map-sym section-map)
-        (define-key log4cl-section-map (read-kbd-macro (format "C-%c" section-char)) section-map)
-        (define-key log4cl-section-map (read-kbd-macro (format "%c" section-char)) section-map))))
-
-(defun log4cl-init-keymaps ()
-  (let ((old (if (listp log4cl-last-prefix-keys)
-                 log4cl-last-prefix-keys
-               (list log4cl-last-prefix-keys)))
-        (new (if (listp log4cl-prefix-keys) log4cl-prefix-keys
-               (list log4cl-prefix-keys))))
-    (log4cl-init-logging-maps)
-    (dolist (key old)
-      (define-key log4cl-mode-map key nil))
-    (dolist (key new)
-      (define-key log4cl-mode-map key log4cl-section-map))))
-
-(defun log4cl-set-prefix-keys (sym val)
-  (set sym val)
-  (log4cl-init-keymaps)
-  (setq log4cl-last-prefix-keys val))
-
-(defcustom log4cl-prefix-keys '("\C-c\C-g")
-  "Prefix key sequence for Log4CL commands. Can be a list of
-multiple prefixes"
-  :set 'log4cl-set-prefix-keys
-  :group 'log4cl)
 
 (defvar log4cl-goto-definition-window nil
   "Passed as WHERE to `slime-pop-to-location', can be 'WINDOW or 'FRAME too")
-
-(log4cl-init-keymaps)
-
-;; Probably there are some smarter ways to do it, but it was faster
-;; for me to cut-n-paste
-(progn
-  (defun log4cl-root-off   (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 0))
-  (defun log4cl-root-fatal (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 1))
-  (defun log4cl-root-error (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 2))
-  (defun log4cl-root-warn  (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 3))
-  (defun log4cl-root-info  (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 4))
-  (defun log4cl-root-debug (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 5))
-  (defun log4cl-root-debu1 (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 6))
-  (defun log4cl-root-debu2 (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 7))
-  (defun log4cl-root-debu3 (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 8))
-  (defun log4cl-root-debu4 (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 9))
-  (defun log4cl-root-trace (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 10))
-  (defun log4cl-root-debu5 (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 11))
-  (defun log4cl-root-debu6 (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 12))
-  (defun log4cl-root-debu7 (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 13))
-  (defun log4cl-root-debu8 (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 14))
-  (defun log4cl-root-debu9 (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg 15))
-  (defun log4cl-root-reset (&optional arg) (interactive "P") (log4cl-cmd-set-root-level arg :reset))
-
-  (defun log4cl-package-unset   (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg nil))
-  (defun log4cl-package-off   (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 0))
-  (defun log4cl-package-fatal (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 1))
-  (defun log4cl-package-error (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 2))
-  (defun log4cl-package-warn  (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 3))
-  (defun log4cl-package-info  (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 4))
-  (defun log4cl-package-debug (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 5))
-  (defun log4cl-package-debu1 (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 6))
-  (defun log4cl-package-debu2 (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 7))
-  (defun log4cl-package-debu3 (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 8))
-  (defun log4cl-package-debu4 (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 9))
-  (defun log4cl-package-trace (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 10))
-  (defun log4cl-package-debu5 (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 11))
-  (defun log4cl-package-debu6 (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 12))
-  (defun log4cl-package-debu7 (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 13))
-  (defun log4cl-package-debu8 (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 14))
-  (defun log4cl-package-debu9 (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg 15))
-  (defun log4cl-package-reset (&optional arg) (interactive "P") (log4cl-cmd-set-package-level arg :reset))
-
-  (defun log4cl-file-unset   (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg nil))
-  (defun log4cl-file-off   (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 0))
-  (defun log4cl-file-fatal (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 1))
-  (defun log4cl-file-error (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 2))
-  (defun log4cl-file-warn  (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 3))
-  (defun log4cl-file-info  (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 4))
-  (defun log4cl-file-debug (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 5))
-  (defun log4cl-file-debu1 (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 6))
-  (defun log4cl-file-debu2 (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 7))
-  (defun log4cl-file-debu3 (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 8))
-  (defun log4cl-file-debu4 (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 9))
-  (defun log4cl-file-trace (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 10))
-  (defun log4cl-file-debu5 (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 11))
-  (defun log4cl-file-debu6 (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 12))
-  (defun log4cl-file-debu7 (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 13))
-  (defun log4cl-file-debu8 (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 14))
-  (defun log4cl-file-debu9 (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg 15))
-  (defun log4cl-file-reset (&optional arg) (interactive "P") (log4cl-cmd-set-file-level arg :reset))
-
-  (defun log4cl-defun-unset   (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg nil))
-  (defun log4cl-defun-off   (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 0))
-  (defun log4cl-defun-fatal (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 1))
-  (defun log4cl-defun-error (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 2))
-  (defun log4cl-defun-warn  (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 3))
-  (defun log4cl-defun-info  (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 4))
-  (defun log4cl-defun-debug (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 5))
-  (defun log4cl-defun-debu1 (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 6))
-  (defun log4cl-defun-debu2 (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 7))
-  (defun log4cl-defun-debu3 (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 8))
-  (defun log4cl-defun-debu4 (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 9))
-  (defun log4cl-defun-trace (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 10))
-  (defun log4cl-defun-debu5 (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 11))
-  (defun log4cl-defun-debu6 (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 12))
-  (defun log4cl-defun-debu7 (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 13))
-  (defun log4cl-defun-debu8 (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 14))
-  (defun log4cl-defun-debu9 (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg 15))
-  (defun log4cl-defun-reset (&optional arg) (interactive "P") (log4cl-cmd-set-defun-level arg :reset)))
 
 (defun log4cl-cmd-set-root-level (arg level)
   (if log4cl-root-logger (log4cl-set-level 'log4cl-root-logger level)
@@ -421,15 +289,14 @@ number, or a keyword :reset for the \"Reset child loggers\" action"
 (defun log4cl-make-levels-menu (info-symbol &optional nodisplay noinherit)
   "Create a levels menu for logger specified in the value of the INFO-SYMBOL"
   (let* ((C
-          ;; For non-popup-menu `log4cl-check-connection' is done in parent
+          ;; For menubar loggers `log4cl-check-connection' is done in parent menu
           (if (eq info-symbol 'log4cl-popup-logger)
               `(and ,info-symbol)
             `(and (log4cl-check-connection) ,info-symbol)))
          (menu `(nil :active ,C
                      ,@(unless nodisplay
-                         `("--space" 
+                         `( 
                            [nil nil :label (log4cl-logger-display-name ,info-symbol)]
-                           "--space" 
                            "--single-line"))
                      ;; inherit
                      ,@(unless noinherit 
@@ -443,10 +310,7 @@ number, or a keyword :reset for the \"Reset child loggers\" action"
                          `(["--single-line" nil :visible (and (plusp (log4cl-children-level-count ,info-symbol)))] 
                            ["--space" nil :visible (plusp (log4cl-children-level-count ,info-symbol))] 
                            [:reset
-                            ,(if (eq info-symbol 'log4cl-popup-logger)
-                                 `(log4cl-set-level ',info-symbol :reset) 
-                               (intern (format "log4cl-%s-reset" 
-                                               (log4cl-info-symbol-to-string info-symbol))))
+                            (log4cl-set-level ',info-symbol :reset)
                             ;; (log4cl-set-level ,info-symbol :reset)
                             :label "Reset children"
                             :suffix (format "(%d)  " (log4cl-children-level-count ,info-symbol))
@@ -594,6 +458,10 @@ EMACS-HELPER."
 (defvar log4cl-package-regexp)
 (defvar log4cl-file-regexp)
 (defvar log4cl-rest-regexp)
+
+(defvar log4cl-mode-map (make-sparse-keymap))
+
+(define-key log4cl-mode-map "\C-c\C-g" 'log4cl-fast-level-selection)
 
 (setq log4cl-log-level-regexp
       (concat "[[(< ]?"
@@ -785,53 +653,15 @@ EMACS-HELPER."
   "\\<log4cl-mode-map>\
 Support mode integrating Log4CL logging system with SLIME
 
-Commands to configure the Root Logger
-\\[log4cl-root-off]		- Set log level to OFF 
-\\[log4cl-root-fatal]		- Set log level to FATAL 
-\\[log4cl-root-error]		- Set log level to ERROR
-\\[log4cl-root-warn]		- Set log level to WARN
-\\[log4cl-root-info]		- Set log level to INFO
-\\[log4cl-root-debug]		- Set log level to DEBUG
-\\[log4cl-root-trace]		- Set log level to TRACE
-\\[log4cl-root-reset]		- Clear log level on any child loggers
+\\[log4cl-fast-level-selection]		- Set log level fast via keyboard
 
-\\[log4cl-root-debu1]		- Set log level to DEBU1
-
-Commands to configure the current package logger
-\\[log4cl-package-off]		- Set log level to OFF 
-\\[log4cl-package-fatal]	- Set log level to FATAL 
-\\[log4cl-package-error]	- Set log level to ERROR
-\\[log4cl-package-warn]		- Set log level to WARN
-\\[log4cl-package-info]		- Set log level to INFO
-\\[log4cl-package-debug]	- Set log level to DEBUG
-\\[log4cl-package-trace]	- Set log level to TRACE
-\\[log4cl-package-reset]	- Clear log level on any child loggers
-
-Commands to configure the file Logger
-\\[log4cl-file-off]		- Set log level to OFF 
-\\[log4cl-file-fatal]		- Set log level to FATAL 
-\\[log4cl-file-error]		- Set log level to ERROR
-\\[log4cl-file-warn]		- Set log level to WARN
-\\[log4cl-file-info]		- Set log level to INFO
-\\[log4cl-file-debug]		- Set log level to DEBUG
-\\[log4cl-file-trace]		- Set log level to TRACE
-\\[log4cl-file-reset]		- Clear log level on any child loggers
-
-Commands to configure the current form Logger
-\\[log4cl-defun-off]		- Set log level to OFF 
-\\[log4cl-defun-fatal]		- Set log level to FATAL 
-\\[log4cl-defun-error]		- Set log level to ERROR
-\\[log4cl-defun-warn]		- Set log level to WARN
-\\[log4cl-defun-info]		- Set log level to INFO
-\\[log4cl-defun-debug]		- Set log level to DEBUG
-\\[log4cl-defun-trace]		- Set log level to TRACE
-\\[log4cl-defun-reset]		- Clear log level on any child loggers
+Only \"standard\" log levels show up in the menu and keyboard bindings.
 
 There are also 8 extra debug levels, DEBU1..DEBU4 are more specific then DEBUG
 but less specific then TRACE, and DEBU5..DEBU9 come after TRACE.
 
-By default they do not show up in the menus, but you can customize the variable
-`log4cl-menu-levels' to show them.
+To make them show up in the menu, but you can customize the
+variable `log4cl-menu-levels'.
 "
   nil
   nil
@@ -839,9 +669,13 @@ By default they do not show up in the menus, but you can customize the variable
   (when log4cl-mode
     (log4cl-check-connection)))
 
-(defun log4cl-redefine-menus () 
+(defun log4cl-redefine-menus (&optional global) 
+  "Redefine Log4CL menus. If GLOBAL is true, make dropdown menu
+global instead of local to files with `log4cl-mode' active"
   (easy-menu-define log4cl-popup-menu nil nil (log4cl-make-levels-menu 'log4cl-popup-logger)) 
-  (easy-menu-define log4cl-menu log4cl-mode-map "Log4CL" (log4cl-make-menubar-menu)))
+  (if global 
+      (easy-menu-define log4cl-menu (current-global-map) "Log4CL" (log4cl-make-menubar-menu))
+    (easy-menu-define log4cl-menu log4cl-mode-map "Log4CL" (log4cl-make-menubar-menu))))
 
 (log4cl-redefine-menus)
 
@@ -1138,7 +972,7 @@ if its inherited from parent, and apply font property"
           (setq c (cdr (assoc c level-keys)))
           (log4cl-set-level 'logger c))))))
 
-
 (provide 'log4cl)
+
 
 

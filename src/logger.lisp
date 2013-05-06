@@ -632,7 +632,8 @@ second value."
   (let* ((level (make-log-level level))
          (state (current-state logger))
          (old-level (logger-state-level state))
-         (new-level (when (/= level +log-level-unset+) level)))
+         (new-level (if (/= level +log-level-unset+) level
+                        (if (eq logger *root-logger*) +log-level-off+ nil))))
     (declare (type fixnum level)
              (type logger-state state)
              (type (or null fixnum) old-level new-level))

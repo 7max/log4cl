@@ -158,13 +158,9 @@ situation"
       (signals type-error (log:info :logger e))))
   (values))
 
+(deftest should-not-unset-root-logger ()
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (log-config *root-logger* :unset)
+    (is (equal (logger-log-level *root-logger*) +log-level-off+))))
 
-
-;; (deftest explicit-make-of-child-of-packaged-parent ()
-;;   (with-package-log-hierarchy 
-;;     (clear-logging-configuration)
-;;     (log:config :i)
-;;     (let ((parent (log:make))
-;;           (parent-explicit (log:make '(log4cl))))
-;;       (is (eq parent parent-explicit))
-;;       (is (plusp (logger-pkg-idx-start parent))))))

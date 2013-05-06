@@ -17,30 +17,33 @@
 (require 'font-lock)
 (require 'cl)
 
+(defgroup log4cl nil
+  "Customization for Log4CL Slime integration"
+  :prefix "log4cl-")
+
 (defface log4cl-package-face
     '((((background dark)) (:foreground "#7474FFFFFFFF" :background "DimGray")) ; ~ cyan
       (t (:foreground "DarkRed")))
   "*Face for displaying package name category
 logging event originated in"
-  :group 'log4cl :group 'log4cl-faces)
+  :group 'log4cl)
 
-(defface log4cl-file-category-face
+(defface log4cl-file-face
     '((((background dark)) (:foreground "#7474FFFFFFFF" :background "DimGray")) ; ~ cyan
       (t (:foreground "DarkRed")))
-  "*Face used for a category corresponding to the file name where
-event originated in"
-  :group 'log4cl :group 'log4cl-faces)
+  "Face used for a file name category"
+  :group 'log4cl)
 
-(defface log4cl-function-category-face
+(defface log4cl-function-face
     '((((background dark)) (:foreground "Yellow"))
       (t                   (:foreground "Blue")))
-  "*Face used for categories after the package and file name (usually the function/method name)"
-  :group 'log4cl :group 'log4cl-faces)
+  "*Face used for categories after the package and file name"
+  :group 'log4cl)
 
-(defface log4cl-level-category-face
+(defface log4cl-level-face
     '((t                   (:weight bold)))
   "*Face used for the log level"
-  :group 'log4cl :group 'log4cl-faces)
+  :group 'log4cl)
 
 (defface log4cl-level-selection-face
   (org-compatible-face nil
@@ -48,16 +51,16 @@ event originated in"
       (((class color) (min-colors 16) (background dark)) (:foreground "PaleGreen" :bold t))
       (((class color) (min-colors 8)) (:foreground "green"))
       (t (:bold t))))
-  "Face for log level in fast logger selection window"
-  :group 'log4cl :group 'log4cl-faces)
+  "Face for log level in `log4cl-fast-level-selection' window"
+  :group 'log4cl)
 
 (defface log4cl-level-inherited-face
     '((((class color) (min-colors 16) (background light)) (:foreground "ForestGreen" :bold nil :slant italic))
       (((class color) (min-colors 16) (background dark)) (:foreground "PaleGreen" :bold nil :slant italic))
       (((class color) (min-colors 8)) (:foreground "green"))
       (t (:bold nil :slant italic)))
-  "Face for inherited log level in fast logger selection window"
-  :group 'log4cl :group 'log4cl-faces)
+  "Face for inherited log level in `log4cl-fast-level-selection' window"
+  :group 'log4cl)
 
 
 (defvar log4cl-log-level-names
@@ -168,7 +171,6 @@ event originated in"
          (result 
           (format "\\[log4cl-fast-level-selection] %c %c" 
                   1st-level-char 2nd-level-char)))
-    (log-expr result)
     result))
 
 (defun log4cl-level-menu-item (info-symbol level)
@@ -283,8 +285,20 @@ number, or a keyword :reset for the \"Reset child loggers\" action"
               (const :tag "Debu9" 15)
               (const :tag "Reset" :reset))
   :set 'log4cl-set-menu-levels
-  :group 'log4cl)
+  :group 'log4cl
+  :require 'log4cl)
 
+(defcustom log4cl-fast-level-selection-single-key nil
+  "Non-nil means fast level selection exits after first change.
+When nil, you have to press q to exit it.  This variable can also
+have the value `expert'.  In this case, the window displaying the
+levels menu is not even shown"
+  :group 'log4cl
+  :type '(choice
+	  (const :tag "No" nil)
+	  (const :tag "Yes" t)
+	  (const :tag "Expert" expert))
+  :require 'log4cl)
 
 (defun log4cl-make-levels-menu (info-symbol &optional nodisplay noinherit)
   "Create a levels menu for logger specified in the value of the INFO-SYMBOL"
@@ -370,11 +384,11 @@ EMACS-HELPER."
                    (when (and (>= point start) (< point next))
                      (setq click-target :package
                            package-offset (- point start))))
-                  ((eq prev 'log4cl-file-category-face)
+                  ((eq prev 'log4cl-file-face)
                    (setq file (buffer-substring-no-properties start next))
                    (when (and (>= point start) (< point next))
                      (setq click-target :file)))
-                  ((eq prev 'log4cl-function-category-face)
+                  ((eq prev 'log4cl-function-face)
                    (unless rest-all 
                      (setq rest-all (buffer-substring-no-properties
                                      start next)))
@@ -443,13 +457,13 @@ EMACS-HELPER."
 (setq log4cl-category-package-properties (list 'face 'log4cl-package-face
                                                   'keymap log4cl-category-mouse-map
                                                   'pointer 'hand) 
-      log4cl-category-file-properties (list 'face 'log4cl-file-category-face
+      log4cl-category-file-properties (list 'face 'log4cl-file-face
                                                'keymap log4cl-category-mouse-map
                                                'pointer 'hand) 
-      log4cl-category-function-properties (list 'face 'log4cl-function-category-face
+      log4cl-category-function-properties (list 'face 'log4cl-function-face
                                                    'keymap log4cl-category-mouse-map
                                                    'pointer 'hand)
-      log4cl-category-level-properties (list 'face 'log4cl-level-category-face))
+      log4cl-category-level-properties (list 'face 'log4cl-level-face))
 
 (defvar log4cl-log-level-regexp)
 (defvar log4cl-log-level-base-regexp)
@@ -702,7 +716,7 @@ if its inherited from parent, and apply font property"
                                    (log4cl-logger-inherited-level info)))))))
 
 
-(defun can-lay-down-in-columns (table nsubcol width maxcol col-pad)
+(defun log4cl-layout-columns (table nsubcol width maxcol col-pad)
   "Given a table like ((aa bbb ccc) (aaaa bbbb ccc)) calculate how many columns we can
   lay it down with in a given width, so each element aligns below the other"
   (let* ((cw '())
@@ -753,11 +767,18 @@ if its inherited from parent, and apply font property"
       (add-text-properties 0 (length text) (first args) text)
       text)))
 
+(defun log4cl-uncontrol-char (c) 
+  (if (and (> c 0) (<= c 26)
+           (not (eql c ?\C-g)))
+      (+ c (- ?A ?\C-a))
+    c))
+
 (defun log4cl-fast-level-selection (&optional arg)
   "Set log level interactively"
   (interactive)
 
   ;; (figure out the list of things to display)
+
   (let ((log4cl-root-logger nil)
         (log4cl-package-logger nil)
         (log4cl-file-logger nil)
@@ -765,212 +786,231 @@ if its inherited from parent, and apply font property"
         ;; need to copy them, because above variables are set
         ;; from menu filter, and seems getting overriten somehow
         root-info file-info package-info defun-info
-        expert e c logger is-root-p type
+        (expert log4cl-fast-level-selection-single-key)
+        e c logger is-root-p type
         level-keys
-        name)
-    (log4cl-setup-buffer)
-    ;; (log-expr log4cl-root-logger log4cl-package-logger)
-    (let* ((root
-            (when (setq root-info log4cl-root-logger) 
-              (list
-               "[R] Root" ""
-               (format " - %s" (log4cl-format-eff-level log4cl-root-logger)))))
-           (package
-            (when (setq package-info log4cl-package-logger) 
-              (list
-               "[P] Package "
-               (log4cl-format '(face log4cl-package-face)
-                              "%s" (log4cl-logger-display-name log4cl-package-logger))
-               (format " - %s" (log4cl-format-eff-level log4cl-package-logger)))))
-           (file
-            (when (setq file-info log4cl-file-logger) 
-              (list "[F] File "
-                    (log4cl-format '(face log4cl-file-category-face)
-                                   "%s" (log4cl-logger-display-name log4cl-file-logger))
-                    (format " - %s" (log4cl-format-eff-level log4cl-file-logger)))))
-           (dfun
-            (when (setq defun-info log4cl-defun-logger) 
-              (list "[D] Defun "
-                    (log4cl-format '(face log4cl-function-category-face)
-                                   "%s" (log4cl-logger-display-name log4cl-defun-logger))
-                    (format " - %s" (log4cl-format-eff-level log4cl-defun-logger)))))
-           (choices (remove nil (list
-                                 root package file dfun)))
-           (cols (can-lay-down-in-columns choices 3 (- (frame-width) 6) 2 10))
-           (ncol (length cols))
-           (col 0)
-           (nrows 0))
-      ;; (log-expr choices)
-      ;; (log-expr cols)
-      ;; (create temp buffer)
-      (save-window-excursion
-        (when (get-buffer " *Select logger*") 
-          (kill-buffer " *Select logger*"))
-        (set-buffer (get-buffer-create " *Select logger*"))
-        (erase-buffer)
-        (insert "Current levels:      ")
-        (insert
-         "(" (log4cl-format '(face log4cl-level-selection-face) "set") "/"
-         (log4cl-format '(face log4cl-level-inherited-face) "inherited)"))
-        (insert "\n\n")
-        (incf nrows 2)
-        ;; (print text to the buffer)
-        (while (setq e (pop choices))
-          (let ((cw1 (nth 0 (nth col cols)))
-                (cw2 (nth 1 (nth col cols)))
-                (cw3 (nth 2 (nth col cols)))) 
-            (when (zerop col)
-              (insert-char ?  6))
-            (insert (first e))
-            (insert-char ?  (- cw1 (length (first e))))
-            (insert (second e))
-            (insert-char ?  (- cw2 (length (second e))))
-            (insert (third e))
-            (insert-char ?  (- cw3 (length (third e))))
-            (incf col) 
-            (if (< col ncol)
-                (insert (make-string 10 ?\ ))
-              (insert "\n")
-              (setq col 0)
-              (incf nrows))))
-        ;; (insert "\n")
-        (unless (zerop col)
-          (insert "\n")
-          (incf nrows))
-        (goto-char (point-min))
-        (let ((note "(*) inherited level"))
-          
-          (setq mode-line-format
-                (format "%s%s"
-                        (make-string (/ (- (frame-width) 5 (length note)) 2) ?\ )
-                        note))
-          (setq mode-line-format nil))
-        
-        (unless expert
-          (let* ((window-min-height 2)
-                 (window-tree))
-            ;; (log-expr nrows (window-height) 
-            ;;           (- (window-height) 1 nrows))
-            
-            (delete-other-windows)
-            (sit-for 0)
-            (setq window (split-window nil (- (window-height) (1+ nrows))))
-            (set-window-buffer window (get-buffer-create " *Select logger*"))))
-        (message "Choose logger: [%s%s%s%s] or ([q] to quit)? "
-                 (if dfun "d" "")
-                 (if package "p" "")
-                 (if file "f" "")
-                 (if root "r" ""))
-        (setq c (let ((inhibit-quit t)) (read-char-exclusive)))
-        (cond ((and dfun (or (eql (downcase c) ?d) (eql c "\C-d")))
-               (setq logger defun-info type 'dfun
-                     name (concat "Defun "
-                                  (log4cl-format '(face log4cl-function-category-face)
-                                                 "%s" (log4cl-logger-display-name logger)))))
-              ((and package (or (eql (downcase c) ?p) (eql c "\C-p")))
-               (setq logger package-info
-                     type 'package
-                     name (concat "Package "
-                                  (log4cl-format '(face log4cl-package-face)
-                                                 "%s" (log4cl-logger-display-name logger)))))
-              ((and file (or (eql (downcase c) ?f) (eql c "\C-f")))
-               (setq logger file-info
-                     type 'file
-                     name (concat "File "
-                                  (log4cl-format '(face log4cl-file-category-face)
-                                                 "%s" (log4cl-logger-display-name logger)))))
-              ((and root (or (eql (downcase c) ?r) (eql c "\C-r")))
-               (setq logger root-info
-                     type 'root
-                     name "Root logger"))
-              ((or (eql (downcase c) ?q) (eql c "\C-q"))
-               (setq logger 'quit)))
-        (unless (eq logger 'quit)
-          (or logger (error "Invalid input '%c'" c))
-          (setq choices 
-                (loop for level from 0 to 15
-                      for name = (log4cl-level-name level)
-                      when (member level log4cl-menu-levels)
-                      collect (let ((level-char (aref name
-                                                      (if (string-match "debu[0-9]" name)
-                                                          4 0))))
-                                (list
-                                 level-char level
-                                 (format "[%c]:" level-char)
-                                 (log4cl-format '(face log4cl-level-selection-face)
-                                                "%s"
-                                                (log4cl-level-name level))))))
-          
-          (setq level-keys (mapcar (lambda (x)
-                                     (cons (downcase (first x)) (second x)))
-                                   choices)
-                choices (mapcar 'cddr choices))
+        name
+        current-level
+        done)
+    (save-window-excursion 
+      (while (not done) 
+        (setq log4cl-root-logger nil
+              log4cl-package-logger nil
+              log4cl-file-logger nil
+              log4cl-defun-logger nil)
+        (log4cl-setup-buffer)
+        ;; (log-expr log4cl-root-logger log4cl-package-logger)
+        (let* ((root
+                (when (setq root-info log4cl-root-logger) 
+                  (list
+                   "[R] Root" ""
+                   (format " - %s" (log4cl-format-eff-level log4cl-root-logger)))))
+               (package
+                (when (setq package-info log4cl-package-logger) 
+                  (list
+                   "[P] Package "
+                   (log4cl-format '(face log4cl-package-face)
+                                  "%s" (log4cl-logger-display-name log4cl-package-logger))
+                   (format " - %s" (log4cl-format-eff-level log4cl-package-logger)))))
+               (file
+                (when (setq file-info log4cl-file-logger) 
+                  (list "[F] File "
+                        (log4cl-format '(face log4cl-file-face)
+                                       "%s" (log4cl-logger-display-name log4cl-file-logger))
+                        (format " - %s" (log4cl-format-eff-level log4cl-file-logger)))))
+               (dfun
+                (when (setq defun-info log4cl-defun-logger) 
+                  (list "[D] Defun "
+                        (log4cl-format '(face log4cl-function-face)
+                                       "%s" (log4cl-logger-display-name log4cl-defun-logger))
+                        (format " - %s" (log4cl-format-eff-level log4cl-defun-logger)))))
+               (choices (remove nil (list
+                                     root package file dfun)))
+               (cols (log4cl-layout-columns choices 3 (- (frame-width) 6) 2 10))
+               (ncol (length cols))
+               (col 0)
+               (nrows 0))
           ;; (log-expr choices)
-          (setq nrows 0)
+          ;; (log-expr cols)
+          ;; (create temp buffer)
+          (when (get-buffer " *Select logger*") 
+            (kill-buffer " *Select logger*"))
+          (set-buffer (get-buffer-create " *Select logger*"))
           (erase-buffer)
-          (insert name)
-          (if (log4cl-logger-level logger)
-              (progn 
-                (insert " - " (upcase
-                               (log4cl-format
-                                '(face log4cl-level-selection-face) "%s"
-                                (log4cl-level-name (log4cl-logger-level logger)))))
-                (if (eq type 'root)
-                    (insert "\n\n")
-                  (insert "   [U] to unset, will inherit parent level "
-                          (log4cl-format '(face log4cl-level-selection-face) "%s"
-                                         (upcase (log4cl-level-name (log4cl-logger-inherited-level logger))))
-                          "\n\n")
-                  (push (cons ?u nil) level-keys))
-                (incf nrows 2))
-            (insert " --- Inherited level - "
-                    (upcase
-                     (log4cl-format
-                      '(face log4cl-level-inherited-face) "%s"
-                      (log4cl-level-name (log4cl-logger-inherited-level logger))))
-                    "\n\n")
-            (incf nrows 2))
-          (setq cols (can-lay-down-in-columns choices 2 (- (frame-width) 6) 100 3))
-          (setq ncol (length cols))
-          (setq col 0)
-          ;; (log-expr ncol)
+          (insert "Current levels:      ")
+          (insert
+           "(" (log4cl-format '(face log4cl-level-selection-face) "set") "/"
+           (log4cl-format '(face log4cl-level-inherited-face) "inherited)"))
+          (insert "\n\n")
+          (incf nrows 2)
+          ;; (print text to the buffer)
           (while (setq e (pop choices))
-            (when (zerop col)
-              (insert-char ?  6))
             (let ((cw1 (nth 0 (nth col cols)))
-                  (cw2 (nth 1 (nth col cols)))) 
+                  (cw2 (nth 1 (nth col cols)))
+                  (cw3 (nth 2 (nth col cols)))) 
+              (when (zerop col)
+                (insert-char ?  6))
               (insert (first e))
               (insert-char ?  (- cw1 (length (first e))))
               (insert (second e))
               (insert-char ?  (- cw2 (length (second e))))
+              (insert (third e))
+              (insert-char ?  (- cw3 (length (third e))))
               (incf col) 
               (if (< col ncol)
-                  (insert (make-string 3 ?\ ))
+                  (insert (make-string 10 ?\ ))
                 (insert "\n")
                 (setq col 0)
                 (incf nrows))))
+          ;; (insert "\n")
           (unless (zerop col)
             (insert "\n")
             (incf nrows))
-          (when (and (member :reset log4cl-menu-levels)
-                     (plusp (log4cl-children-level-count logger)))
-            (insert (format "      [R]:%s (%d) children"
-                            (log4cl-format '(face log4cl-level-selection-face)
-                                           "%s" "Reset")
-                            (log4cl-children-level-count logger))
-                    "\n")
-            (incf nrows 1)
-            (push (cons ?r :reset) level-keys))
-          (delete-window window)
-          ;; (log-expr nrows)
-          (setq window (split-window nil (- (window-height) (1+ nrows))))
-          (set-window-buffer window (get-buffer-create " *Select logger*"))
           (goto-char (point-min))
-          (message "Choice: ([q] to quit)? ")
+          (let ((note "(*) inherited level"))
+          
+            (setq mode-line-format
+                  (format "%s%s"
+                          (make-string (/ (- (frame-width) 5 (length note)) 2) ?\ )
+                          note))
+            (setq mode-line-format nil))
+        
+          (unless (eq expert 'expert)
+            (let* ((window-min-height 2)
+                   (window-tree))
+              ;; (log-expr nrows (window-height) 
+              ;;           (- (window-height) 1 nrows))
+            
+              (delete-other-windows)
+              (setq window (split-window nil (- (window-height) (1+ nrows))))
+              (set-window-buffer window (get-buffer-create " *Select logger*"))))
+          (message "Choose logger: [%s%s%s%s] or ([q] to quit)? "
+                   (if dfun "d" "")
+                   (if package "p" "")
+                   (if file "f" "")
+                   (if root "r" ""))
           (setq c (let ((inhibit-quit t)) (read-char-exclusive)))
-          (unless (assoc c level-keys) (error "Invalid input %c" c))
-          (setq c (cdr (assoc c level-keys)))
-          (log4cl-set-level 'logger c))))))
+          (setq c (downcase (log4cl-uncontrol-char c)))
+          (cond ((and dfun (eql c ?d))
+                 (setq logger defun-info type 'dfun
+                       name (concat "Defun "
+                                    (log4cl-format '(face log4cl-function-face)
+                                                   "%s" (log4cl-logger-display-name logger)))))
+                ((and package (eql c ?p))
+                 (setq logger package-info
+                       type 'package
+                       name (concat "Package "
+                                    (log4cl-format '(face log4cl-package-face)
+                                                   "%s" (log4cl-logger-display-name logger)))))
+                ((and file (eql c ?f))
+                 (setq logger file-info
+                       type 'file
+                       name (concat "File "
+                                    (log4cl-format '(face log4cl-file-face)
+                                                   "%s" (log4cl-logger-display-name logger)))))
+                ((and root (eql c ?r))
+                 (setq logger root-info
+                       type 'root
+                       name "Root logger"))
+                ((or (eql c ?q) (eql c ?\C-g))
+                 (setq logger 'quit)
+                 (setq done t)))
+          (unless (eq logger 'quit)
+            (or logger (error "Invalid input '%c'" c))
+            (setq choices 
+                  (loop for level from 0 to 15
+                        for name = (log4cl-level-name level)
+                        when (member level log4cl-menu-levels)
+                        collect (let ((level-char (aref name
+                                                        (if (string-match "debu[0-9]" name)
+                                                            4 0))))
+                                  (list
+                                   level-char level
+                                   (format "[%c]:" level-char)
+                                   (log4cl-format '(face log4cl-level-selection-face)
+                                                  "%s"
+                                                  (log4cl-level-name level))))))
+          
+            (setq level-keys (mapcar (lambda (x)
+                                       (cons (downcase (first x)) (second x)))
+                                     choices)
+                  choices (mapcar 'cddr choices))
+            ;; (log-expr choices)
+            (setq nrows 0)
+            (erase-buffer)
+            (insert name)
+            (if (log4cl-logger-level logger)
+                (progn 
+                  (setq current-level
+                        (upcase 
+                         (log4cl-format
+                          '(face log4cl-level-selection-face) "%s"
+                          (log4cl-level-name (log4cl-logger-level logger)))))
+                  (insert " - " current-level)
+                  (if (eq type 'root)
+                      (insert "\n\n")
+                    (insert "   [U] to unset, will inherit parent level "
+                            (log4cl-format '(face log4cl-level-selection-face) "%s"
+                                           (upcase (log4cl-level-name (log4cl-logger-inherited-level logger))))
+                            "\n\n"))
+                  (incf nrows 2))
+              (setq current-level (upcase
+                                   (log4cl-format
+                                    '(face log4cl-level-inherited-face) "%s"
+                                    (log4cl-level-name (log4cl-logger-inherited-level logger)))))
+              (insert " --- Inherited level - " current-level "\n\n")
+              (incf nrows 2))
+            (push (cons ?u nil) level-keys)
+            (setq cols (log4cl-layout-columns choices 2 (- (frame-width) 6) 100 3))
+            (setq ncol (length cols))
+            (setq col 0)
+            ;; (log-expr ncol)
+            (while (setq e (pop choices))
+              (when (zerop col)
+                (insert-char ?  6))
+              (let ((cw1 (nth 0 (nth col cols)))
+                    (cw2 (nth 1 (nth col cols)))) 
+                (insert (first e))
+                (insert-char ?  (- cw1 (length (first e))))
+                (insert (second e))
+                (insert-char ?  (- cw2 (length (second e))))
+                (incf col) 
+                (if (< col ncol)
+                    (insert (make-string 3 ?\ ))
+                  (insert "\n")
+                  (setq col 0)
+                  (incf nrows))))
+            (unless (zerop col)
+              (insert "\n")
+              (incf nrows))
+            (when (and (member :reset log4cl-menu-levels)
+                       (plusp (log4cl-children-level-count logger)))
+              (insert (format "      [R]:%s (%d) children"
+                              (log4cl-format '(face log4cl-level-selection-face)
+                                             "%s" "Reset")
+                              (log4cl-children-level-count logger))
+                      "\n")
+              (incf nrows 1)
+              (push (cons ?r :reset) level-keys))
+            (unless (eq expert 'expert) 
+              (delete-window window) 
+              ;; (log-expr nrows)
+              (setq window (split-window nil (- (window-height) (1+ nrows))))
+              (set-window-buffer window (get-buffer-create " *Select logger*")))
+            (goto-char (point-min))
+            (message "%s[%s] ([q] to quit)? "
+                     (if (eq expert 'expert)
+                         (format "Change %s to: " current-level)
+                       "Level: ")
+                     (apply 'string (mapcar 'car level-keys)))
+            (setq c (let ((inhibit-quit t)) (read-char-exclusive)))
+            (setq c (downcase (log4cl-uncontrol-char c)))
+            (unless (or (eql c ?q) (eql c ?\C-g)) 
+              (unless (assoc c level-keys) (error "Invalid input %c" c)) 
+              (setq c (cdr (assoc c level-keys))) 
+              (log4cl-set-level 'logger c))
+            (when expert
+              (setq done t))))))))
 
 (provide 'log4cl)
 

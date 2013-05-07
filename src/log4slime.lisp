@@ -132,29 +132,34 @@
                 (root
                  (frob *root-logger* "+ROOT+")))))
     (error (condition)
-      (log:sexp-error condition)
+      (log:error "~a" condition)
       nil)))
 
-(defun get-buffer-log-menu (&key package file defun)
-  (log:expr package file defun)
-  (list
-   (emacs-helper
-    `(:action :info
-      :root t))
-   (when package 
-     (emacs-helper
-      `(:action :info
-        :package ,package)))
-   (when file 
-     (emacs-helper
-      `(:action :info
-        :package ,package
-        :file ,file)))
-   (when defun 
-     (emacs-helper
-      `(:action :info
-        :package ,package
-        :rest ,defun)))))
+(defun get-buffer-log-menu (&rest args)
+  (log:expr args)
+  (handler-case 
+      (destructuring-bind (&key package file defun) args 
+        (list
+         (emacs-helper
+          `(:action :info
+            :root t))
+         (when package 
+           (emacs-helper
+            `(:action :info
+              :package ,package)))
+         (when file 
+           (emacs-helper
+            `(:action :info
+              :package ,package
+              :file ,file)))
+         (when defun 
+           (emacs-helper
+            `(:action :info
+              :package ,package
+              :rest ,defun)))))
+    (error (condition)
+      (log:error "~a" condition)
+      nil)))
 
 ;;
 ;; Support for snippets compiled via C-c C-c correctly identifying the source file

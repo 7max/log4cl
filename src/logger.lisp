@@ -564,11 +564,15 @@ context of the current application."
       (loop for child being each hash-value in (logger-child-hash logger)
             collect child))))
 
-(defun logger-descendants (logger)
-  "Return a list of LOGGER's descendants"
+(defun logger-descendants (logger &optional noselfp)
+  "Return a list of LOGGER's descendants.
+
+NOSELFP if T filters out Log4CL self-logger from descendants"
   (labels ((%logger-descendants (logger) 
-           (let ((children (logger-children logger)))
-             (nconc children (mapcan #'%logger-descendants children)))))
+             (let ((children (logger-children logger)))
+               (when (and noselfp (eq logger *root-logger*))
+                 (setq children (delete +self-logger+ children)))
+               (nconc children (mapcan #'%logger-descendants children)))))
     (delete-duplicates (%logger-descendants logger) :test #'eq)))
 
 (defun logger-ancestors (logger)

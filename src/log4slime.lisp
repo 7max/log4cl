@@ -35,26 +35,17 @@
                           :root ,root
                           :level ,(logger-log-level logger)
                           :inherited-level  ,(inherited-log-level logger)
-                          :children-level-count ,(count-if-not #'null (logger-descendants logger)
-                                                               :key #'logger-log-level)
+                          :children-level-count ,(children-level-count logger)
                           :display-name ,display-name
                           :package-offset ,package-offset))
                        ((and (eq :set action) (eq :reset level))
                         (log-config logger :clear)
-                        "Child loggers had been reset")
+                        (list (logger-log-level logger)
+                              (inherited-log-level logger)))
                        ((eq :set action)
                         (log-config logger (or level :unset))
-                        (cond 
-                          (root (format nil "Root log level set to ~a"
-                                        (log-level-to-string (effective-log-level logger)))) 
-                          ((and level (not (eq level :unset)))
-                           (format nil "~a level set to ~a"
-                                   (logger-name-for-emacs logger)
-                                   (log-level-to-string (effective-log-level logger))))
-                          (t
-                           (format nil "~a now inherits level ~a"
-                                   (logger-name-for-emacs logger)
-                                   (log-level-to-string (effective-log-level logger))))))
+                        (list (logger-log-level logger)
+                              (inherited-log-level logger)))
                        ((eq :get-location action)
                         (let* ((cats (mapcar #'read-from-string
                                              (log4cl::split-string (or rest-all "") " ")))
@@ -81,7 +72,10 @@
                        (t (error "Invalid action ~s" action)))))
                  ;
                  (logger-name-for-emacs (logger)
-                   (format nil "Category ~a" (logger-category logger))))
+                   (format nil "Category ~a" (logger-category logger)))
+                 (children-level-count (logger)
+                   (count-if-not #'null (logger-descendants logger t)
+                                 :key #'logger-log-level)))
           (cond ((not root)
                  (let* ((pkg (when package
                                (or (find-package package)

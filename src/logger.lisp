@@ -378,8 +378,10 @@ represents the package name."
           (vector-push-extend name names)
           (setq logger
                 (or
-                 ;; special case of trying to get a source-file-logger by partial name, happens
-                 ;; when
+                 ;; special case of trying to get a source-file-logger
+                 ;; by partial name, happens when Log4CL Slime
+                 ;; integration calls us to get info on the file
+                 ;; logger
                  (and hash is-file-p (not file) (not createp) (null categories)
                       (find-if (lambda (child)
                                  (zerop (or (mismatch name (logger-category child)

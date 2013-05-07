@@ -247,52 +247,6 @@ logging event originated in"
 (defvar log4cl-goto-definition-window nil
   "Passed as WHERE to `slime-pop-to-location', can be 'WINDOW or 'FRAME too")
 
-(defun log4cl-cmd-set-root-level (arg level)
-  (if log4cl-root-logger (log4cl-set-level 'log4cl-root-logger level)
-    (let ((log4cl-root-logger
-           (log4cl-eval `(log4cl.slime:emacs-helper '(:root t :action :info)))))
-      (if log4cl-root-logger
-          (log4cl-set-level 'log4cl-root-logger level)
-        (error "Root logger not found")))))
-
-(defun log4cl-cmd-set-package-level (arg level)
-  (if log4cl-package-logger (log4cl-set-level 'log4cl-package-logger level)
-    (let* ((p (slime-current-package))
-           (p (and p (slime-pretty-package-name p)))
-           (p (if (and p (null arg)) p 
-                (slime-read-package-name "Package: " p)))
-           (log4cl-package-logger
-            (log4cl-eval `(log4cl.slime:emacs-helper '(:package ,p :action :info)))))
-      (if log4cl-package-logger
-          (log4cl-set-level 'log4cl-package-logger level)
-        (error "Logger for package %s not found" p)))))
-
-(defun log4cl-cmd-set-file-level (arg level)
-  (if log4cl-file-logger (log4cl-set-level 'log4cl-file-logger level)
-    (when (buffer-file-name)
-      (let* ((p (slime-current-package))
-             (p (and p (slime-pretty-package-name p)))
-             (p (if (and p (null arg)) p 
-                  (slime-read-package-name "Package: " p)))
-             (file (buffer-file-name))
-             (log4cl-file-logger
-              (log4cl-eval `(log4cl.slime:emacs-helper '(:package ,p :file ,file :action :info)))))
-        (if log4cl-file-logger
-            (log4cl-set-level 'log4cl-file-logger level)
-          (error "Logger for package %s and file %s not found" p file))))))
-
-(defun log4cl-cmd-set-defun-level (arg level)
-  (if log4cl-package-logger (log4cl-set-level 'log4cl-defun-logger level)
-    (let* ((d (add-log-current-defun))
-           (d (if (and d (null arg)) d 
-                (slime-read-symbol-name "Defun: " d)))
-           (log4cl-defun-logger
-            (log4cl-eval `(log4cl.slime:emacs-helper '(:rest ,d :action :info)))))
-      (if log4cl-defun-logger
-          (log4cl-set-level 'log4cl-defun-logger level)
-        (error "Logger for category %s not found" d)))))
-
-
 (defun log4cl-set-menu-levels (sym val)
   (set sym val)
   (when (fboundp 'log4cl-redefine-menus)

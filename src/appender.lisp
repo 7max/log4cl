@@ -25,13 +25,11 @@
   "Abstract appender has no properties"
   '())
 
-(defun log-appender-error (appender condition)
-  (ignore-errors 
-   (log-error :logger +self-meta-logger+ "While appending to ~s caught error: ~:_~a" appender condition)))
-
 (defun log-appender-disabled (appender condition)
   (ignore-errors 
-   (log-error :logger +self-meta-logger+ "Appender ~s disabled: ~:_~a" appender condition)))
+   (log-error :logger +self-meta-logger+ "~@<Caught ~S ~:_~A ~_~
+                                             Appender ~S disabled~:>"
+              (type-of condition) condition appender)))
 
 (defmethod handle-appender-error (appender condition)
   (log-appender-disabled appender condition)
@@ -463,12 +461,14 @@ switches to the new log file"
 
 (defmethod handle-appender-error ((a temp-appender) c)
   (cond ((typep c (temp-appender-error-type a)) 
-         (ignore-errors 
-          (log-error  :logger +self-meta-logger+ "Removing appender ~s because of: ~:_~a " a c)) 
-         (dolist (l (appender-loggers a))
-           (remove-appender l a)
+         (let ((loggers (appender-loggers a)))
            (ignore-errors 
-            (log-info :logger +self-meta-logger+ "Removed appender ~s from ~s" a l)))
+            (log-error :logger +self-meta-logger+ "~@<Caught ~S ~:_~A ~_~
+                                                    Removing ~S ~_from ~
+                                                   ~{~S~^, ~:_~}~:>"
+                       (type-of c) c a loggers))) 
+         (dolist (l (appender-loggers a))
+           (remove-appender l a))
          :ignore)
         (t (if (next-method-p) (call-next-method) :ignore))))
 

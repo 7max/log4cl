@@ -303,8 +303,8 @@ forever loop."
                (is (equal 2 (slot-value a2 'count)))
                (is (equal 1 (appender-message-count a2))))))
       (is (plusp (length output)))
-      (is (search "error" (string-downcase output)))
-      (is (search "removed" (string-downcase output))))
+      (is (search "caught" (string-downcase output)))
+      (is (search "removing" (string-downcase output))))
     (values)))
 
 (deftest test-self-appender-double-fault ()

@@ -177,7 +177,9 @@
    #:flush-appender
    #:flush-all-appenders
    #:save-appender
-   #:all-appenders))
+   #:all-appenders
+   #:+expr-format-simple+
+   #:+expr-format-fancy+))
 
 
 

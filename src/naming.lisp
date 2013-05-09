@@ -15,11 +15,13 @@
 
 (in-package #:log4cl-impl)
 
+(defparameter +expr-format-simple+ "~W: ~W~^ ~:_")
+(defparameter +expr-format-fancy+ "~:_~<~(~W~): ~2I~_~W~:> ")
 
 (defclass naming-configuration ()
   ((category-separator :initform "." :accessor category-separator)
    (category-case :initform nil :accessor category-case)
-   (expr-print-format :initform "~W=~W~^ ~:_" :accessor expr-print-format)
+   (expr-print-format :initform +expr-format-simple+ :accessor expr-print-format)
    (use-shortest-nickname :initform  nil :initarg :use-shortest-nickname :accessor use-shortest-nickname)
    (expr-log-level :initform +log-level-debug+ :accessor expr-log-level)
    (old-logging-macros :initform nil :accessor old-logging-macros))

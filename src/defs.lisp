@@ -95,6 +95,10 @@ pattern format")
 (defvar *log-event-time* nil
   "Value of (GET-UNIVERSAL-TIME) for the current log event")
 
+(defvar *log-event-package-hint* nil
+  "Package at call site or NIL if log statement had no literal symbols
+  interned in *PACKAGE*")
+
 (defvar *inside-user-log-function* nil
   "True when we are inside of user log function, used to distinguish
 errors that are signaled the log statement itself, vs errors in layout

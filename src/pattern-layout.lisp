@@ -26,11 +26,11 @@ messages:
 
 \"%-5p [%c] - %m%n\" produces the message
 
- INFO [CATEGORY:SUBCATEGORY:NAME] - message text
+ INFO [CATEGORY.SUBCATEGORY.NAME] - message text
 
-and \"%-5p [%c{2}{:invert}{.}] - %m%n\" produces the message:
+and \"%-5p [%c{2}{:invert}{--}] - %m%n\" produces the message:
 
- INFO [subcategory.name] - message text
+ INFO [subcategory--name] - message text
 
 Syntax of conversion pattern is: %[<FLAGS>]<PATTERN-CHAR>[{<EXTRA-ARG>}...]
 
@@ -187,12 +187,18 @@ Following pattern characters are recognized:
    PRETTY-PRINTER CONTROL
 
    %< and %> the formatting inside is wrapped into
-   PPRINT-LOGICAL-BLOCK, the value of *PRINT-PRETTY* is not changed.
+   PPRINT-LOGICAL-BLOCK. Whenever pretty printing is actually used
+   depends on runtime value of *PRINT-PRETTY* at call site
 
-   The colon flag %:< %> in addition to wrapping whats inside in
-   PPRINT-LOGICAL-BLOCK will also bind *PRINT-PRETTY* to T
+   The opening pattern can have extra arguments, with following
+   meaning:
 
-   %> and %< is the opposite pair, *PPRINT-PRETTY* is unbound inside
+     %<{pretty}     - bind *PRINT-PRETTY* to T at runtime 
+     %<{nopretty}   - bind *PRINT-PRETTY* to NIL at runtime
+     %<{package}    - bind *PACKAGE* to original package
+     %<{nopackage}  - bind *PACKAGE* to :KEYWORD package
+
+   Both pretty and package can be used together like this %<{pretty}{package} ... %>
 
    %_ conditional newline, issues (PPRINT-NEWLINE :linear)
    %:_ conditional newline, issues (PPRINT-NEWLINE :fill)
@@ -205,7 +211,7 @@ Following pattern characters are recognized:
 
    For example with %5.2N the wrapped lines will be indented
    default %I amount, plus extra 5 spaces.
-   "))
+"))
 
 (defmethod property-alist ((instance pattern-layout))
   (append (call-next-method)
@@ -288,8 +294,9 @@ everything inside into PPRINT-LOGICAL-BLOCK is implemented this way.
            :type (or null simple-string))
    (suffix :initform nil :initarg :suffix :reader format-suffix
                   :type (or null simple-string))
-
-   (empty-skip :initform nil :initarg :empty-skip :reader format-empty-skip
+   (colon-flag :initform nil :initarg :colon-flag :reader format-colon-flag
+               :type boolean)
+   (at-flag :initform nil :initarg :at-flag :reader format-at-flag
                :type boolean))
   (:documentation "Represents data for a single conversion pattern"))
 
@@ -342,7 +349,7 @@ Example: For the string {one}{}{three} will return the list (14
                                  (t (write-char c s))))
                   (unless closedp
                     (pattern-layout-error
-                     "Unmatched brace at position ~d of conversion pattern ~s"
+                     "~@<Unmatched brace at position ~d of conversion pattern ~_~S~:>"
                      brace-pos pattern))))
         collect (when (plusp (length arg))
                   (coerce arg 'simple-string))
@@ -364,7 +371,7 @@ Example: For the string {one}{}{three} will return the list (14
       (incf start (- len max))
       (decf len (- len max)))
     (cond
-      ((and (zerop len) (format-empty-skip info)))
+      ((and (zerop len) (format-colon-flag info)))
       ((< len min) 
        (cond ((not (format-right-justify info))
               (when (format-prefix info)
@@ -425,6 +432,13 @@ unchanged"
                (values (parse-integer string :start (1+ pos)) n))
               (t (error "Junk after the number at position ~d" pos))))))
 
+(defun kw= (arg what)
+  (when (stringp arg)
+    (when (plusp (length arg))
+      (when (char= #\: (char arg 0)) 
+        (setq arg (substr arg 1))))
+    (equalp arg what)))
+
 (defun parse-category-extra-args (fmt-info char pattern start)
   (declare (ignore char))
   (destructuring-bind (next-pos &optional precision separator case)
@@ -434,7 +448,7 @@ unchanged"
             (parse-category-precision precision)
           (error (err)
             (pattern-layout-error
-             "Invalid %c precision ~s: ~a" precision err)))
+             "~@<Invalid %c precision ~_~s: ~_~a~:>" precision err)))
       (values next-pos
               (change-class
                fmt-info 'pattern-category-format-info
@@ -443,13 +457,13 @@ unchanged"
                :separator separator
                :case (cond
                        ((null case) nil)
-                       ((equalp case ":upcase") :upcase)
-                       ((equalp case ":downcase") :downcase)
-                       ((equalp case ":invert") :invert)
-                       ((equalp case ":preserve") nil)
+                       ((kw= case "upcase") :upcase)
+                       ((kw= case "downcase") :downcase)
+                       ((kw= case "invert") :invert)
+                       ((kw= case "preserve") nil)
                        (t (pattern-layout-error
-                           "Invalid 3rd extra argument ~s around ~
-                          position ~d in conversion pattern ~s"
+                           "~@<Invalid 3rd extra argument ~s ~:_around ~
+                                 position ~d in conversion pattern ~:_~s~:>"
                            case start pattern))))))))
 
 (defmethod parse-extra-args (fmt-info (char (eql #\c))
@@ -748,7 +762,8 @@ the log message to the stream with the specified format."
         (c #\Space) (fm-list '()) (state :normal)
         (minlen 0) (maxlen nil) (right-justify nil)
         (start-idx idx)
-        (empty-skip nil)
+        (colon-flag nil)
+        (at-flag nil)
         (prefix nil)
         (suffix nil))
     (declare (type fixnum idx)
@@ -796,7 +811,10 @@ the log message to the stream with the specified format."
                  (t (setq state :flag))))
           (:flag 
            (cond ((char= c #\:)
-                  (setq empty-skip t)
+                  (setq colon-flag t)
+                  (next-or-error "Expecting minimum length"))
+                 ((char= c #\@) 
+                  (setq at-flag t) 
                   (next-or-error "Expecting minimum length"))
                  ((char= c #\;)
                   (cond ((null prefix)
@@ -858,7 +876,8 @@ the log message to the stream with the specified format."
                               :minlen minlen
                               :maxlen maxlen
                               :right-justify right-justify
-                              :empty-skip empty-skip
+                              :colon-flag colon-flag
+                              :at-flag at-flag
                               :prefix (when (and prefix (plusp (length prefix)))
                                         (coerce prefix 'simple-string))
                               :suffix (when (and suffix (plusp (length suffix)))
@@ -877,7 +896,8 @@ the log message to the stream with the specified format."
                      minlen 0
                      maxlen nil
                      right-justify nil
-                     empty-skip nil
+                     colon-flag nil
+                     at-flag nil
                      prefix nil suffix nil))))))
       (when stopchar
         (signal-error (format nil "%~c formatter started at position ~d is missing closing %~c"
@@ -1092,7 +1112,7 @@ strftime like PATTERN."))
 (define-pattern-formatter (#\n)
   "Output the %n (newline) pattern"
   (declare (ignore logger log-level log-func))
-  (if (and *print-pretty* (format-empty-skip fmt-info))
+  (if (and *print-pretty* (format-colon-flag fmt-info))
       (pprint-newline :mandatory stream)
       (terpri stream))
   (values))
@@ -1181,24 +1201,92 @@ strftime like PATTERN."))
                        stream fmt-info)))
   (values))
 
+(defun log-event-package (logger)
+  "Try to find the package at log event site. Can return NIL if
+package does not exist at runtime"
+
+  (cond ((packagep *log-event-package-hint*)
+         *log-event-package-hint*)
+        (t 
+         (or 
+          (let* ((start-depth (logger-pkg-idx-start logger))
+                 (end-depth (logger-pkg-idx-end logger)))
+            (when (plusp start-depth)
+              (let* ((category (logger-category logger))
+                     (seplen (length (logger-category-separator logger)))
+                     (end (length category))
+                     (start (logger-name-start-pos logger))
+                     name)
+                ;; a bit of contortions, in unlikely case parent has
+                ;; different category separator
+                (loop while (> (logger-depth logger) start-depth)
+                      do (progn
+                           (decf start seplen)
+                           (when (>= (logger-depth logger) end-depth) 
+                             (setq end start))
+                           (setq logger (logger-parent logger))
+                           (decf start (- (length (logger-category logger))
+                                          (logger-name-start-pos logger)))))
+                (setq name 
+                      (if (and (zerop start)
+                               (= end (length category)))
+                          category (substr category start end)))
+                (find-package name))))
+          *package*))))
+
+
+(defclass pattern-pretty-fmt-info (format-info)
+  ((pretty :initarg :pretty :type (or null (member :pretty :nopretty)) :reader format-pretty)
+   (package :initarg :package :type (or null (member :package :nopackage)) :reader format-package))
+  (:documentation "Extra formatting flags for %<...%> (pretty print) format"))
+
+(defmethod parse-extra-args (fmt-info (char (eql #\<)) pattern start)
+  (let ((pretty nil)
+        (package nil)) 
+    (destructuring-bind (next-pos &rest args)
+        (parse-extra-args-in-curly-braces pattern start)
+      (dolist (arg args)
+        (cond ((kw= arg "pretty")
+               (setq pretty :pretty))
+              ((kw= arg "nopretty")
+               (setq pretty :nopretty))
+              ((kw= arg "package")
+               (setq package :package))
+              ((kw= arg "nopackage")
+               (setq package :nopackage))
+              (t (pattern-layout-error
+                  "~@<Invalid extra argument ~s ~:_around ~
+                      position ~d in conversion pattern ~:_~s~:>"
+                  arg start pattern))))
+      (values next-pos
+              (change-class
+               fmt-info 'pattern-pretty-fmt-info
+               :package package :pretty pretty)))))
+
+
 (define-pattern-formatter (#\< #\>)
   "Wrap content inside into PPRINT-LOGICAL-BLOCK"
-  (pprint-logical-block (stream nil)
-    (if (format-empty-skip fmt-info) 
-        (let ((*print-pretty* t)) 
-          (funcall wrap stream logger log-level log-func))
-        (funcall wrap stream logger log-level log-func))))
-
-(define-pattern-formatter (#\> #\<)
-  "Wrap content inside with *PRINT-PRETTY* bound to NIL"
-  (declare (ignore fmt-info))
-  (let ((*print-pretty* nil))
-    (funcall wrap stream logger log-level log-func)))
+  (flet ((doit (stream)
+           (case (format-package fmt-info) 
+             (:package (let ((*package* (log-event-package logger)))
+                         (funcall wrap stream logger log-level log-func)))
+             (:nopackage (let ((*package* (symbol-package :keyword)))
+                           (funcall wrap stream logger log-level log-func)))
+             (t (funcall wrap stream logger log-level log-func))))) 
+    (let ((pretty (format-pretty fmt-info))) 
+      (if (not (eq pretty :nopretty))
+          (progn 
+            (pprint-logical-block (stream nil)
+              (if (eq pretty :pretty) 
+                  (let ((*print-pretty* t))
+                    (doit stream))
+                  (doit stream)))) 
+          (let ((*print-pretty* nil)) (doit stream))))))
 
 (define-pattern-formatter (#\_)
   "Issue conditional newline"
   (declare (ignore logger log-level log-func))
-  (pprint-newline (if (format-empty-skip fmt-info) :fill :linear) stream))
+  (pprint-newline (if (format-colon-flag fmt-info) :fill :linear) stream))
 
 (define-pattern-formatter (#\N)
   "Issue PPRINT-INDENT"
@@ -1208,4 +1296,7 @@ strftime like PATTERN."))
              (if (null n2) (if (format-right-justify fmt-info) (- n1) n1)
                  (+ n1 (* *log-indent*
                           (if (format-right-justify fmt-info) (- n2) n2))))))) 
-    (pprint-indent (if (format-empty-skip fmt-info) :current :block) n stream))) 
+    (pprint-indent (if (format-colon-flag fmt-info) :current :block) n stream))) 
+
+
+

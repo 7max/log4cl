@@ -376,6 +376,103 @@ levels menu is not even shown"
 (defvar log4cl-file-logger nil)
 (defvar log4cl-defun-logger nil)
 
+
+(defun log4cl-lisp-current-defun ()
+  "A more complete version of getting current defun name, that
+handles methods with specializers and formats them in
+\"NAME SPECIALIZER-1 SPECIALIZER-2\" way
+"
+  ;; If we are now precisely at the beginning of a defun,
+  ;; make sure beginning-of-defun finds that one
+  ;; rather than the previous one.
+  (save-excursion
+    (let ((location (point))
+          (def-p nil)
+          (defmethod-p nil)
+          word
+          word2
+          pos pos1 pos2)
+      (or (eobp) (forward-char 1))
+      (beginning-of-defun)
+      ;; Make sure we are really inside the defun found,
+      ;; not after it.
+      (when (and (looking-at "\\s(")
+                 (progn (end-of-defun)
+                        (< location (point)))
+                 (progn (forward-sexp -1)
+                        (>= location (point))))
+        (if (looking-at "\\s(")
+            (forward-char 1))
+        ;; Skip the defining construct name, typically "defun"
+        ;; or "defvar".
+        ;; see if we are at CL-DEF or DEMACS DEF macro
+        (setq def-p (looking-at "def\\>"))
+        (setq defmethod-p (looking-at "defmethod\\>"))
+        (forward-sexp 1)
+        ;; The second element is usually a symbol being defined.
+        ;; If it is not, use the first symbol in it.
+        (save-excursion
+          (skip-chars-forward " \t\n'(")
+          (setq word (buffer-substring-no-properties
+                      (point)
+                      (save-excursion
+                        (forward-sexp 1)
+                        (setq pos1 (point))))))
+        (when def-p
+          (forward-sexp 2)
+          (forward-sexp -1)
+          (setq word2 (buffer-substring-no-properties
+                       (point)
+                       (save-excursion
+                         (forward-sexp 1)
+                         (setq pos2 (point)))))
+          (when (equal word "method")
+            (setq defmethod-p t)))
+        (when ())
+        (if (not def-p) word
+          (forward-sexp 2)
+          (forward-sexp -1)
+          (setq word2 (buffer-substring-no-properties
+                       (point)
+                       (save-excursion
+                         (forward-sexp 1)
+                         (setq pos2 (point)))))
+          (cond ((equal word "function") word2)
+                ((not (equal word "method"))
+                 (format "%s %s" word word2))
+                (t
+                 (let (done
+                       specializers)
+                   ;; skip name
+                   (forward-sexp 1)
+                   ;; down into parameter list
+                   (goto-char (scan-lists (point) 1 -1))
+                   (ignore-errors
+                     (while t
+                       ;; beginning of arg
+                       (forward-sexp 1)
+                       (forward-sexp -1)
+                       (when (looking-at "\\s(")
+                         (save-excursion
+                           ;; down into specializer
+                           (goto-char (scan-lists (point) 1 -1))
+                           (forward-sexp 2)
+                           (forward-sexp -1)
+                           (when (looking-at "\\s(")
+                             ;; its an EQL specializer, down into it and skip 2 sexps and back one
+                             (goto-char (scan-lists (point) 1 -1))
+                             (forward-sexp 2)
+                             (forward-sexp -1))
+                           (if (not (looking-at "\\s("))
+                               (push (buffer-substring-no-properties
+                                      (point)
+                                      (save-excursion
+                                        (forward-sexp 1)
+                                        (point)))
+                                     specializers))))
+                       (forward-sexp 1)))
+                   (mapconcat #'identity (cons word2 (nreverse specializers)) " ")))))))))
+
 (defun log4cl-setup-context ()
   "Call backend to get information for root,package,file and
 defun loggers based on current Emacs context. Sets the
@@ -469,6 +566,8 @@ EMACS-HELPER."
         (log4cl-set-level 'log4cl-popup-logger (first result))))))
 
 (defun log4cl-goto-definition (event)
+  "Go to the definition where log statement comes from and scroll
+to the first log statement"
   (interactive "e")
   (let ((id (log4cl-logger-id-at-mouse event))) 
     (let* ((name (log4cl-logger-rest id))

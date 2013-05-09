@@ -170,7 +170,8 @@
 ;; patch the COMPILE-STRING-FOR-EMACS
 (setf (fdefinition 'swank::compile-string-for-emacs)
       (lambda (string buffer position filename policy)
-        (let ((*logger-truename* filename))
+        (let ((*logger-truename*
+                (when filename (ignore-errors (parse-namestring filename)))))
           (funcall *old-compile-string-for-emacs*
                    string buffer position filename policy))))
 

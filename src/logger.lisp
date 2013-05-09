@@ -32,6 +32,7 @@
 (declaim (sb-ext:always-bound
           *log-indent*
           *log-event-time*
+          *log-event-package-hint*
           *inside-user-log-function*))
 
 ;; Circularity, *root-logger* needs to be referenced by logger
@@ -460,6 +461,8 @@ context of the current application."
     (declare (type fixnum mask))
     (not (zerop (logand (the fixnum (ash 1 level)) mask)))))
 
+(defconstant package-ref-sym (intern (format nil " ~A" (symbol-name 'log4cl-orig-package-ref))))
+
 (defun expand-log-with-level (env level args)
   "Returns a FORM that is used as an expansion of log-nnnnn macros"
   (declare (type fixnum level)
@@ -475,7 +478,11 @@ context of the current application."
                                  logger))))
              (check-type (unless const-logger 
                            `(or (typep ,logger-symbol 'logger)
-                                (error 'type-error :expected-type 'logger :datum ,logger-symbol)))))
+                                (error 'type-error :expected-type 'logger
+                                                   :datum ,logger-symbol))))
+             (pkg-hint
+               (let ((sym (intern (symbol-name package-ref-sym) *package*))) 
+                 (when sym `(symbol-package ',sym)))))
         (if args 
             `(let ((,logger-symbol ,logger-form))
                #+sbcl(declare (sb-ext:muffle-conditions sb-ext:compiler-note))
@@ -487,7 +494,7 @@ context of the current application."
                           (format stream ,@args)))
                    (declare (dynamic-extent #',log-stmt))
                    (locally (declare (optimize (safety 0) (debug 0) (speed 3)))
-                     (log-with-logger ,logger-symbol ,level #',log-stmt))))
+                     (log-with-logger ,logger-symbol ,level #',log-stmt ,pkg-hint))))
                (values))
             ;; null args means its being used for checking if level is enabled
             ;; in the (when (log-debug) ... complicated debug ... ) way
@@ -504,9 +511,10 @@ context of the current application."
   (make-array (- end start) :element-type (array-element-type seq)
                           :displaced-to seq :displaced-index-offset start))
 
-(defun log-with-logger (logger level log-func)
+(defun log-with-logger (logger level log-func package)
   "Submit message to logger appenders, and its parent logger"
-  (let ((*log-event-time* nil))
+  (let ((*log-event-time* nil)
+        (*log-event-package-hint* package))
     (labels ((log-to-logger-appenders (logger orig-logger level log-func)
                (let* ((state (current-state logger))
                       (appenders

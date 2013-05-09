@@ -34,6 +34,7 @@ dash. For example: INFO - user log message"))
                              log-func)
   "Format the log message with the simple layout"
   (declare (ignore logger))
+  (fresh-line stream)
   (write-log-level level stream)
   (write-string " - " stream)
   (call-user-log-message log-func stream)

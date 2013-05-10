@@ -377,101 +377,123 @@ levels menu is not even shown"
 (defvar log4cl-defun-logger nil)
 
 
+(defvar log4cl-current-defun-function 'log4cl-lisp-current-defun
+  "A current defun name extractor. Should return a value that is
+as close as possible to what Log4CL category auto-naming would
+make of the form name.. For example for methods, should attempt
+to return method name, followed by qualifier, and all non T
+specializers.
+")
+
 (defun log4cl-lisp-current-defun ()
-  "A more complete version of getting current defun name, that
-handles methods with specializers and formats them in
-\"NAME SPECIALIZER-1 SPECIALIZER-2\" way
-"
-  ;; If we are now precisely at the beginning of a defun,
-  ;; make sure beginning-of-defun finds that one
-  ;; rather than the previous one.
-  (save-excursion
+  "Extract the current defun name in the manner that is similar
+to Log4CL auto-naming of log categories. Handles methods, with
+normal and constant EQL specializers, as well as CL-DEF /
+CL-DEFINER syntax for (def (method :after) method-name ()).
+
+Example:
+  (defmethod foobar :after (a (b some-class) c (d (eql :blah))))
+
+will return \"foobar :after some-class :blah\"
+
+This also can be used is same as as a better alternative to
+default `add-log-current-defun-function' for CL code"
+  (save-excursion 
     (let ((location (point))
-          (def-p nil)
-          (defmethod-p nil)
-          word
-          word2
-          pos pos1 pos2)
+          name defp methodp type qualifiers specializers
+          skipped-eql-p
+          first-word)
+      ;; find outer form
       (or (eobp) (forward-char 1))
       (beginning-of-defun)
       ;; Make sure we are really inside the defun found,
       ;; not after it.
-      (when (and (looking-at "\\s(")
-                 (progn (end-of-defun)
-                        (< location (point)))
-                 (progn (forward-sexp -1)
-                        (>= location (point))))
+      (when 
+          (and (looking-at "\\s(")
+               (progn (end-of-defun)
+                      (< location (point)))
+               (progn (forward-sexp -1)
+                      (>= location (point))))
         (if (looking-at "\\s(")
             (forward-char 1))
-        ;; Skip the defining construct name, typically "defun"
-        ;; or "defvar".
-        ;; see if we are at CL-DEF or DEMACS DEF macro
-        (setq def-p (looking-at "def\\>"))
-        (setq defmethod-p (looking-at "defmethod\\>"))
-        (forward-sexp 1)
-        ;; The second element is usually a symbol being defined.
-        ;; If it is not, use the first symbol in it.
-        (save-excursion
-          (skip-chars-forward " \t\n'(")
-          (setq word (buffer-substring-no-properties
-                      (point)
-                      (save-excursion
-                        (forward-sexp 1)
-                        (setq pos1 (point))))))
-        (when def-p
-          (forward-sexp 2)
-          (forward-sexp -1)
-          (setq word2 (buffer-substring-no-properties
-                       (point)
-                       (save-excursion
-                         (forward-sexp 1)
-                         (setq pos2 (point)))))
-          (when (equal word "method")
-            (setq defmethod-p t)))
-        (when ())
-        (if (not def-p) word
-          (forward-sexp 2)
-          (forward-sexp -1)
-          (setq word2 (buffer-substring-no-properties
-                       (point)
-                       (save-excursion
-                         (forward-sexp 1)
-                         (setq pos2 (point)))))
-          (cond ((equal word "function") word2)
-                ((not (equal word "method"))
-                 (format "%s %s" word word2))
-                (t
-                 (let (done
-                       specializers)
-                   ;; skip name
-                   (forward-sexp 1)
-                   ;; down into parameter list
-                   (goto-char (scan-lists (point) 1 -1))
-                   (ignore-errors
-                     (while t
-                       ;; beginning of arg
-                       (forward-sexp 1)
-                       (forward-sexp -1)
-                       (when (looking-at "\\s(")
-                         (save-excursion
-                           ;; down into specializer
-                           (goto-char (scan-lists (point) 1 -1))
-                           (forward-sexp 2)
-                           (forward-sexp -1)
-                           (when (looking-at "\\s(")
-                             ;; its an EQL specializer, down into it and skip 2 sexps and back one
-                             (goto-char (scan-lists (point) 1 -1))
-                             (forward-sexp 2)
-                             (forward-sexp -1))
-                           (if (not (looking-at "\\s("))
-                               (push (buffer-substring-no-properties
-                                      (point)
-                                      (save-excursion
-                                        (forward-sexp 1)
-                                        (point)))
-                                     specializers))))
-                       (forward-sexp 1)))
-                   (mapconcat #'identity (cons word2 (nreverse specializers)) " ")))))))))
+
+        ;; find first word
+        (setq first-word (slime-symbol-at-point))
+        (setq defp (equalp first-word "def")
+              methodp (string-match "defmethod$" first-word))
+        (forward-sexp)
+        ;; now after 1st word, before name
+        (when defp
+          ;; next sexp is type
+          (goto-char (scan-sexps (point) 1)) 
+          (save-excursion 
+            (goto-char (scan-sexps (point) -1)) 
+            (if (not (looking-at "("))
+                (setq type (slime-symbol-at-point))
+              (forward-char 1)
+              (setq type (slime-symbol-at-point))
+              (when (equalp type "method")
+                (ignore-errors 
+                  (while t
+                    (goto-char (scan-sexps (scan-sexps (point) 2) -1))
+                    (when (looking-at ":")
+                      (push (slime-symbol-at-point) qualifiers)))))))
+          ;; we are now after type, before name
+          (setq methodp (equalp type "method")))
+        ;; back to common case
+        (goto-char (scan-sexps (scan-sexps (point) 1) -1))
+        (setq name 
+              (if (looking-at "(")
+                  (save-excursion
+                    (forward-char 1)
+                    (goto-char (scan-sexps (scan-sexps (point) 1) -1))
+                    (slime-sexp-at-point))
+                (slime-sexp-at-point)))
+        (goto-char (scan-sexps (scan-sexps (point) 2) -1))
+        ;; now after name
+        (if (not methodp) name
+          (goto-char (scan-sexps (scan-sexps (point) 1) -1)) 
+          (ignore-errors 
+            (while (looking-at ":") 
+              (push (slime-symbol-at-point) qualifiers)
+              (goto-char (scan-sexps (scan-sexps (point) 2) -1))))
+          ;; now at the lambda list, descend into it
+          (if (not (looking-at "(")) name 
+            (forward-char 1) 
+            (ignore-errors
+              (while t
+                ;; beginning of arg
+                (goto-char (scan-sexps (scan-sexps (point) 1) -1))
+                (when (looking-at "(") 
+                  (save-excursion
+                    ;; down into specializer
+                    (goto-char (scan-lists (point) 1 -1))
+                    ;; beginning of symbol
+                    (goto-char (scan-sexps (scan-sexps (point) 2) -1))
+                    (if (not (looking-at "("))
+                        (push (slime-symbol-at-point) specializers)
+                      ;; Could be an EQL specializer, down into it 
+                      (goto-char (scan-lists (point) 1 -1))
+                      (goto-char (scan-sexps (scan-sexps (point) 1) -1))
+                      ;; stop scanning specializers if not EQL
+                      (unless (equalp (slime-symbol-at-point) "eql")
+                        (error ""))
+                      ;; down into what it is
+                      (goto-char (scan-sexps (scan-sexps (point) 2) -1))
+                      (backward-prefix-chars)
+                      ;; only take it if its a constant, otherwise stop
+                      (cond ((looking-at "'\\_<")
+                             (forward-char 1)
+                             (slime-symbol-at-point)
+                             (push (slime-symbol-at-point) specializers))
+                            ((looking-at ":")
+                             (push (slime-symbol-at-point) specializers))
+                            (t (error ""))))))
+                (forward-sexp 1)))
+            (mapconcat #'identity
+                       `(,name ,@(nreverse qualifiers)
+                               ,@(nreverse specializers)) " ")))))))
+
 
 (defun log4cl-setup-context ()
   "Call backend to get information for root,package,file and
@@ -480,7 +502,9 @@ log4cl-xxx-logger variables with returned info."
   (when (slime-connected-p) 
     (let ((pkg (slime-current-package))
           (file (buffer-file-name))
-          (current-defun (add-log-current-defun)))
+          (current-defun (ignore-errors
+                           (funcall (or log4cl-current-defun-function
+                                        'log4cl-lisp-current-defun)))))
       ;; (log-expr pkg file current-defun log4cl-root-logger)
       (when (null log4cl-root-logger) 
         (let ((result (log4cl-eval

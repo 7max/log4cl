@@ -832,7 +832,7 @@ to the first log statement"
                  (let* ((result (slime-eval `(cl:multiple-value-bind
                                               (ok err) (cl:ignore-errors 
                                                         (asdf:load-system :log4slime))
-                                              (cl:if ok :ok (cl:prin1-to-string err)))))) 
+                                              (cl:if ok :ok (cl:princ-to-string err)))))) 
                    ;; (log-expr result)
                    (if (not (eq :ok result))
                        (progn 

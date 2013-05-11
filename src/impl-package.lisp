@@ -28,8 +28,8 @@
     (when (and p2 p2 (not (eq p1 p2)))
       (delete-package p1))))
 
-(cl:defpackage #:log4cl-impl
-  (:nicknames :log4cl)
+(cl:defpackage #:log4cl
+  (:nicknames #:log4cl-impl)
   (:use #:cl #:bordeaux-threads)
   (:export
    ;; log levels
@@ -179,7 +179,15 @@
    #:save-appender
    #:all-appenders
    #:+expr-format-simple+
-   #:+expr-format-fancy+))
+   #:+expr-format-fancy+
+   #:category-separator
+   #:category-case
+   #:expr-print-format
+   #:join-categories
+   #:make-package-categories
+   #:%get-logger
+   #:with-package-naming-configuration
+   #:fix-method-spec-list))
 
 
 

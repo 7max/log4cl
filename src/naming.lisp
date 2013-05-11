@@ -19,16 +19,30 @@
 (defparameter +expr-format-fancy+ "~:_~<~(~W~): ~2I~_~W~:> ")
 
 (defclass naming-configuration ()
-  ((category-separator :initform "." :accessor category-separator)
-   (category-case :initform nil :accessor category-case)
-   (expr-print-format :initform +expr-format-simple+ :accessor expr-print-format)
-   (use-shortest-nickname :initform  nil :initarg :use-shortest-nickname :accessor use-shortest-nickname)
-   (expr-log-level :initform +log-level-debug+ :accessor expr-log-level)
-   (old-logging-macros :initform nil :accessor old-logging-macros))
+  ((category-separator :initform "." :accessor %category-separator)
+   (category-case :initform nil :accessor %category-case)
+   (expr-print-format :initform +expr-format-simple+ :accessor %expr-print-format)
+   (use-shortest-nickname :initform  nil :initarg :use-shortest-nickname :accessor %use-shortest-nickname)
+   (expr-log-level :initform +log-level-debug+ :accessor %expr-log-level)
+   (old-logging-macros :initform nil :accessor %old-logging-macros))
   (:documentation "Contains configuration that affects expansion of logger macros."))
 
 (defvar *naming-configuration* nil
   "Naming configuration currently in effect")
+
+;; shortcuts
+(defun category-separator (&optional (nc *naming-configuration*))
+  (%category-separator nc))
+(defun category-case (&optional (nc *naming-configuration*))
+  (%category-case nc))
+(defun expr-print-format (&optional (nc *naming-configuration*))
+  (%expr-print-format nc))
+(defun use-shortest-nickname (&optional (nc *naming-configuration*))
+  (%use-shortest-nickname nc))
+(defun old-logging-macros (&optional (nc *naming-configuration*))
+  (%old-logging-macros nc))
+(defun expr-log-level (&optional (nc *naming-configuration*))
+  (%expr-log-level nc))
 
 (defparameter *default-naming-configuration* (make-instance 'naming-configuration :use-shortest-nickname t)
   "Default naming configuration")
@@ -243,23 +257,24 @@ SEPARATOR"
   (let ((*print-pretty* nil)
         (*print-circle* nil))
     (with-output-to-string (s) 
-      (princ (pop list) s)
-      (dolist (elem list)
-        (princ separator s)
-        (princ elem s)))))
+      (loop (if list
+                (progn (princ (pop list) s)
+                       (when list
+                         (princ separator s)))
+                (return))))))
 
 (defmethod naming-option (package option)
   "Return default values for naming options which are:
     :CATEGORY-SEPARATOR \":\""
   (flet ((doit () 
            (ecase option
-             (:category-separator (category-separator *naming-configuration*))
-             (:category-case (category-case *naming-configuration*))
-             (:expr-print-format (expr-print-format *naming-configuration*))
-             (:use-shortest-nickname (use-shortest-nickname *naming-configuration*))
-             (:expr-log-level (expr-log-level *naming-configuration*))
+             (:category-separator (%category-separator *naming-configuration*))
+             (:category-case (%category-case *naming-configuration*))
+             (:expr-print-format (%expr-print-format *naming-configuration*))
+             (:use-shortest-nickname (%use-shortest-nickname *naming-configuration*))
+             (:expr-log-level (%expr-log-level *naming-configuration*))
              (:old-logging-macros
-              (old-logging-macros *naming-configuration*)))))
+              (%old-logging-macros *naming-configuration*)))))
     (if *naming-configuration* (doit)
         (with-package-naming-configuration (package) (doit)))))
 
@@ -289,7 +304,7 @@ SEPARATOR"
           (when (eq (first args) 'from-make-logger)
             (pop args)
             t)))
-    (if (or (null (old-logging-macros *naming-configuration*))
+    (if (or (null (%old-logging-macros *naming-configuration*))
             from-log-expr-p
             from-make-logger-p)
         ;; new way
@@ -379,7 +394,7 @@ SEPARATOR"
   "Implement the parsing for (log:expr) arguments. Should return the
 list of arguments to FORMAT starting with control string"
   (assert *naming-configuration*)
-  (let* ((expr-format (expr-print-format *naming-configuration*))
+  (let* ((expr-format (%expr-print-format *naming-configuration*))
          fmt-string fmt-args arg)
     (setq
      fmt-string
@@ -461,32 +476,33 @@ conversion."
                                        :end end)))
   (values))
 
-(defun flatten (tree)
-  ;; from ALEXANDRIA
+
+(defun fix-method-spec-list (spec)
+  "Flatten method specializer list, remove any T specializers, replace
+all constant EQL specializers with their values, and eliminate
+non-constant ones"
   (let (list)
-    (labels ((traverse (subtree)
-               (when subtree
-                 (if (consp subtree)
-                     (progn
-                       (traverse (car subtree))
-                       (traverse (cdr subtree)))
-                     (push subtree list)))))
-      (traverse tree))
-    (nreverse list)))
-
-(defun maybe-fix-specializer (spec)
-  (if (and (consp spec)
-           (eq 'eql (first spec))
-           (endp (cddr spec)))
-      (let ((result (eval (second spec))))
-        (when (atom result) result))
-      spec))
-
-(defun maybe-fix-method (spec)
-  (if (not (consp spec)) spec 
-      (if (and (<= 2 (length spec) 3)
-               (consp (first (last spec))))
-          (append (butlast spec)
-                  (mapcar #'maybe-fix-specializer
-                          (remove t (first (last spec)))))
-          spec)))
+    (labels ((traverse (spec)
+               (cond
+                 ((null spec))
+                 ((and (consp spec)
+                       (eq 'eql (first spec))
+                       (endp (cddr spec)))
+                  (when (constantp (second spec)) 
+                    (let ((result (eval (second spec))))
+                      (when (atom result)
+                        (push result list)))))
+                 ((consp spec)
+                  (traverse (first spec))
+                  (traverse (rest spec)))
+                 ((eq spec T))
+                 ((typep spec 'built-in-class)
+                  (traverse (class-name spec)))
+                 #+ccl ((typep spec 'ccl:eql-specializer)
+                        (traverse (ccl:eql-specializer-object spec)))
+                 ((typep spec 'class)
+                  (traverse (class-name spec)))
+                 ((atom spec)
+                  (push spec list)))))
+      (traverse spec)
+      (nreverse list))))

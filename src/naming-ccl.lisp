@@ -29,13 +29,13 @@
                  elem)))
     (when ccl::*nx-current-function*
       (let ((name (ccl::afunc-name ccl::*nx-current-function*)))
-        (cond ((not (consp name)) (list name))
-              ((eq :internal (first name))
-               (let ((names (reverse (rest name))))
-                 (flatten (append (list (maybe-fix-method (first names)))
-                                  (rest names)))))
-              (t (flatten (list (maybe-fix-method
-                                 (maybe-fix-ccl-method name))))))))))
+        (fix-method-spec-list 
+         (cond ((not (consp name)) name)
+               ((eq :internal (first name))
+                (let ((names (reverse (rest name))))
+                  (append (list (first names))
+                          (rest names))))
+               (t (maybe-fix-ccl-method name))))))))
 
 (defmethod enclosing-scope-block-name (package env)
   "Return the enclosing block name suitable for naming a logger"

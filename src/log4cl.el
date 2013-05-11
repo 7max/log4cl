@@ -202,7 +202,10 @@ argument, the parent effective log level (string)")
 (defun log4cl-level-menu-item (info-symbol level)
   "Create the easy-menu menu item that toggles the log level"
   (let* ((level (or level :unset))
-         (S `(eql ,level (log4cl-logger-level ,info-symbol)))
+         (S
+          (if (eq :unset level) 
+              `(memq (log4cl-logger-level ,info-symbol) '(:unset nil)) 
+            `(eql ,level (log4cl-logger-level ,info-symbol))))
          (T (if (eq :unset level)
                 `(format log4cl-unset-menu-item-format
                          (log4cl-level-name
@@ -384,6 +387,10 @@ make of the form name.. For example for methods, should attempt
 to return method name, followed by qualifier, and all non T
 specializers.
 ")
+
+
+(defun log4cl-lisp-current-defun ()
+  "foobar :after strings strings crap")
 
 (defun log4cl-lisp-current-defun ()
   "Extract the current defun name in the manner that is similar

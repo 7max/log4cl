@@ -25,8 +25,15 @@
 (eval-when (:load-toplevel :compile-toplevel :execute)
   (let ((p1 (find-package :log4cl))
         (p2 (find-package :log4cl-impl)))
-    (when (and p2 p2 (not (eq p1 p2)))
-      (delete-package p1))))
+    ;; attempt to fix loading directly over the old version.
+    (when (and p1 p2 (not (eq p1 p2)))
+      (ignore-errors 
+       (dolist (p (package-used-by-list p1))
+         (unuse-package p1 p)) 
+       (dolist (p (package-used-by-list p2))
+         (unuse-package p2 p))
+       (delete-package p1)
+       (delete-package p2)))))
 
 (cl:defpackage #:log4cl
   (:nicknames #:log4cl-impl)

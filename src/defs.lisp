@@ -13,7 +13,7 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(in-package #:log4cl-impl)
+(in-package #:log4cl)
 ;;
 ;; Global variables and constants
 ;;
@@ -123,6 +123,28 @@ when non-NIL to determine logger's parent file logger.")
 (defun check-arg (name value)
   (or value 
       (log4cl-error "Required argument ~@[~S ~]missing." name)))
+
+;; Prevent problems with when loading directly over old version
+(eval-when (:compile-toplevel :execute)
+  (fmakunbound 'logger-category)
+  (fmakunbound 'logger-category-separator)
+  (fmakunbound 'logger-name-start-pos)
+  (fmakunbound 'logger-parent)
+  (fmakunbound 'logger-child-hash)
+  (fmakunbound 'logger-state)
+  (fmakunbound 'logger-depth)
+  (fmakunbound '%get-logger)
+  (fmakunbound 'is-enabled-for)
+  (fmakunbound 'current-state) 
+  (fmakunbound 'log-level-to-string)
+  (fmakunbound 'log-level-to-lc-string)
+  (fmakunbound 'log-event-time)
+  (fmakunbound 'adjusted-logger-depth)
+  (fmakunbound 'adjust-logger)
+  (fmakunbound '(setf logger-log-level))
+  (fmakunbound '(setf logger-additivity))
+  ;; Under sbcl it was declared with always-bound in stable version
+  #-sbcl(makunbound '*ndc-context*))
 
 (defconstant +logger-category-depth-bits+ 6)
 (deftype logger-cat-idx () `(unsigned-byte ,+logger-category-depth-bits+))

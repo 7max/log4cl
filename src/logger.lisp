@@ -21,7 +21,7 @@
 ;;; So any code that uses self-logging to log4cl:self logger, needs to
 ;;; be in the files that are later in the system definition file
 ;;; 
-(in-package #:log4cl-impl)
+(in-package #:log4cl)
 
 ;;
 ;; These needs to be in separate file from the their definitions. I'm
@@ -63,13 +63,14 @@
 
 ;; Actual logger object
 (defstruct (logger (:constructor create-logger)
+                   (:conc-name %logger-)
                    (:print-function 
                     (lambda  (logger stream depth)
                       (declare (ignore depth))
                       (print-unreadable-object (logger stream :identity t)
                         (princ (string 'logger) stream)
                         (princ #\Space stream)
-                        (princ (if (logger-parent logger) (logger-category logger)
+                        (princ (if (%logger-parent logger) (%logger-category logger)
                                    (string '+root+)) stream)))))
   ;; Full category name in a string format, using whatever separator
   ;; that was in effect when logger was first instantiated
@@ -84,12 +85,28 @@
   (parent    nil :type (or null logger))
   ;; How many parents up and including the root logger this logger
   ;; has. Root logger has depth of zero
-  (flags     0   :type (unsigned-byte 24))
+  (depth     0   :type fixnum)
   ;; Child loggers. Only set when any child loggers are present
   (child-hash  nil :type (or null hash-table))
   ;; Per-hierarchy state array
   (state (map-into (make-array *hierarchy-max*) #'make-logger-state)
    :type (simple-array logger-state *)))
+
+(defstruct (root-logger
+            (:constructor %create-root-logger)
+            (:include logger))
+  (dummy nil))
+
+(defun logger-category (logger) (%logger-category logger))
+(defun logger-category-separator (logger) (%logger-category-separator logger))
+(defun logger-name-start-pos (logger) (%logger-name-start-pos logger))
+(defun logger-parent (logger) (%logger-parent logger))
+(defun logger-child-hash (logger) (%logger-child-hash logger))
+(defun logger-state (logger) (%logger-state logger))
+
+(declaim (inline logger-category logger-category-separator
+                 logger-name-start-pos logger-parent logger-child-hash
+                 logger-state))
 
 ;; Special logger representing the source file
 (defstruct (source-file-logger
@@ -99,7 +116,7 @@
              (lambda  (logger stream depth)
                (declare (ignore depth))
                (print-unreadable-object (logger stream :type t :identity t)
-                 (write-string (logger-category logger) stream)))))
+                 (write-string (%logger-category logger) stream)))))
   (file nil :type pathname)
   (namestring nil :type simple-string))
 
@@ -110,7 +127,7 @@
                     (lambda  (logger stream depth)
                       (declare (ignore depth))
                       (print-unreadable-object (logger stream :type t :identity t)
-                        (princ (if (logger-parent logger) (logger-category logger)
+                        (princ (if (%logger-parent logger) (%logger-category logger)
                                    (string '+root+)) stream)
                         (princ #\Space stream)
                         (princ (logger-file logger) stream)))))
@@ -124,7 +141,7 @@
        (declaim (inline ,name1 ,name2)
                 (ftype (function (logger) logger-cat-idx) ,name1))
        (defun ,name1 (logger)
-         (logand (ash (logger-flags logger) ,shift) ,mask))
+         (logand (ash (%logger-depth logger) ,shift) ,mask))
        (defun ,name2 (flags)
          (let ((tmp (logand (ash flags ,shift) ,mask)))
            (if (plusp tmp) (1- tmp)))))))
@@ -137,7 +154,7 @@
 (declaim (inline logger-first-after-package-p))
 
 (defun logger-first-after-package-p (logger)
-  (plusp (logand (logger-flags logger) +logger-after-package-flag+)))
+  (plusp (logand (%logger-depth logger) +logger-after-package-flag+)))
 
 (defun make-logger-flags (depth &optional pkg-idx-start pkg-idx-end)
   (declare (type logger-cat-idx depth)
@@ -178,7 +195,7 @@ from parent"
                    (or level
                        (when (and file-logger (logger-first-after-package-p lgr))
                          (effective-log-level file-logger))
-                       (%effective-log-level (logger-parent lgr)))))))
+                       (%effective-log-level (%logger-parent lgr)))))))
       (%effective-log-level logger))))
 
 (defun inherited-log-level (logger)
@@ -190,7 +207,7 @@ from parent"
     (if (and file-logger (logger-first-after-package-p logger))
         (effective-log-level file-logger)
         (unless (eq logger *root-logger*) 
-          (effective-log-level (logger-parent logger))))))
+          (effective-log-level (%logger-parent logger))))))
 
 (defun have-appenders-for-level (logger level)
   "Return non-NIL if logging with LEVEL will actually reach any
@@ -203,7 +220,7 @@ appenders"
                (let ((state (current-state logger)))
                  (or (logger-state-appenders state)
                      (and (logger-state-additivity state)
-                          (have-appenders (logger-parent logger))))))))
+                          (have-appenders (%logger-parent logger))))))))
     (let* ((logger-level (effective-log-level logger)))
       (and (>= logger-level level)
 	   (have-appenders logger)))))
@@ -211,7 +228,7 @@ appenders"
 (defun map-logger-children (function logger)
   "Apply the function to all of logger's children (but not their
 descendants)"
-  (let ((child-hash (logger-child-hash logger)))
+  (let ((child-hash (%logger-child-hash logger)))
     (when child-hash
       (maphash (lambda (key logger)
                  (declare (ignore key))
@@ -220,7 +237,7 @@ descendants)"
 
 (defun map-logger-descendants (function logger)
   "Apply the function to all of logger's descendants"
-  (let ((child-hash (logger-child-hash logger)))
+  (let ((child-hash (%logger-child-hash logger)))
     (when child-hash
       (maphash (lambda (name logger)
                  (declare (ignore name))
@@ -329,13 +346,14 @@ represents the package name."
                       (name-start-pos (if (= 1 (length names)) 0
                                           (- (length category)
                                              (length (aref names (1- (length names)))))))
-                      (flags (make-logger-flags
-                              (1+ parent-depth)
-                              (if (and pkg-idx-start (<= pkg-idx-end (1+ parent-depth))) 
-                                  (1+ pkg-idx-start))
-                              (if (and pkg-idx-start  
-                                       (<= pkg-idx-end (1+ parent-depth))) 
-                                  (1+ pkg-idx-end))))
+                      (flags
+                        (make-logger-flags
+                         (1+ parent-depth)
+                         (if (and pkg-idx-start (<= pkg-idx-end (1+ parent-depth))) 
+                             (1+ pkg-idx-start))
+                         (if (and pkg-idx-start  
+                                  (<= pkg-idx-end (1+ parent-depth))) 
+                             (1+ pkg-idx-end))))
                       (logger 
                         (if (and is-file-p (null categories)) 
                             (create-source-file-logger
@@ -343,7 +361,7 @@ represents the package name."
                              :category-separator (coerce cat-sep 'simple-string)
                              :parent parent
                              :name-start-pos name-start-pos
-                             :flags flags
+                             :depth flags
                              :file file
                              :namestring (coerce (file-namestring file) 'simple-string))
                             (create-file-logger
@@ -351,14 +369,14 @@ represents the package name."
                              :category-separator (coerce cat-sep 'simple-string)
                              :parent parent
                              :name-start-pos name-start-pos
-                             :flags flags
+                             :depth flags
                              :file (ensure-source-logger parent)))))
                  (when (and (not is-file-p)
                             source-file-logger)
                    (setf
                     (gethash logger 
-                             (or (logger-child-hash source-file-logger)
-                                 (setf (logger-child-hash source-file-logger)
+                             (or (%logger-child-hash source-file-logger)
+                                 (setf (%logger-child-hash source-file-logger)
                                        (make-hash-table :test #'equal))))
                     logger))
                  (dotimes (*hierarchy* *hierarchy-max*)
@@ -375,7 +393,7 @@ represents the package name."
                                       (not (position #\: cat-sep)))
                              (write-char #\: s))
                            (write-string-modify-case (string cat) s cat-case))))
-               (hash (logger-child-hash logger)))
+               (hash (%logger-child-hash logger)))
           (vector-push-extend name names)
           (setq logger
                 (or
@@ -385,9 +403,9 @@ represents the package name."
                  ;; logger
                  (and hash is-file-p (not file) (not createp) (null categories)
                       (find-if (lambda (child)
-                                 (zerop (or (mismatch name (logger-category child)
+                                 (zerop (or (mismatch name (%logger-category child)
                                                       :from-end t
-                                                      :start2 (logger-name-start-pos child))
+                                                      :start2 (%logger-name-start-pos child))
                                             0)))
                                (logger-children logger)))
                  (and hash
@@ -412,12 +430,12 @@ represents the package name."
                             (unless (eq old new)
                               ;; If was in the file, and now moved to different file
                               ;; remove it from old file
-                              (when (and old new (logger-child-hash old))
-                                (remhash cached (logger-child-hash old)))
+                              (when (and old new (%logger-child-hash old))
+                                (remhash cached (%logger-child-hash old)))
                               ;; Is now in the new file, remember it there
                               (when new
-                                (setf (gethash cached (or (logger-child-hash new)
-                                                          (setf (logger-child-hash new)
+                                (setf (gethash cached (or (%logger-child-hash new)
+                                                          (setf (%logger-child-hash new)
                                                                 (make-hash-table :test #'equal))))
                                       cached)
                                 (setf (file-logger-file cached) new
@@ -437,20 +455,20 @@ represents the package name."
                                              (logger-pkg-idx-start cached))
                                          (/= (1+ pkg-idx-end)
                                              (logger-pkg-idx-end cached))))
-                            (setf (logger-flags cached) 
+                            (setf (%logger-depth cached) 
                                   (make-logger-flags (logger-depth cached)
                                                      (1+ pkg-idx-start) (1+ pkg-idx-end)))))
                         cached))
                  (unless createp (return-from %get-logger nil))
                  (setf (gethash name (or hash
-                                         (setf (logger-child-hash logger)
+                                         (setf (%logger-child-hash logger)
                                                (make-hash-table :test #'equal))))
                        (create-logger-from-parent logger)))))))))
 
 (setf (fdefinition 'get-logger-internal) (fdefinition '%get-logger))
 
 (defun current-state (logger)
-  (svref (logger-state logger) *hierarchy*))
+  (svref (%logger-state logger) *hierarchy*))
 
 (defun is-enabled-for (logger level)
   "Returns t if log level is enabled for the logger in the
@@ -559,7 +577,7 @@ context of the current application."
                                 (progn (appender-do-append appender orig-logger level log-func)
                                        (incf message-count))))
                          until done))))
-                 (let ((parent (logger-parent logger)))
+                 (let ((parent (%logger-parent logger)))
                    (when (and parent (logger-state-additivity state))
                      (log-to-logger-appenders parent orig-logger level log-func))))
                (values)))
@@ -569,9 +587,9 @@ context of the current application."
 
 (defun logger-children (logger)
   "Return a list of LOGGER's direct children"
-  (let ((hash (logger-child-hash logger)))
+  (let ((hash (%logger-child-hash logger)))
     (when hash
-      (loop for child being each hash-value in (logger-child-hash logger)
+      (loop for child being each hash-value in (%logger-child-hash logger)
             collect child))))
 
 (defun logger-descendants (logger &optional noselfp)
@@ -587,7 +605,7 @@ NOSELFP if T filters out Log4CL self-logger from descendants"
 
 (defun logger-ancestors (logger)
   "Return a list of logger's ancestors starting from parent and ending wit root logger"
-  (loop for lgr = (logger-parent logger) then (logger-parent lgr)
+  (loop for lgr = (%logger-parent logger) then (%logger-parent lgr)
         while lgr
         collect lgr))
 
@@ -612,7 +630,7 @@ including inherited one"
   (declare (type logger logger))
   (loop for tmp = logger then parent
         as state = (current-state tmp)
-        as parent = (logger-parent tmp)
+        as parent = (%logger-parent tmp)
         append (logger-state-appenders state)
         while (and parent (logger-state-additivity state))))
 
@@ -727,9 +745,9 @@ will be called if appender was removed"
 
 (defun logger-name (logger)
   "Return the name of the logger category itself (without parent loggers)"
-  (if (logger-parent logger) 
-      (substr (logger-category logger)
-              (logger-name-start-pos logger))
+  (if (%logger-parent logger) 
+      (substr (%logger-category logger)
+              (%logger-name-start-pos logger))
       "ROOT"))
 
 (defun logger-file-logger (logger)
@@ -755,8 +773,8 @@ will be called if appender was removed"
 
 (defun logger-name-length (logger)
   "Return length of logger itself (without parent loggers)"
-  (- (length (logger-category logger))
-     (logger-name-start-pos logger)))
+  (- (length (%logger-category logger))
+     (%logger-name-start-pos logger)))
 
 (defun logger-categories (logger)
   "Return LOGGER categories starting from parent logger as a newly
@@ -764,7 +782,7 @@ consed list of strings"
   (let ((categories '()))
     (loop
       for l = logger then parent
-      as parent = (logger-parent l)
+      as parent = (%logger-parent l)
       while parent
       do (push (coerce (logger-name l)
                        'simple-string)
@@ -774,22 +792,31 @@ consed list of strings"
 (defun adjust-all-loggers-state (new-len)
   (labels ((doit (logger)
              (declare (type logger logger))
-             (let ((tmp (adjust-array (logger-state logger)
+             (let ((tmp (adjust-array (%logger-state logger)
                                       new-len
                                       :element-type 'logger-state)))
                (setf (svref tmp (1- new-len)) (make-logger-state)
-                     (logger-state logger) tmp)
+                     (%logger-state logger) tmp)
                (map-logger-children #'doit logger))))
     (doit *root-logger*))
   (values))
 
-(defun create-root-logger ()
-  (let ((root (create-logger :category "" :category-separator "")))
+(defun %%create-root-logger ()
+  (let ((root (%create-root-logger :category "" :category-separator "")))
     (adjust-logger root)
     root))
 
+(eval-when (:compile-toplevel)
+  (when (boundp '*root-logger*) 
+    (unless (ignore-errors
+             (typep *root-logger* 'root-logger))
+      ;; loading over old version, re-create the root logger
+      (makunbound '*root-logger*)
+      (makunbound '+self-logger+) 
+      (makunbound '+self-meta-logger+))))
+
 (defvar *root-logger*
-  (create-root-logger)
+  (%%create-root-logger)
   "The one and only root logger")
 
 (defmethod make-load-form ((logger logger) &optional env)
@@ -799,7 +826,7 @@ compiled file"
   (let ((pkg-start (logger-pkg-idx-start logger))
         (pkg-end (logger-pkg-idx-end logger))) 
     `(%get-logger ',(logger-categories logger)
-                  ,(logger-category-separator logger)
+                  ,(%logger-category-separator logger)
                   nil nil t
                   ,(logger-file logger)
                   ,(when (plusp pkg-start) (1- pkg-start))
@@ -820,4 +847,6 @@ then disable the appender"
   (let ((*inside-user-log-function* t))
     (funcall log-func stream)
     (values)))
+
+
 

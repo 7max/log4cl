@@ -13,7 +13,7 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(in-package #:log4cl-impl)
+(in-package #:log4cl)
 
 #+sbcl
 (declaim (sb-ext:always-bound

@@ -1,4 +1,13 @@
 
+
+(eval-when (:compile-toplevel :execute)
+  (let ((p (find-package :log4cl-test)))
+    (when p
+      (dolist (p2 (package-used-by-list p))
+        (unuse-package p p2))
+      (delete-package p)
+      (in-package :cl-user))))
+
 (defpackage :log4cl-test
   (:use :cl :log4cl-impl :stefil)
   (:export

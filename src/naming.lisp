@@ -13,7 +13,7 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(in-package #:log4cl-impl)
+(in-package #:log4cl)
 
 (defparameter +expr-format-simple+ "~W: ~W~^ ~:_")
 (defparameter +expr-format-fancy+ "~:_~<~(~W~): ~2I~_~W~:> ")

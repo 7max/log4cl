@@ -13,7 +13,7 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(in-package #:log4cl-impl)
+(in-package #:log4cl)
 
 
 (defclass pattern-layout (layout)
@@ -254,11 +254,6 @@ everything inside into PPRINT-LOGICAL-BLOCK is implemented this way.
              (list (lambda (stream fmt-info logger log-level log-func wrap)
                      ,@body)
                    ,stopchar))))
-
-(defun compile-pattern (layout pattern)
-  (when pattern
-    (setf (slot-value layout '%formatter)
-          (compile-pattern-format pattern))))
 
 (defmethod shared-initialize :after ((layout pattern-layout) slots &key conversion-pattern)
   (declare (ignore slots))
@@ -567,10 +562,10 @@ unchanged"
                (write-string (format-prefix fmt-info) stream))
              (loop for i fixnum from start to end
                    as logger = (svref cats (- num-cats i 1))
-                   ;; do (format t "doing logger ~s ~s ~s ~%" logger (logger-name logger) (logger-name-start-pos logger))
-                   do (write-string-or-skip (logger-category logger)
-                                            (logger-name-start-pos logger)
-                                            (length (logger-category logger))
+                   ;; do (format t "doing logger ~s ~s ~s ~%" logger (logger-name logger) (%logger-name-start-pos logger))
+                   do (write-string-or-skip (%logger-category logger)
+                                            (%logger-name-start-pos logger)
+                                            (length (%logger-category logger))
                                             case)
                    if (/= i end) 
                    do (write-string-or-skip separator 0
@@ -608,14 +603,14 @@ unchanged"
             (setq start-depth (max start-depth (- end-depth precision))))) 
     (let ((start nil)
           (end nil)
-          (cat (logger-category logger)))
+          (cat (%logger-category logger)))
       (declare (type (or fixnum null) start end))
       (loop while (< end-depth (logger-depth logger))
-            do (setq end (1- (logger-name-start-pos logger))
-                     logger (logger-parent logger)))
+            do (setq end (1- (%logger-name-start-pos logger))
+                     logger (%logger-parent logger)))
       (loop while (< start-depth (logger-depth logger))
-            do (setq start (logger-name-start-pos logger)
-                     logger (logger-parent logger)))
+            do (setq start (%logger-name-start-pos logger)
+                     logger (%logger-parent logger)))
       (if start (format-string cat stream fmt-info
                                start (or end (length cat)))
           (format-string "" stream fmt-info)))))
@@ -661,8 +656,8 @@ unchanged"
                        (when (< i end-depth)
                          (setf (svref cats cnt) lgr)
                          (incf cnt))
-                       (setf lgr (logger-parent lgr)))) 
-            (format-categories stream fmt-info cats cnt (or sep (logger-category-separator logger)))))
+                       (setf lgr (%logger-parent lgr)))) 
+            (format-categories stream fmt-info cats cnt (or sep (%logger-category-separator logger)))))
         (simple-format-catogories stream fmt-info logger
                                   start-depth end-depth)))
   (values))
@@ -717,9 +712,9 @@ unchanged"
                             (unless (< (1- start-depth) i (1- end-depth))
                               (setf (svref cats cnt) lgr)
                               (incf cnt))
-                            (setf lgr (logger-parent lgr)))) 
+                            (setf lgr (%logger-parent lgr)))) 
                  (format-categories stream fmt-info cats cnt
-                                    (or sep (logger-category-separator logger)))))))))
+                                    (or sep (%logger-category-separator logger)))))))))
   (values))
 
 (define-pattern-formatter (#\g)
@@ -749,11 +744,11 @@ unchanged"
       (call-user-log-message log-func stream))
   (values))
 
-
 (defun compile-pattern-format (pattern
                                &optional (idx 0)
                                          stopchar)
-  "Parses the pattern format and returns a function with lambda-list
+  "Par
+ses the pattern format and returns a function with lambda-list
 of (STREAM LOGGER LOG-LEVEL LOG-FUNC) that when called will output
 the log message to the stream with the specified format."
   (let ((str (make-array 0 :element-type 'character
@@ -910,6 +905,11 @@ the log message to the stream with the specified format."
          (loop for (fm . fm-info) in fm-list
                do (funcall fm stream fm-info logger level log-func)))
        idx))))
+
+(defun compile-pattern (layout pattern)
+  (when pattern
+    (setf (slot-value layout '%formatter)
+          (compile-pattern-format pattern))))
 
 (defgeneric format-time (stream pattern universal-time utc-p)
   (:documentation "Prints UNIVERSAL-TIME to the STREAM according to
@@ -1212,10 +1212,10 @@ package does not exist at runtime"
           (let* ((start-depth (logger-pkg-idx-start logger))
                  (end-depth (logger-pkg-idx-end logger)))
             (when (plusp start-depth)
-              (let* ((category (logger-category logger))
-                     (seplen (length (logger-category-separator logger)))
+              (let* ((category (%logger-category logger))
+                     (seplen (length (%logger-category-separator logger)))
                      (end (length category))
-                     (start (logger-name-start-pos logger))
+                     (start (%logger-name-start-pos logger))
                      name)
                 ;; a bit of contortions, in unlikely case parent has
                 ;; different category separator
@@ -1224,9 +1224,9 @@ package does not exist at runtime"
                            (decf start seplen)
                            (when (>= (logger-depth logger) end-depth) 
                              (setq end start))
-                           (setq logger (logger-parent logger))
-                           (decf start (- (length (logger-category logger))
-                                          (logger-name-start-pos logger)))))
+                           (setq logger (%logger-parent logger))
+                           (decf start (- (length (%logger-category logger))
+                                          (%logger-name-start-pos logger)))))
                 (setq name 
                       (if (and (zerop start)
                                (= end (length category)))

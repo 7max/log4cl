@@ -13,7 +13,7 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(in-package #:log4cl-impl)
+(in-package #:log4cl)
 
 (defmacro with-log-indent ((&optional (indent '(1+ *log-indent*)))
                            &body body)

@@ -13,7 +13,7 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(cl:in-package #:log4cl-impl)
+(cl:in-package #:log4cl)
 
 (macrolet ((log4cl-defpackage ()
              (labels ((reexport-from (name names)
@@ -221,7 +221,7 @@
 (forward-macro log:with-hierarchy log4cl-impl:with-log-hierarchy t log4cl-impl:with-log-hierarchy)
 (forward-macro log:with-package-hierarchy log4cl-impl:with-package-log-hierarchy t log4cl-impl:with-package-log-hierarchy)
 (forward-macro log:in-hierarchy log4cl-impl:in-log-hierarchy t log4cl-impl:in-log-hierarchy)
-(forward-macro log:in-package-hierarchy log4cl-impl:in-package-log-hierarchy t log4cl-impl:in-package-log-hierarchy)
+(forward-macro log:in-package-hierarchy log4cl:in-package-log-hierarchy t log4cl:in-package-log-hierarchy)
 
 (forward-macro log:with-indent log4cl-impl:with-log-indent)
 
@@ -230,4 +230,5 @@
 (forward-function log:pop restore)
 (forward-function log:push save)
 
-
+(when (equal (package-name *package*) (symbol-name '#:log4cl-impl))
+  (setq *package* (rename-package *package* '#:log4cl '(#:log4cl-impl))))

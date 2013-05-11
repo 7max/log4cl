@@ -65,4 +65,15 @@
     (eval (read-from-string "(stefil:funcall-test-with-feedback-message 'log4cl-test::test)")))
   (values))
 
+(defmethod perform :after ((op load-op) (system (eql (find-system :log4cl))))
+  (when (find-package :log4cl)
+    (let ((*package* (find-package :log4cl))
+          (foo (find-symbol (symbol-name '#:%fix-root-logger-check)
+                            (find-package :log4cl))))
+      (when foo
+        (funcall foo))))
+  (values))
+
+
+
 

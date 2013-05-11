@@ -13,7 +13,7 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(in-package #:log4cl-impl)
+(in-package #:log4cl)
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -116,4 +116,4 @@ return \(FOOBAR FOO\)"
 (defmethod enclosing-scope-block-name (package env)
   "Return the enclosing block name suitable for naming a logger"
   (declare (ignore package))
-  (sbcl-get-block-name env))
+  (when env (sbcl-get-block-name env)))

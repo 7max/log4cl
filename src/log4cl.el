@@ -812,36 +812,39 @@ to the first log statement"
 
 (defun log4cl-check-connection ()
   "Load the :log4cl system on inferior-lisp side"
-  (when (slime-connected-p)
-    (let* ((conn (slime-current-connection)))
-      (when conn 
-        (let ((try (process-get conn 'log4cl-loaded))) 
-          (cond ((eq try t) t)
-                ((eq try 'closed) nil)
-                ((not (eq (process-status conn) 'open))
-                 (process-put conn 'log4cl-loaded 'closed)
-                 nil)
-                ;; Tried more then 5 seconds ago, to prevent
-                ;; `global-log4cl-mode' trying to load log4cl
-                ;; that errors out for all buffers
-                ((or (null try)
-                     (and (numberp try)
-                          (>= (- (float-time) try) 5)))
-                 ;; mark it that we trying to do it
-                 (process-put conn 'log4cl-loaded (float-time)) 
-                 (let* ((result (slime-eval `(cl:multiple-value-bind
-                                              (ok err) (cl:ignore-errors 
-                                                        (asdf:load-system :log4slime))
-                                              (cl:if ok :ok (cl:princ-to-string err)))))) 
-                   ;; (log-expr result)
-                   (if (not (eq :ok result))
-                       (progn 
-                         (process-put conn 'log4cl-loaded (float-time))
-                         (message "Can't load log4cl lisp support: %s" result)
-                         nil)
-                     (message "Successfully loaded log4cl lisp support")
-                     (process-put conn 'log4cl-loaded t)
-                     t)))))))))
+  ;; weird, point in current buffer was moved on error, wondering what
+  ;; is doing in?
+  (save-excursion 
+    (when (slime-connected-p)
+      (let* ((conn (slime-current-connection)))
+        (when conn 
+          (let ((try (process-get conn 'log4cl-loaded))) 
+            (cond ((eq try t) t)
+                  ((eq try 'closed) nil)
+                  ((not (eq (process-status conn) 'open))
+                   (process-put conn 'log4cl-loaded 'closed)
+                   nil)
+                  ;; Tried more then 5 seconds ago, to prevent
+                  ;; `global-log4cl-mode' trying to load log4cl
+                  ;; that errors out for all buffers
+                  ((or (null try)
+                       (and (numberp try)
+                            (>= (- (float-time) try) 180)))
+                   ;; mark it that we trying to do it
+                   (process-put conn 'log4cl-loaded (float-time)) 
+                   (let* ((result (slime-eval `(cl:multiple-value-bind
+                                                (ok err) (cl:ignore-errors 
+                                                          (asdf:load-system :log4slime))
+                                                (cl:if ok :ok (cl:princ-to-string err)))))) 
+                     ;; (log-expr result)
+                     (if (not (eq :ok result))
+                         (progn 
+                           (process-put conn 'log4cl-loaded (float-time))
+                           (message "Can't load log4cl lisp support: %s." result)
+                           nil)
+                       (message "Successfully loaded log4cl lisp support")
+                       (process-put conn 'log4cl-loaded t)
+                       t))))))))))
 
 (define-minor-mode log4cl-mode
   "\\<log4cl-mode-map>\

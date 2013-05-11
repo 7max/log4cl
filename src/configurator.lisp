@@ -16,13 +16,13 @@
 ;;;
 ;;; Contains (log-config) function and default logging initialization
 ;;; 
-(in-package #:log4cl-impl)
+(in-package #:log4cl)
 
 (defun clear-logging-configuration ()
   "Delete all loggers configuration, leaving only LOG4CL-IMPL"
   (labels ((reset (logger)
              (remove-all-appenders logger)
-             (setf (svref (logger-state logger) *hierarchy*)
+             (setf (svref (%logger-state logger) *hierarchy*)
                    (make-logger-state))
              (map-logger-children #'reset logger)))
     (reset *root-logger*)
@@ -402,7 +402,7 @@ Examples:
       (set-log-level logger level nil))
     (when clear
       (labels ((map-descendants-ignoring-self (function logger) 
-                 (let ((child-hash (logger-child-hash logger)))
+                 (let ((child-hash (%logger-child-hash logger)))
                    (when child-hash
                      (maphash (lambda (name logger)
                                 (declare (ignore name))
@@ -707,14 +707,14 @@ was saved."
         ;; for source-file-loggers, that represent the entire file we
         ;; still remember the file
         `(%get-logger ',(logger-categories logger)
-                      ,(logger-category-separator logger)
+                      ,(%logger-category-separator logger)
                       nil nil t
                       ,(logger-file logger)
                       ,(when (plusp pkg-start) (1- pkg-start))
                       ,(when (plusp pkg-end) (1- pkg-end)) t)
         ;; but not for regular loggers
         `(%get-logger ',(logger-categories logger)
-                      ,(logger-category-separator logger)
+                      ,(%logger-category-separator logger)
                       nil nil t
                       nil
                       ,(when (plusp pkg-start) (1- pkg-start))
@@ -725,7 +725,7 @@ was saved."
   (with-slots (logger level) elem
     (if (not *print-readably*)
         (print-unreadable-object (elem stream :type t)
-          (princ (if (logger-parent logger) (logger-category logger)
+          (princ (if (%logger-parent logger) (%logger-category logger)
                      "+ROOT+") stream)
           (princ #\Space stream)
           (prin1 level stream))

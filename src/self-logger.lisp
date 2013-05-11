@@ -13,7 +13,7 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(cl:in-package #:log4cl-impl)
+(cl:in-package #:log4cl)
 
 (defvar *self-log-config* '(:sane :warn :own :two-line :immediate-flush))
 
@@ -23,7 +23,7 @@
     logger))
 
 (defvar +self-logger+
-  (let ((logger (logger-parent +self-meta-logger+)))
+  (let ((logger (%logger-parent +self-meta-logger+)))
     (setf (logger-additivity logger) nil)
     logger))
 

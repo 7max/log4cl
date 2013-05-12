@@ -131,16 +131,16 @@ MAIN OPTIONS.
  :DEBUG        | shortened to its shortest unambiguous prefix, such as :D.
                | Changes the logger level to that level.
 ---------------|---------------------------------------------------------------
- :SANE         | Removes logger appenders, adds console appender with          
-               | default pattern layout.
+ :SANE         | Removes logger appenders, then arranges for the logging output
+               | to be always logged to current console, as well as thread-local
+               | binding of *DEBUG-IO* if its different.
                |                                                               
-               | [11:22:25] INFO  {category.name} - message
-               |
                | If used with :DAILY then console appender is not added, unless
                | :CONSOLE, :THIS-CONSOLE or :TRICKY-CONSOLE is also specified.
                |
                | The pattern layout added is affected by many of the pattern
-               | options below.. Equ
+               | options below.
+
 ---------------|---------------------------------------------------------------
  :CONSOLE      | Adds CONSOLE-APPENDER to the logger. Console appender logs
                | into the dynamic value of *DEBUG-IO* at the call site. 
@@ -156,19 +156,8 @@ MAIN OPTIONS.
                | and logs only if *DEBUG-IO* as its stream, but also looks at
                | the dynamic value, and only logs if they are not the same.
                |
-               | So REPL thread or threads with same value of *DEBUG-IO* will
-               | only log once via global console appender. But threads with
-               | other values for *DEBUG-IO* will log both into REPL, and into
-               | their *DEBUG-IO*.
-               |
                | As a shortcut, if THIS-CONSOLE is specified and global console
                | appender already exists, it will add TRICKY-CONSOLE instead.
----------------|---------------------------------------------------------------
-:SANE2         | Shortcut for :SANE :CONSOLE :TRICKY-CONSOLE, dropping old
-               | appenders and establishing global console, plus spying on 
-               | every other thread with their own value of *DEBUG-IO* too.
-               |
-:SANE3         | Shortcut for :SANE :THIS-CONSOLE
 ---------------|---------------------------------------------------------------
  :DAILY FILE   | Adds file appender logging to the named file, which will be      
                | rolled over every midnight into FILE.YYYYMMDD; Removes any 
@@ -211,7 +200,7 @@ MAIN OPTIONS.
                | without one of these, global value is in effect
 ---------------|---------------------------------------------------------------
  :PACKAGE      | Add {package} option to the pattern (binds orig package at the
-               | site of the log statement. NOPACKAGE binds keyword package, so
+ :NOPACKAGE    | site of the log statement. NOPACKAGE binds keyword package, so
                | everything is printed with package prefix
 ---------------|---------------------------------------------------------------
 ..Sole pattern | When only the pattern layout options are specified, without 
@@ -246,18 +235,24 @@ options        | any options that add a new appender, this command will instead
  :SELF         | Configures the LOG4CL-IMPL logger, which can be used to debug
                | Log4CL itself.
 ---------------|---------------------------------------------------------------
+ :FORCE-ADD    | Normally if you specify :CONSOLE :THIS-CONSOLE or
+               | :TRICKY-CONSOLE without :SANE (which clears out existing
+               | appenders), an error will be given if there are any standard
+               | console appenders that already log to *DEBUG-IO* or :STREAM
+               | argument.
+               |
+               | This is to prevent from creating duplicate output.
+               |
+               | Adding :FORCE-ADD flag skips the above check, and allows you
+               | to add new console appender regardless.
+---------------|---------------------------------------------------------------
 
 Examples:
 
 * (LOG:CONFIG :D) -- Changes root logger level to debug
 
-* (LOG:CONFIG :SANE) -- Drops all appenders, adds console appender logging
-  to dynamic value of *DEBUG-IO*, and changes root level to INFO. Note that
-  each thread will log to whatever *DEBUG-IO* is visible from the thread,
-  which could be different then one in REPL.
-
-* (LOG:CONFIG :SANE2) -- Like the above, but also adds appender
-  logging to captured value of *DEBUG-IO* unless its same.
+* (LOG:CONFIG :SANE) -- Drops all appenders, adds console appender and
+  tricky console appender, changes root level to INFO. 
 
 * (LOG:CONFIG :PRETTY :THREAD) - changes current console appenders
   layout to force pretty printing and add thread info.
@@ -287,13 +282,14 @@ Examples:
         self appenders
         immediate-flush
         properties watch
-        this-console
+        this-console tricky-console global-console
         pretty nopretty
         package nopackage
         thread ndc
         stream
         pattern-specified-p
-        appender-specified-p)
+        appender-specified-p
+        force-add)
     (declare (type (or null stream) stream))
     (cond ((logger-p (car args))
            (setq logger (pop args)))
@@ -314,7 +310,7 @@ Examples:
         (case arg
           (:self     ; still in the arglist means 1st arg was a logger
            (log4cl-error "Specifying a logger is incompatible with :SELF"))
-          (:sane (setq sane t))
+          (:sane (setq sane t global-console t))
           ((:clear :reset) (setq clear t))
           (:all (setq all t))
           ((:own :nonadditive :noadditive) (setq own t noown nil))
@@ -327,15 +323,22 @@ Examples:
           (:immediate-flush (setq immediate-flush t))
           ((:twoline :two-line :2line) (setq oneline nil twoline t))
           ((:oneline :one-line :1line) (setq oneline t twoline nil))
-          (:console (setq console t))
+          (:console (setq console t global-console t))
           (:thread (setq thread t))
           (:ndc (setq ndc t))
           (:pretty (setq pretty t nopretty nil))
           (:nopretty (setq nopretty t pretty nil))
           (:package (setq package t nopackage nil))
           (:nopackage (setq nopackage t package nil))
-          (:this-console (setq this-console t
-                               console t))
+          ((:this-console :this)
+           (setq console t
+                 this-console t
+                 tricky-console nil))
+          ((:tricky-console :tricky)
+           (setq console t
+                 tricky-console t
+                 this-console nil))
+          (:force-add (setq force-add t))
           (:watch (setq watch t))
           (:daily
            (setq daily (or (pop args)
@@ -346,8 +349,7 @@ Examples:
           (:stream
            (setq stream (or (pop args)
                             (log4cl-error ":STREAM missing argument"))
-                 console t
-                 this-console t))
+                 console t))
           (:pattern
            (setq pattern (or (pop args)
                              (log4cl-error ":PATTERN missing argument"))))
@@ -360,6 +362,8 @@ Examples:
                       (log4cl-error "Invalid LOG:CONFIG keyword ~s" arg))
                      (t (log4cl-error
                          "Don't know what do with argument ~S" arg))))))))
+    (if (and stream (not this-console) (not tricky-console))
+        (setq tricky-console t))
     (setq
      pattern-specified-p (or pattern oneline twoline thread
                              ndc file file2 time notime
@@ -444,13 +448,57 @@ Examples:
       ;; b) :sane is specified and :daily not
       (when (or (and sane (not daily))
                 console)
-        (push
-         (if this-console
-             (make-instance 'this-console-appender
-              :stream (or stream *debug-io*)
-              :layout layout)
-             (make-instance 'console-appender :layout layout))
-         appenders))
+        (let (have-this-console-p
+              have-global-console-p
+              have-tricky-console-p
+              (stream (or stream *debug-io*))
+              dups)
+          (dolist (a (logger-appenders logger))
+            (when (appender-enabled-p a)
+              (typecase a
+                (console-appender (setq have-global-console-p t)
+                 (push a dups))
+                (tricky-console-appender
+                 (when (eq stream (appender-stream a))
+                   (setq have-tricky-console-p t)
+                   (push a dups)))
+                (this-console-appender
+                 (when (eq stream (appender-stream a))
+                   (setq have-this-console-p t)
+                   (push a dups))))))
+          (when (not force-add)
+            ;; if user tries to add this-console, and we have global
+            ;; one add tricky one instead
+            (when (and (or have-global-console-p global-console) this-console)
+              (setq this-console nil
+                    tricky-console t))
+            ;; (format t " have (this global tricky) = ~s ~%" (list have-this-console-p have-global-console-p have-tricky-console-p))
+            ;; (format t " want (this global tricky) = ~s ~%" (list this-console global-console tricky-console))
+            ;; duplicate check
+            (when (or (and global-console
+                           (or have-global-console-p
+                               have-this-console-p))
+                      (and this-console
+                           (or have-global-console-p
+                               have-this-console-p))
+                      (and tricky-console
+                           (or have-tricky-console-p
+                               have-this-console-p))) 
+            
+              (error "~@<Already logging to the same stream with ~4I~_~S ~%Specify either :SANE or :FORCE-ADD~:>"
+                     dups)))
+          (when global-console
+            (push (make-instance 'console-appender :layout layout)
+                  appenders))
+          (when (or tricky-console this-console) 
+            (push
+             (if tricky-console
+                 (make-instance 'tricky-console-appender
+                  :stream stream :layout layout)
+                 (make-instance 'this-console-appender
+                  :stream stream :layout layout))
+             appenders))))
+      ;; (format t "here appenders = ~s ~%" appenders)
       ;; now add all of them to the logger
       (dolist (a appenders)
         (when immediate-flush
@@ -463,15 +511,22 @@ Examples:
     ;; new appender, we assume user wants to change layout for
     ;; existing console appenders
     (when (and pattern-specified-p (not appender-specified-p))
-      (dolist (a (logger-appenders logger))
-        ;; Only change global console appenders, or specific console
-        ;; appender that log to console at log site
-        (when (and (typep a 'console-appender)
-                   (or (not (typep a 'this-console-appender))
-                       (eq (appender-stream a) *debug-io*)))
-          ;; Assumes slot assignments atomic, but so is everything
-          ;; else in log4cl
-          (setf (appender-layout a) layout))))
+      (let (didit) 
+        (dolist (a (logger-appenders logger))
+          ;; Only change global console appenders, or specific console
+          ;; appender that log to console at log site
+          (when (appender-enabled-p a) 
+            (when (or (typep a 'console-appender)
+                      (and (typep a '(or this-console-appender
+                                      tricky-console-appender))
+                           (eq (appender-stream a)
+                               (or stream *debug-io*))))
+              ;; Assumes slot assignments atomic, but so is everything
+              ;; else in log4cl
+              (setf (appender-layout a) layout)
+              (setq didit t))))
+        (unless didit
+          (error "Did not find any appenders to change."))))
     (when self
       ;; This is special adhoc case of configuring the LOG4CL-iMPL:SELF.  We need
       ;; special processing, because we want self-logging to survive
@@ -486,10 +541,11 @@ Examples:
                                         :file :file2 :nofile
                                         :time :notime
                                         :pretty :nopretty
+                                        :package :nopackage
                                         :thread :ndc)))
                           orig-args))))
         ;; If anything non-default was specified, remember
-        (let ((lst '(:sane :daily :console :this-console))) 
+        (let ((lst '(:sane :daily :console :this-console :tricky-console))) 
           (if (null (intersection lst config))
               (dolist (elem (reverse lst))
                 (when (member elem *self-log-config*)
@@ -502,6 +558,8 @@ Examples:
         (and time (push :time config))
         (and pretty (push :pretty config))
         (and nopretty (push :nopretty config))
+        (and package (push :package config))
+        (and nopackage (push :nopackage config))
         (and thread (push :thread config))
         (and ndc (push :ndc config))
         (when (and (null level)
@@ -634,7 +692,10 @@ Example output:
                ;; empty line for spacing
                (print-indent) (terpri)
                ;; now the appender node
-               (print-indent t) (format t "-~A~%" a) 
+               (print-indent t) (format t "-~A" a)
+               (unless (appender-enabled-p a)
+                 (write-string " disabled"))
+               (terpri)
                ;; indent appender attributes and layout under the appender,
                ;; don't draw the tree for them
                (push (cons 5 0) indents)

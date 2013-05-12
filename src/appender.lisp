@@ -125,6 +125,21 @@ that was in effect when appender is created, and prints its output to
 it, until it encounters STREAM-ERROR at which point it deletes
 itself."))
 
+(defclass tricky-console-appender (this-console-appender) ()
+  (:documentation "An appender that remembers the value of *DEBUG-IO*
+that was in effect when appender is created, and prints its output to
+it unless current value of *DEBUG-IO* happens to be the same. Used
+together with CONSOLE-APPENDER, will copy output of other threads into
+the current console, without duplicating REPL thread output.
+
+Auto-deletes itself when encounters stream error"))
+
+(defmethod appender-do-append :around
+    ((this tricky-console-appender) logger level log-func)
+  (declare (ignore logger level log-func))
+  (unless (eq (appender-stream this) *debug-io*)
+    (call-next-method)))
+
 #+bordeaux-threads
 (defmethod appender-added :after (logger (appender stream-appender))
   "Add appender to the watch tokens in the current hierarchy,

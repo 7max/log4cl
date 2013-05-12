@@ -196,7 +196,8 @@
                     #:make-package-categories
                     #:%get-logger
                     #:with-package-naming-configuration
-                    #:fix-method-spec-list))
+                    #:fix-method-spec-list
+                    #:tricky-console-appender))
                 ;; avoid SBCL (also exports) error
                 (removed-exports
                   (set-difference old-exports

@@ -143,6 +143,8 @@ when non-NIL to determine logger's parent file logger.")
   (fmakunbound 'adjust-logger)
   (fmakunbound '(setf logger-log-level))
   (fmakunbound '(setf logger-additivity))
+  (fmakunbound 'package-wrapper)
+  (fmakunbound 'naming-option)
   ;; Under sbcl it was declared with always-bound in stable version
   #-sbcl(makunbound '*ndc-context*))
 

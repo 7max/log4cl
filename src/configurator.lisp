@@ -70,6 +70,15 @@ appender"
     (:twoline t :time nil :pattern
      "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")))
 
+(defun replace-in-string (s x y)
+  (let ((n (search x s)))
+    (if (not n) s
+      (concatenate
+       'string
+       (subseq s 0 n)
+       y
+       (subseq s (+ n (length x)))))))
+
 (defun figure-out-pattern (&rest args)
   (let ((pat (find-if (lambda (elem)
                         (every (lambda (prop)
@@ -80,13 +89,7 @@ appender"
     (let ((pat (getf (or pat (first *default-patterns*)) :pattern)))
       ;; handle pretty, ndc and thread
       (flet ((s/ (x y)
-               (let ((n (search x pat)))
-                 (when n
-                   (setq pat (concatenate
-                              'string
-                              (subseq pat 0 n)
-                              y
-                              (subseq pat (+ n (length x)))))))))
+               (setq pat (replace-in-string pat x y)))) 
         (cond ((getf args :pretty)
                (s/ "%<" "%<{pretty}"))
               ((getf args :nopretty) 

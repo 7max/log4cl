@@ -158,6 +158,9 @@ MAIN OPTIONS.
                |
                | As a shortcut, if THIS-CONSOLE is specified and global console
                | appender already exists, it will add TRICKY-CONSOLE instead.
+               |
+               | Both of the above appenders will recursively dereference
+               | synonym and two way streams on initialization
 ---------------|---------------------------------------------------------------
  :DAILY FILE   | Adds file appender logging to the named file, which will be      
                | rolled over every midnight into FILE.YYYYMMDD; Removes any 
@@ -448,11 +451,13 @@ Examples:
       ;; b) :sane is specified and :daily not
       (when (or (and sane (not daily))
                 console)
-        (let (have-this-console-p
-              have-global-console-p
-              have-tricky-console-p
-              (stream (or stream *debug-io*))
-              dups)
+        (let* (have-this-console-p
+               have-global-console-p
+               have-tricky-console-p
+               (stream (resolve-stream (or stream *debug-io*)))
+               (global-stream (resolve-stream *debug-io*))
+               (global-stream-same-p (eq stream global-stream))
+               dups)
           (dolist (a (logger-appenders logger))
             (when (appender-enabled-p a)
               (typecase a
@@ -469,7 +474,9 @@ Examples:
           (when (not force-add)
             ;; if user tries to add this-console, and we have global
             ;; one add tricky one instead
-            (when (and (or have-global-console-p global-console) this-console)
+            (when (and (or have-global-console-p global-console)
+                       this-console
+                       global-stream-same-p)
               (setq this-console nil
                     tricky-console t))
             ;; (format t " have (this global tricky) = ~s ~%" (list have-this-console-p have-global-console-p have-tricky-console-p))
@@ -477,14 +484,14 @@ Examples:
             ;; duplicate check
             (when (or (and global-console
                            (or have-global-console-p
-                               have-this-console-p))
+                               (and have-this-console-p
+                                    global-stream-same-p)))
                       (and this-console
-                           (or have-global-console-p
+                           (or (and have-global-console-p global-stream-same-p)
                                have-this-console-p))
                       (and tricky-console
                            (or have-tricky-console-p
                                have-this-console-p))) 
-            
               (error "~@<Already logging to the same stream with ~4I~_~S ~%Specify either :SANE or :FORCE-ADD~:>"
                      dups)))
           (when global-console

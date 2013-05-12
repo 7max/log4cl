@@ -125,6 +125,10 @@ that was in effect when appender is created, and prints its output to
 it, until it encounters STREAM-ERROR at which point it deletes
 itself."))
 
+(defmethod initialize-instance :after ((a this-console-appender) &key &allow-other-keys)
+  (with-slots (stream) a
+    (setf stream (resolve-stream stream))))
+
 (defclass tricky-console-appender (this-console-appender) ()
   (:documentation "An appender that remembers the value of *DEBUG-IO*
 that was in effect when appender is created, and prints its output to
@@ -137,7 +141,7 @@ Auto-deletes itself when encounters stream error"))
 (defmethod appender-do-append :around
     ((this tricky-console-appender) logger level log-func)
   (declare (ignore logger level log-func))
-  (unless (eq (appender-stream this) *debug-io*)
+  (unless (eq (appender-stream this) (resolve-stream *debug-io*))
     (call-next-method)))
 
 #+bordeaux-threads
@@ -487,3 +491,9 @@ switches to the new log file"
          :ignore)
         (t (if (next-method-p) (call-next-method) :ignore))))
 
+(defun resolve-stream (stream)
+  "Dereference synonym streams"
+  (typecase stream
+    (synonym-stream (resolve-stream (symbol-value (synonym-stream-symbol stream))))
+    (two-way-stream (resolve-stream (two-way-stream-output-stream stream)))
+    (t stream)))

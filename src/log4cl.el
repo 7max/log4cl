@@ -259,7 +259,8 @@ argument, the parent effective log level (string)")
 (defun log4cl-eval (form)
   "Wrapper around `slime-eval' that ignores errors on the lisp side"
   (when (log4cl-check-connection) 
-    (slime-eval `(cl:ignore-errors ,form))))
+    ;; I swear it something in slime-eval screws with point sometimes
+    (save-excursion (slime-eval `(cl:ignore-errors ,form)))))
 
 (defvar log4cl-goto-definition-window nil
   "Passed as WHERE to `slime-pop-to-location', can be 'WINDOW or 'FRAME too")
@@ -506,21 +507,22 @@ default `add-log-current-defun-function' for CL code"
   "Call backend to get information for root,package,file and
 defun loggers based on current Emacs context. Sets the
 log4cl-xxx-logger variables with returned info."
-  (when (slime-connected-p) 
-    (let ((pkg (slime-current-package))
-          (file (buffer-file-name))
-          (current-defun (ignore-errors
-                           (funcall (or log4cl-current-defun-function
-                                        'log4cl-lisp-current-defun)))))
-      ;; (log-expr pkg file current-defun log4cl-root-logger)
-      (when (null log4cl-root-logger) 
-        (let ((result (log4cl-eval
-                       `(log4cl.slime:get-buffer-log-menu
-                         :package ,pkg :file ,file :defun ,current-defun))))
-          (setq log4cl-root-logger (first result)
-                log4cl-package-logger (second result)
-                log4cl-file-logger (log4cl-fix-relative-file (third result))
-                log4cl-defun-logger (fourth result)))))))
+  (save-excursion 
+    (when (slime-connected-p) 
+      (let ((pkg (slime-current-package))
+            (file (buffer-file-name))
+            (current-defun (ignore-errors
+                             (funcall (or log4cl-current-defun-function
+                                          'log4cl-lisp-current-defun)))))
+        ;; (log-expr pkg file current-defun log4cl-root-logger)
+        (when (null log4cl-root-logger) 
+          (let ((result (log4cl-eval
+                         `(log4cl.slime:get-buffer-log-menu
+                           :package ,pkg :file ,file :defun ,current-defun))))
+            (setq log4cl-root-logger (first result)
+                  log4cl-package-logger (second result)
+                  log4cl-file-logger (log4cl-fix-relative-file (third result))
+                  log4cl-defun-logger (fourth result))))))))
 
 (defun log4cl-logger-id-at-mouse (event)
   "Find the package,file,and logger name at the site of the mouse click,
@@ -1049,249 +1051,253 @@ menu, by customizing `log4cl-menu-levels' variable`
                      (car (rassoc :unset log4cl-menu-levels))))
         (reset-key (when (rassoc :reset log4cl-menu-levels)
                      (car (rassoc :reset log4cl-menu-levels)))))
-    (save-window-excursion 
-      (while (not done) 
-        (setq log4cl-root-logger nil
-              log4cl-package-logger nil
-              log4cl-file-logger nil
-              log4cl-defun-logger nil)
-        (log4cl-setup-context)
-        ;; (log-expr log4cl-root-logger log4cl-package-logger)
-        (setq root-info log4cl-root-logger
-              package-info log4cl-package-logger
-              file-info log4cl-file-logger
-              defun-info log4cl-defun-logger)
-        (let* ((logger-keys (append
-                             (when root-info (list (cons root-key :root)))
-                             (when package-info (list (cons package-key :package)))
-                             (when file-info (list (cons file-key :file)))
-                             (when defun-info (list (cons defun-key :defun)))))
-               ;; Make menu prettier by upcasing keys like [D]: Debug 
-               ;; but disable if there are both cases of same char
-               (case1 (log4cl-keys-case-sensitive-p logger-keys))
-               (root
-                (when root-info 
-                  (list
-                   (format "[%c] Root logger" (log4cl-case root-key case1)) ""
-                   (format " - %s" (log4cl-format-eff-level root-info)))))
-               (package
-                (when package-info 
-                  (list
-                   (format "[%c] Package " (log4cl-case package-key case1))
-                   (log4cl-format '(face log4cl-package-face)
-                                  "%s" (log4cl-logger-display-name package-info))
-                   (format " - %s" (log4cl-format-eff-level package-info)))))
-               (file
-                (when file-info 
-                  (list (format "[%c] File " (log4cl-case file-key case1))
-                        (log4cl-format '(face log4cl-file-face)
-                                       "%s" (log4cl-logger-display-name file-info))
-                        (format " - %s" (log4cl-format-eff-level file-info)))))
-               (dfun
-                (when defun-info 
-                  (list (format "[%c] Defun " (log4cl-case defun-key case1))
-                        (log4cl-format '(face log4cl-function-face)
-                                       "%s" (log4cl-logger-display-name defun-info))
-                        (format " - %s" (log4cl-format-eff-level defun-info)))))
-               (choices (remove nil (list
-                                     root package file dfun)))
-               (cols (log4cl-layout-columns choices 3 (- (frame-width) 6) 2 10))
-               (ncol (length cols))
-               (col 0)
-               (nrows 0)
-               is-root-p)
-          ;; (log-expr choices)
-          ;; (log-expr cols)
-          ;; (create temp buffer)
-          (when (get-buffer " *Select logger*") 
-            (kill-buffer " *Select logger*"))
-          (set-buffer (get-buffer-create " *Select logger*"))
-          (erase-buffer)
-          (insert "Current levels:      ")
-          (insert
-           "(" (log4cl-format '(face log4cl-level-selection-face) "set") "/"
-           (log4cl-format '(face log4cl-level-inherited-face) "inherited)"))
-          (insert "\n\n")
-          (incf nrows 2)
-          ;; (print text to the buffer)
-          (while (setq e (pop choices))
-            (let ((cw1 (nth 0 (nth col cols)))
-                  (cw2 (nth 1 (nth col cols)))
-                  (cw3 (nth 2 (nth col cols)))) 
-              (when (zerop col)
-                (insert-char ?  6))
-              (insert (first e))
-              (insert-char ?  (- cw1 (length (first e))))
-              (insert (second e))
-              (insert-char ?  (- cw2 (length (second e))))
-              (insert (third e))
-              (insert-char ?  (- cw3 (length (third e))))
-              (incf col) 
-              (if (< col ncol)
-                  (insert (make-string 10 ?\ ))
+    (save-excursion 
+      (save-window-excursion 
+        (while (not done) 
+          (setq log4cl-root-logger nil
+                log4cl-package-logger nil
+                log4cl-file-logger nil
+                log4cl-defun-logger nil)
+          (log4cl-setup-context)
+          ;; (log-expr log4cl-root-logger log4cl-package-logger)
+          (setq root-info log4cl-root-logger
+                package-info log4cl-package-logger
+                file-info log4cl-file-logger
+                defun-info log4cl-defun-logger)
+          (save-excursion 
+            (let* ((orig-buffer (current-buffer))
+                   (logger-keys (append
+                                 (when root-info (list (cons root-key :root)))
+                                 (when package-info (list (cons package-key :package)))
+                                 (when file-info (list (cons file-key :file)))
+                                 (when defun-info (list (cons defun-key :defun)))))
+                   ;; Make menu prettier by upcasing keys like [D]: Debug 
+                   ;; but disable if there are both cases of same char
+                   (case1 (log4cl-keys-case-sensitive-p logger-keys))
+                   (root
+                    (when root-info 
+                      (list
+                       (format "[%c] Root logger" (log4cl-case root-key case1)) ""
+                       (format " - %s" (log4cl-format-eff-level root-info)))))
+                   (package
+                    (when package-info 
+                      (list
+                       (format "[%c] Package " (log4cl-case package-key case1))
+                       (log4cl-format '(face log4cl-package-face)
+                                      "%s" (log4cl-logger-display-name package-info))
+                       (format " - %s" (log4cl-format-eff-level package-info)))))
+                   (file
+                    (when file-info 
+                      (list (format "[%c] File " (log4cl-case file-key case1))
+                            (log4cl-format '(face log4cl-file-face)
+                                           "%s" (log4cl-logger-display-name file-info))
+                            (format " - %s" (log4cl-format-eff-level file-info)))))
+                   (dfun
+                    (when defun-info 
+                      (list (format "[%c] Defun " (log4cl-case defun-key case1))
+                            (log4cl-format '(face log4cl-function-face)
+                                           "%s" (log4cl-logger-display-name defun-info))
+                            (format " - %s" (log4cl-format-eff-level defun-info)))))
+                   (choices (remove nil (list
+                                         root package file dfun)))
+                   (cols (log4cl-layout-columns choices 3 (- (frame-width) 6) 2 10))
+                   (ncol (length cols))
+                   (col 0)
+                   (nrows 0)
+                   is-root-p)
+              ;; (log-expr choices)
+              ;; (log-expr cols)
+              ;; (create temp buffer)
+              (when (get-buffer " *Select logger*") 
+                (kill-buffer " *Select logger*"))
+              (set-buffer (get-buffer-create " *Select logger*"))
+              (erase-buffer)
+              (insert "Current levels:      ")
+              (insert
+               "(" (log4cl-format '(face log4cl-level-selection-face) "set") "/"
+               (log4cl-format '(face log4cl-level-inherited-face) "inherited)"))
+              (insert "\n\n")
+              (incf nrows 2)
+              ;; (print text to the buffer)
+              (while (setq e (pop choices))
+                (let ((cw1 (nth 0 (nth col cols)))
+                      (cw2 (nth 1 (nth col cols)))
+                      (cw3 (nth 2 (nth col cols)))) 
+                  (when (zerop col)
+                    (insert-char ?  6))
+                  (insert (first e))
+                  (insert-char ?  (- cw1 (length (first e))))
+                  (insert (second e))
+                  (insert-char ?  (- cw2 (length (second e))))
+                  (insert (third e))
+                  (insert-char ?  (- cw3 (length (third e))))
+                  (incf col) 
+                  (if (< col ncol)
+                      (insert (make-string 10 ?\ ))
+                    (insert "\n")
+                    (setq col 0)
+                    (incf nrows))))
+              ;; (insert "\n")
+              (unless (zerop col)
                 (insert "\n")
-                (setq col 0)
-                (incf nrows))))
-          ;; (insert "\n")
-          (unless (zerop col)
-            (insert "\n")
-            (incf nrows))
-          (goto-char (point-min))
-          (let ((note "(*) inherited level"))
+                (incf nrows))
+              (goto-char (point-min))
+              (let ((note "(*) inherited level"))
             
-            (setq mode-line-format
-                  (format "%s%s"
-                          (make-string (/ (- (frame-width) 5 (length note)) 2) ?\ )
-                          note))
-            (setq mode-line-format nil))
+                (setq mode-line-format
+                      (format "%s%s"
+                              (make-string (/ (- (frame-width) 5 (length note)) 2) ?\ )
+                              note))
+                (setq mode-line-format nil))
           
-          (unless (eq expert 'expert)
-            (let* ((window-min-height 2)
-                   (window-tree))
-              ;; (log-expr nrows (window-height) 
-              ;;           (- (window-height) 1 nrows))
+              (unless (eq expert 'expert)
+                (let* ((window-min-height 2)
+                       (window-tree))
+                  ;; (log-expr nrows (window-height) 
+                  ;;           (- (window-height) 1 nrows))
               
-              (delete-other-windows)
-              (setq window (split-window nil (- (window-height) (1+ nrows))))
-              (set-window-buffer window (get-buffer-create " *Select logger*"))))
-          (message "Choose logger: [%s] ([q]:quit [h]:help)? "
-                   (log4cl-case (apply 'string (mapcar 'car logger-keys)) case1 t))
-          (setq c (let ((inhibit-quit t)) (read-char-exclusive)))
-          (setq result (log4cl-find-key c logger-keys))
-          (setq cc (downcase (log4cl-uncontrol-char c)))
-          (cond ((eq result :defun) (setq logger defun-info))
-                ((eq result :package) (setq logger package-info))
-                ((eq result :file) (setq logger file-info))
-                ((eq result :root) (setq logger root-info is-root-p t))
-                ((or (eql cc ?q) (eql c ?\C-g))
-                 (setq done 'quit))
-                ((or (eql cc ?h)
-                     (eql cc ??))
-                 (setq done 'help)))
-          (unless (or (eq done 'quit) (eq done 'help))
-            (or logger (error "Invalid input '%c'" c))
-            (setq name (log4cl-format-fontified-logger-type logger)
-                  choices
-                  (loop for level in
-                        (let ((levels (mapcar 'cdr log4cl-menu-levels)))
-                          ;; Remove Unset since logger has no own level
-                          (if (or is-root-p (not (log4cl-logger-level logger)))
-                              (setq levels (remove :unset levels))
-                            ;; move Unset towards the end of list
-                            ;; here, since we got it already listed in
-                            ;; the header
-                            (when unset-key
-                              (setq levels (append (remove :unset levels)
-                                                   (list :unset)))))
-                          ;; Remove reset if logger has set children
-                          (unless (plusp (log4cl-children-level-count logger))
-                            (setq levels (remove :reset levels)))
-                          levels)
-                        for name = (log4cl-level-name level)
-                        for shortcut = (car (rassoc level log4cl-menu-levels))
-                        when shortcut
-                        collect (cons shortcut level)))
-            (setq level-keys (copy-list choices))
-            ;; Include unset key anyway in the actual keys, its silly to give user
-            ;; error if hes trying to unset already unset logger, even if we don't
-            ;; show option in the menu, indicating that its already unset
-            (when (and unset-key (not (assoc unset-key level-keys))) 
-              (push (cons unset-key :unset) level-keys))
+                  (delete-other-windows)
+                  (setq window (split-window nil (- (window-height) (1+ nrows))))
+                  (set-window-buffer window (get-buffer-create " *Select logger*"))))
+              (message "Choose logger: [%s] ([q]:quit [h]:help)? "
+                       (log4cl-case (apply 'string (mapcar 'car logger-keys)) case1 t))
+              (setq c (let ((inhibit-quit t)) (read-char-exclusive)))
+              (setq result (log4cl-find-key c logger-keys))
+              (setq cc (downcase (log4cl-uncontrol-char c)))
+              (cond ((eq result :defun) (setq logger defun-info))
+                    ((eq result :package) (setq logger package-info))
+                    ((eq result :file) (setq logger file-info))
+                    ((eq result :root) (setq logger root-info is-root-p t))
+                    ((or (eql cc ?q) (eql c ?\C-g))
+                     (setq done 'quit))
+                    ((or (eql cc ?h)
+                         (eql cc ??))
+                     (setq done 'help)))
+              (unless (or (eq done 'quit) (eq done 'help))
+                (or logger (error "Invalid input '%c'" c))
+                (setq name (log4cl-format-fontified-logger-type logger)
+                      choices
+                      (loop for level in
+                            (let ((levels (mapcar 'cdr log4cl-menu-levels)))
+                              ;; Remove Unset since logger has no own level
+                              (if (or is-root-p (not (log4cl-logger-level logger)))
+                                  (setq levels (remove :unset levels))
+                                ;; move Unset towards the end of list
+                                ;; here, since we got it already listed in
+                                ;; the header
+                                (when unset-key
+                                  (setq levels (append (remove :unset levels)
+                                                       (list :unset)))))
+                              ;; Remove reset if logger has set children
+                              (unless (plusp (log4cl-children-level-count logger))
+                                (setq levels (remove :reset levels)))
+                              levels)
+                            for name = (log4cl-level-name level)
+                            for shortcut = (car (rassoc level log4cl-menu-levels))
+                            when shortcut
+                            collect (cons shortcut level)))
+                (setq level-keys (copy-list choices))
+                ;; Include unset key anyway in the actual keys, its silly to give user
+                ;; error if hes trying to unset already unset logger, even if we don't
+                ;; show option in the menu, indicating that its already unset
+                (when (and unset-key (not (assoc unset-key level-keys))) 
+                  (push (cons unset-key :unset) level-keys))
 
-            ;; Make menu prettier by upcasing keys like [D]: Debug 
-            ;; but disable if there are both cases of same char
-            (setq case1 (log4cl-keys-case-sensitive-p level-keys))
-            (log-expr case1 choices)
-            (setq choices
-                  (loop for (key . level) in choices 
-                        do (log-expr key level)
-                        collect
-                        (list 
-                         (format "[%c]:" (log4cl-case key case1)) 
-                         (log4cl-format '(face log4cl-level-selection-face)
-                                        "%s"
-                                        (log4cl-level-name level)))))
-            ;; (log-expr choices)
-            (setq nrows 0)
-            (erase-buffer)
-            (insert name)
-            (if (log4cl-logger-level logger)
-                (progn 
-                  (setq current-level
-                        (upcase 
-                         (log4cl-format
-                          '(face log4cl-level-selection-face) "%s"
-                          (log4cl-level-name (log4cl-logger-level logger)))))
-                  (insert " - " current-level)
-                  (if is-root-p (insert "\n\n")
-                    (insert
-                     (format "   %s, will inherit parent level " 
-                             (if unset-key (format "[%c] to unset" (log4cl-case unset-key case1))
-                               "If unset"))
-                     (log4cl-format '(face log4cl-level-selection-face) "%s"
-                                    (upcase (log4cl-level-name (log4cl-logger-inherited-level logger))))
-                     "\n\n"))
+                ;; Make menu prettier by upcasing keys like [D]: Debug 
+                ;; but disable if there are both cases of same char
+                (setq case1 (log4cl-keys-case-sensitive-p level-keys))
+                (log-expr case1 choices)
+                (setq choices
+                      (loop for (key . level) in choices 
+                            do (log-expr key level)
+                            collect
+                            (list 
+                             (format "[%c]:" (log4cl-case key case1)) 
+                             (log4cl-format '(face log4cl-level-selection-face)
+                                            "%s"
+                                            (log4cl-level-name level)))))
+                ;; (log-expr choices)
+                (setq nrows 0)
+                (erase-buffer)
+                (insert name)
+                (if (log4cl-logger-level logger)
+                    (progn 
+                      (setq current-level
+                            (upcase 
+                             (log4cl-format
+                              '(face log4cl-level-selection-face) "%s"
+                              (log4cl-level-name (log4cl-logger-level logger)))))
+                      (insert " - " current-level)
+                      (if is-root-p (insert "\n\n")
+                        (insert
+                         (format "   %s, will inherit parent level " 
+                                 (if unset-key (format "[%c] to unset" (log4cl-case unset-key case1))
+                                   "If unset"))
+                         (log4cl-format '(face log4cl-level-selection-face) "%s"
+                                        (upcase (log4cl-level-name (log4cl-logger-inherited-level logger))))
+                         "\n\n"))
+                      (incf nrows 2))
+                  (setq current-level (upcase
+                                       (log4cl-format
+                                        '(face log4cl-level-inherited-face) "%s"
+                                        (log4cl-level-name (log4cl-logger-inherited-level logger)))))
+                  (insert " --- Inherited level - " current-level "\n\n")
                   (incf nrows 2))
-              (setq current-level (upcase
-                                   (log4cl-format
-                                    '(face log4cl-level-inherited-face) "%s"
-                                    (log4cl-level-name (log4cl-logger-inherited-level logger)))))
-              (insert " --- Inherited level - " current-level "\n\n")
-              (incf nrows 2))
-            (setq cols (log4cl-layout-columns choices 2 (- (frame-width) 6) 100 3))
-            (setq ncol (length cols))
-            (setq col 0)
-            ;; (log-expr ncol)
-            (while (setq e (pop choices))
-              (when (zerop col)
-                (insert-char ?  6))
-              (let ((cw1 (nth 0 (nth col cols)))
-                    (cw2 (nth 1 (nth col cols)))) 
-                (insert (first e))
-                (insert-char ?  (- cw1 (length (first e))))
-                (insert (second e))
-                (insert-char ?  (- cw2 (length (second e))))
-                (incf col) 
-                (if (< col ncol)
-                    (insert (make-string 3 ?\ ))
+                (setq cols (log4cl-layout-columns choices 2 (- (frame-width) 6) 100 3))
+                (setq ncol (length cols))
+                (setq col 0)
+                ;; (log-expr ncol)
+                (while (setq e (pop choices))
+                  (when (zerop col)
+                    (insert-char ?  6))
+                  (let ((cw1 (nth 0 (nth col cols)))
+                        (cw2 (nth 1 (nth col cols)))) 
+                    (insert (first e))
+                    (insert-char ?  (- cw1 (length (first e))))
+                    (insert (second e))
+                    (insert-char ?  (- cw2 (length (second e))))
+                    (incf col) 
+                    (if (< col ncol)
+                        (insert (make-string 3 ?\ ))
+                      (insert "\n")
+                      (setq col 0)
+                      (incf nrows))))
+                (unless (zerop col)
                   (insert "\n")
-                  (setq col 0)
-                  (incf nrows))))
-            (unless (zerop col)
-              (insert "\n")
-              (incf nrows))
-            (when (and reset-key (plusp (log4cl-children-level-count logger)))
-              (insert (format "      [%c]:%s (%d) children"
-                              (log4cl-case reset-key case1) 
-                              (log4cl-format '(face log4cl-level-selection-face)
-                                             "%s" (log4cl-level-name :reset))
-                              (log4cl-children-level-count logger))
-                      "\n")
-              (incf nrows 1))
-            (unless (eq expert 'expert) 
-              (delete-window window) 
-              ;; (log-expr nrows)
-              (setq window (split-window nil (- (window-height) (1+ nrows))))
-              (set-window-buffer window (get-buffer-create " *Select logger*")))
-            (goto-char (point-min))
-            (message "%s[%s] ([q]:quit [h]:help)? "
-                     (if (eq expert 'expert)
-                         (format "Change %s to: " current-level)
-                       "Level: ")
-                     (log4cl-case (apply 'string (mapcar 'car level-keys)) case1 t))
-            (setq c (let ((inhibit-quit t)) (read-char-exclusive)))
-            (setq result (log4cl-find-key c level-keys))
-            (setq cc (downcase (log4cl-uncontrol-char c)))
-            (cond
-             (result (log4cl-set-level 'logger result)
-                     (when expert (setq done t)))
-             ((or (eql cc ?q) (eql c ?\C-g))
-              (when expert (setq done t)))
-             ((or (eql cc ?h)
-                  (eql cc ??))
-              (setq done 'help))
-             (t 
-              (error "Invalid input %c" c)))))))
+                  (incf nrows))
+                (when (and reset-key (plusp (log4cl-children-level-count logger)))
+                  (insert (format "      [%c]:%s (%d) children"
+                                  (log4cl-case reset-key case1) 
+                                  (log4cl-format '(face log4cl-level-selection-face)
+                                                 "%s" (log4cl-level-name :reset))
+                                  (log4cl-children-level-count logger))
+                          "\n")
+                  (incf nrows 1))
+                (unless (eq expert 'expert) 
+                  (delete-window window) 
+                  ;; (log-expr nrows)
+                  (setq window (split-window nil (- (window-height) (1+ nrows))))
+                  (set-window-buffer window (get-buffer-create " *Select logger*")))
+                (goto-char (point-min))
+                (message "%s[%s] ([q]:quit [h]:help)? "
+                         (if (eq expert 'expert)
+                             (format "Change %s to: " current-level)
+                           "Level: ")
+                         (log4cl-case (apply 'string (mapcar 'car level-keys)) case1 t))
+                (setq c (let ((inhibit-quit t)) (read-char-exclusive)))
+                (setq result (log4cl-find-key c level-keys))
+                (setq cc (downcase (log4cl-uncontrol-char c)))
+                (cond
+                 (result (with-current-buffer orig-buffer
+                           (log4cl-set-level 'logger result))
+                         (when expert (setq done t)))
+                 ((or (eql cc ?q) (eql c ?\C-g))
+                  (when expert (setq done t)))
+                 ((or (eql cc ?h)
+                      (eql cc ??))
+                  (setq done 'help))
+                 (t 
+                  (error "Invalid input %c" c)))))))))
     (when (eq done 'help)
       (describe-function 'log4cl-fast-level-selection))))
 

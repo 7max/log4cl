@@ -392,7 +392,15 @@ represents the package name."
                            (when (and (keywordp cat)
                                       (not (position #\: cat-sep)))
                              (write-char #\: s))
-                           (write-string-modify-case (string cat) s cat-case))))
+                           (write-string-modify-case
+                            (coerce 
+                             (typecase cat
+                               (string cat)
+                               (symbol (symbol-name cat))
+                               (character (string cat))
+                               (t (princ-to-string cat)))
+                             'simple-string)
+                            s cat-case))))
                (hash (%logger-child-hash logger)))
           (vector-push-extend name names)
           (setq logger

@@ -310,7 +310,7 @@ Examples:
         (case arg
           (:self     ; still in the arglist means 1st arg was a logger
            (log4cl-error "Specifying a logger is incompatible with :SELF"))
-          (:sane (setq sane t global-console t))
+          (:sane (setq sane t global-console t tricky-console t))
           ((:clear :reset) (setq clear t))
           (:all (setq all t))
           ((:own :nonadditive :noadditive) (setq own t noown nil))
@@ -571,6 +571,24 @@ Examples:
     ;; finally recalculate reach-ability
     (adjust-logger logger)))
 
+
+
+(defun appender-extra-print-properties (a)
+  "Make an list of extra properties when printing appender configuration.
+Some of the properties are included only conditionally, such as last
+error or error count"
+  (with-slots (message-count
+               error-count
+               ignored-error-count
+               last-error
+               last-ignored-error) a 
+    (append
+     '((:message-count message-count nil))
+     (when (plusp error-count) '((:error-count error-count nil)))
+     (when (plusp ignored-error-count) '((:ignored-error-count ignored-error-count nil)))
+     (when last-error '((:last-error last-error nil)))
+     (when last-ignored-error '((:last-ignored-error last-ignored-error nil))))))
+
 (defun show-logger-settings (logger)
   "Print logger settings and its children to *STANDARD-OUTPUT*
 
@@ -671,8 +689,8 @@ Example output:
                        (print-indent) (terpri)
                        (print-one-logger l))))
                  (pop indents)))
-             (print-properties (obj)
-               (let* ((prop-alist (property-alist obj))
+             (print-properties (obj &optional extra-props)
+               (let* ((prop-alist (append (property-alist obj) extra-props))
                       (name-width (loop for prop in prop-alist maximize
                                            (length (format nil "~s" (first prop)))))
                       (indent (with-output-to-string (*standard-output*)
@@ -680,13 +698,14 @@ Example output:
                       (*print-pretty* t))
                  (loop
                    for (initarg slot nil) in prop-alist
-                   do (pprint-logical-block (nil nil :per-line-prefix indent)
-                        (pprint-indent :block 0)
-                        (write initarg :case :downcase)
-                        (pprint-tab :section-relative 1 (1+ name-width))
-                        (pprint-newline :miser)
-                        (pprint-indent :block 0)
-                        (write (slot-value obj slot)))
+                   do (pprint-logical-block (*standard-output* nil :per-line-prefix indent)
+                        (let ((value (slot-value obj slot))) 
+                          (pprint-indent :block 0) 
+                          (write initarg :case :downcase) 
+                          (pprint-tab :section-relative 1 (1+ name-width))
+                          (pprint-indent :block 2)
+                          (pprint-newline :fill)
+                          (write value)))
                    do (terpri))))
              (print-one-appender (a)
                ;; empty line for spacing
@@ -700,7 +719,8 @@ Example output:
                ;; don't draw the tree for them
                (push (cons 5 0) indents)
                (print-layout (slot-value a 'layout))
-               (print-properties a)
+               (print-properties
+                a (appender-extra-print-properties a))
                (pop indents))
              (print-layout (layout)
                (print-indent)

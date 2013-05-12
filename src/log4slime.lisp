@@ -132,7 +132,7 @@ be split into multiple ones, but I have no time right now"
                                     (swank::find-definitions (first cats))))))
                    (mapcar #'swank::xref>elisp (find-best-location-match cats defs))))
                (logger-name-for-emacs (logger)
-                 (format nil "Category ~a" (%logger-category logger)))
+                 (format nil "Category ~a" (logger-category logger)))
                (children-level-count (logger)
                  (count-if-not #'null (logger-descendants logger t)
                                :key #'logger-log-level))

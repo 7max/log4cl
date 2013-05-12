@@ -546,33 +546,45 @@ based on the file modification time"
 the log file initially, make test for the new problem"
   (with-package-log-hierarchy
     (clear-logging-configuration)
-    (let* ((fname (merge-pathnames (rand-filename) *tests-dir*))
-           ;; fixed name, and formatted backup
-           (bak-name (make-pathname :defaults fname :type "bak"))
-           (a1 (make-instance 'daily-file-appender
-                :name-format fname
-                ;; :backup-name-format (format nil "~a-%H-%M-%S.log" fname)
-                :backup-name-format (format nil "~a.bak" fname)
-                ::rollover-check-period 1))
-           (logger (make-logger '(one two three))))
-      ;; create 
-      (with-open-file (s fname :direction :output :if-does-not-exist :create :if-exists :supersede)
-        (format s "First line~%"))
-      ;; test its there
-      (with-open-file (s fname)
-        (is (equal "First line" (read-line s))))
-      (is (not (probe-file bak-name)))
-      ;; ;; make sure its not old enough for rollover
-      ;; (loop while (>= (file-write-date fname) (get-universal-time))
-      ;;       do (sleep 0.5))
-      (add-appender logger a1)
-      ;; (add-appender *root-logger* (make-instance 'console-appender))
-      (log-config :d)
-      (log-info :logger logger "Hey")
-      (is (not (probe-file bak-name)))
-      (with-open-file (s fname)
-        (is (equal "First line" (read-line s)))
-        (is (equal (read-line s) "INFO - Hey"))))))
+    (handler-bind
+        ;; CLISP apparently gives warning about reading the file
+        ;; that is already open for output, automatically invoke
+        ;; the restart  in this case
+        ((simple-error
+           (lambda (c)
+             (when (and (search "open" (format nil "~a" c)
+                                :test 'equalp)
+                        (find-restart 'continue))
+               (invoke-restart 'continue))))) 
+      (let* ((fname (merge-pathnames (rand-filename) *tests-dir*))
+             ;; fixed name, and formatted backup
+             (bak-name (make-pathname :defaults fname :type "bak"))
+             (a1 (make-instance 'daily-file-appender
+                  :name-format fname
+                  ;; :backup-name-format (format nil "~a-%H-%M-%S.log" fname)
+                  :backup-name-format (format nil "~a.bak" fname)
+                  ::rollover-check-period 1))
+             (logger (make-logger '(one two three))))
+        ;; create 
+        (with-open-file (s fname :direction :output :if-does-not-exist :create :if-exists :supersede)
+          (format s "First line~%"))
+        ;; test its there
+        (with-open-file (s fname)
+          (is (equal "First line" (read-line s))))
+        (is (not (probe-file bak-name)))
+        ;; ;; make sure its not old enough for rollover
+        ;; (loop while (>= (file-write-date fname) (get-universal-time))
+        ;;       do (sleep 0.5))
+        (add-appender logger a1)
+        ;; (add-appender *root-logger* (make-instance 'console-appender))
+        (log-config :d)
+        (log-info :logger logger "Hey")
+        (is (not (probe-file bak-name)))
+
+        ;; fix clisp
+        (with-open-file (s fname)
+          (is (equal "First line" (read-line s)))
+          (is (equal (read-line s) "INFO - Hey")))))))
 
 (deftest test-flush-all-appenders ()
   (with-package-log-hierarchy 
@@ -581,7 +593,7 @@ the log file initially, make test for the new problem"
            a
            (output
              (with-output-to-string (s)
-               (setq a (make-instance 'this-console-appender :stream s))
+               (setq a (make-instance 'this-console-appender :stream s :immediate-flush nil))
                (add-appender logger a)
                (log:config :i)
                ;; lash flush time is zero with no output

@@ -114,11 +114,6 @@
                   (:export
                    #:f #:e #:w #:i #:d #:d1 #:d2 #:d3 #:d4 #:t #:d5 #:d6 #:d7 #:d8 #:d9 #:c #:s
                    #:ff #:ee #:ww #:ii #:dd #:dd1 #:dd2 #:dd3 #:dd4 #:tt #:dd5 #:dd6 #:dd7 #:dd8 #:dd9)))))
-  (eval-when (:load-toplevel :compile-toplevel :execute)
-    (let ((p1 (find-package :log4cl))
-          (p2 (find-package :log4cl)))
-      (when (and p2 p2 (not (eq p1 p2)))
-        (delete-package p1))))
   (log4cl-defpackage))
 
 (defmacro forward-macro (name from-name &optional depreciate replacement)

@@ -88,6 +88,7 @@
                        #:save
                        #:restore
                        #:package-options
+                       #:with-ndc
                        ;; #:configuration-element
                        ;; #:configuration
                        ;; #:same-configuration-p
@@ -194,30 +195,6 @@
 (forward-macro log:d9 log4cl:log-debu9)
 (forward-macro log:s log4cl:log-sexp)
 
-;; two letter logging macros for log-sexp
-(forward-macro log:ff log4cl:log-sexp-fatal)
-(forward-macro log:ee log4cl:log-sexp-error)
-(forward-macro log:ww log4cl:log-sexp-warn)
-(forward-macro log:ii log4cl:log-sexp-info)
-
-(forward-macro log:dd log4cl:log-sexp-debug)
-(forward-macro log:dd1 log4cl:log-sexp-debu1)
-(forward-macro log:dd2 log4cl:log-sexp-debu2)
-(forward-macro log:dd3 log4cl:log-sexp-debu3)
-(forward-macro log:dd4 log4cl:log-sexp-debu4)
-(forward-macro log:tt log4cl:log-sexp-trace)
-(forward-macro log:dd5 log4cl:log-sexp-debu5)
-(forward-macro log:dd6 log4cl:log-sexp-debu6)
-(forward-macro log:dd7 log4cl:log-sexp-debu7)
-(forward-macro log:dd8 log4cl:log-sexp-debu8)
-(forward-macro log:dd9 log4cl:log-sexp-debu9)
-
-;; depreciated forwards
-(forward-macro log:with-hierarchy log4cl:with-log-hierarchy t log4cl:with-log-hierarchy)
-(forward-macro log:with-package-hierarchy log4cl:with-package-log-hierarchy t log4cl:with-package-log-hierarchy)
-(forward-macro log:in-hierarchy log4cl:in-log-hierarchy t log4cl:in-log-hierarchy)
-(forward-macro log:in-package-hierarchy log4cl:in-package-log-hierarchy t log4cl:in-package-log-hierarchy)
-
 (forward-macro log:with-indent log4cl:with-log-indent)
 
 (forward-function log:config log-config)
@@ -225,4 +202,11 @@
 (forward-function log:pop restore)
 (forward-function log:push save)
 
+;; depreciated forwards
+(forward-macro log:with-hierarchy log4cl:with-log-hierarchy t log4cl:with-log-hierarchy)
+(forward-macro log:with-package-hierarchy log4cl:with-package-log-hierarchy t log4cl:with-package-log-hierarchy)
+(forward-macro log:in-hierarchy log4cl:in-log-hierarchy t log4cl:in-log-hierarchy)
+(forward-macro log:in-package-hierarchy log4cl:in-package-log-hierarchy t log4cl:in-package-log-hierarchy)
+
+(forward-macro log4cl:with-ndc-context log4cl:with-ndc t)
 

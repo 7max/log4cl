@@ -168,7 +168,7 @@ Following pattern characters are recognized:
 
    %t Current thread name
 
-   %x Value of *ndc-context* variable from (with-ndc-context (context)) macro
+   %x Value of *ndc-context* variable from (with-ndc (context)) macro
 
    %i Process id of the lisp process, implementation dependent.
 

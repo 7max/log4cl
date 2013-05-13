@@ -169,7 +169,7 @@ package for the dynamic scope of BODY."
   (with-package-naming-configuration (*package*) 
     (resolve-logger-form *package* env (if arg-p `(from-make-logger ,arg)))))
 
-(defmacro with-ndc-context ((&optional (ndc nil ndcp)) &body body)
+(defmacro with-ndc ((&optional (ndc nil ndcp)) &body body)
   "Execute forms in BODY with *NDC-CONTEXT* set to CONTEXT. The
 context is printed by the %x pattern layout format"
   (if ndcp 

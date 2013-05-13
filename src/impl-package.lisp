@@ -111,6 +111,7 @@
                     #:+max-log-level+
                     #:log-level-to-string
                     #:with-ndc-context
+                    #:with-ndc
                     #:with-log-indent
                     #:logger-additivity
                     #:appender-error

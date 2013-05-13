@@ -349,5 +349,5 @@ done via property configurator, rather then directly"
       (log-config one :i :clear)
       (is (logger-appenders three))
       (is (not (log-debug :logger four)))
-      (log-config one :clear :all)
+      (log-config one :clear :appenders :all)
       (is (null (logger-appenders three))))))

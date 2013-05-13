@@ -79,7 +79,7 @@ configuration"
   "Test that default logging configuration produces correct output"
   (with-package-log-hierarchy
     (reset-logging-configuration)
-    (is (equal (with-output-to-string (*debug-io*)
+    (is (equal (with-output-to-string (*global-console*)
                  (log-warn "Hello World!"))
                "WARN - Hello World!
 "))))
@@ -88,19 +88,19 @@ configuration"
   "Test that log statement with explicit logger produce output"
   (with-package-log-hierarchy
     (reset-logging-configuration)
-    (is (equal (with-output-to-string (*debug-io*)
+    (is (equal (with-output-to-string (*global-console*)
                  (log-warn :logger (make-logger)  "Hello World!"))
                "WARN - Hello World!
 "))
-    (is (equal (with-output-to-string (*debug-io*)
+    (is (equal (with-output-to-string (*global-console*)
                  (log-warn '(blah test foobar)  "Hello World!"))
                "WARN - Hello World!
 "))
-    (is (equal (with-output-to-string (*debug-io*)
+    (is (equal (with-output-to-string (*global-console*)
                  (log-warn :foobar  "Hello World!"))
                "WARN - Hello World!
 "))
-    (is (equal (with-output-to-string (*debug-io*)
+    (is (equal (with-output-to-string (*global-console*)
                  (log-warn 'foobar  "Hello World!"))
                "WARN - Hello World!
 "))))
@@ -136,7 +136,7 @@ a logger, and that logging macros are correctly handling this
 situation"
   (with-package-log-hierarchy
     (reset-logging-configuration)
-    (is (equal (with-output-to-string (*debug-io*)
+    (is (equal (with-output-to-string (*global-console*)
                  (log-debug :logger
                             (returns-a-logger)  "Hello World!"))
                "DEBUG - Hello World!

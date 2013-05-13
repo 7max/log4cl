@@ -84,7 +84,7 @@
                     #:clear-logging-configuration
                     ;; special variables
                     #:*hierarchy* #:*root-logger* #:*default-logger-name* #:*log-indent*
-                    #:*ndc-context*
+                    #:*ndc-context* #:*global-console*
                     ;; hierarchy
                     #:hierarchy-index
                     #:with-log-hierarchy

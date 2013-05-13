@@ -125,98 +125,107 @@ one of the following:
   to ensure logger is created, even if it did not exist before, use
   (LOG:CONFIG (LOG:LOGGER ...) ...)
 
+Without any options (LOG:CONFIG) displays current configuration
 
-MAIN OPTIONS.
-
+---------------|---------------------------------------------------------------
   Option       | Description
+---------------|---------------------------------------------------------------
+                               MAIN OPTIONS.
 ---------------|---------------------------------------------------------------
  :INFO         | Or any other keyword identifying a log level, which can be    
  :DEBUG        | shortened to its shortest unambiguous prefix, such as :D.
                | Changes the logger level to that level.
 ---------------|---------------------------------------------------------------
  :SANE         | Removes logger appenders, then arranges for the logging output
-               | to be always logged to current console, as well as thread-local
-               | binding of *DEBUG-IO* if its different.
+               | to be always logged to dynamic value of *TERMINAL-IO*
                |                                                               
                | If used with :DAILY then console appender is not added, unless
                | :CONSOLE, :THIS-CONSOLE or :TRICKY-CONSOLE is also specified.
                |
                | The pattern layout added is affected by many of the pattern
                | options below.
-
+---------------|---------------------------------------------------------------
+                           APPENDER OPTIONS
 ---------------|---------------------------------------------------------------
  :CONSOLE      | Adds CONSOLE-APPENDER to the logger. Console appender logs
-               | into the dynamic value of *DEBUG-IO* at the call site. 
-               |
+               | into current console as indicated by *TERMINAL-IO* stream
+---------------|---------------------------------------------------------------
  :THIS-CONSOLE | Adds THIS-CONSOLE-APPENDER to the logger. It captures the
- :THIS         | current value of *DEBUG-IO*, and will continue to log into
-               | that stream even in different threads. On any stream errors it
-               | will auto-remove itself, making a good choice for \"attach
-               | with Slime and look around\" situations 
+  (or :THIS)   | current value of *TERMINAL-IO* by recursively resolving any
+               | synonym or two-way streams, and continues to log the
+               | remembered value, even if it goes out dynamic scope.
                |
-:TRICKY-CONSOLE| Adds TRICKY-CONSOLE-APPENDER. Its designed to be used together
-               | with a global console appender. It captures the current value 
-               | and logs only if *DEBUG-IO* as its stream, but also looks at
-               | the dynamic value, and only logs if they are not the same.
+               | On any stream errors it will auto-remove itself.
+---------------|---------------------------------------------------------------
+:TRICKY-CONSOLE| Adds TRICKY-CONSOLE-APPENDER which acts exactly like 
+ (or :TRICKY)  | THIS-CONSOLE appender above, but it checks if dynamic value
+               | of *TERMINAL-IO* resolves to the same stream and ignores the
+               | log message if it does.
+               |
+               | When debugging multi-threaded code from REPL, this results in
+               | REPL thread logging to REPL, while threads with some other
+               | value of *TERMINAL-IO* stream will output to both.
                |
                | As a shortcut, if THIS-CONSOLE is specified and global console
                | appender already exists, it will add TRICKY-CONSOLE instead.
-               |
-               | Both of the above appenders will recursively dereference
-               | synonym and two way streams on initialization
+---------------|---------------------------------------------------------------
+ :SANE2        | Shortcut for :SANE :TRICKY (mnemonic two -> multiple threads)
+---------------|---------------------------------------------------------------
+ :STREAM stream| Changes the stream used for above two dedicated stream
+               | appenders.
 ---------------|---------------------------------------------------------------
  :DAILY FILE   | Adds file appender logging to the named file, which will be      
                | rolled over every midnight into FILE.YYYYMMDD; Removes any 
                | other FILE-APPENDER-BASE'ed appenders from the logger
 ---------------|---------------------------------------------------------------
- :STREAM stream| Adds THIS-CONSOLE-APPENDER logging to specified stream, assumes
-               | :THIS-CONSOLE option
+
+                            LAYOUT OPTIONS
+
+  General note about layout options, if any appender options are specified
+  the layout options only affect PATTERN-LAYOUT for new appenders created
+  by LOG:CONFIG command
+
+  But if no appender options are specified, but layout options are, LOG:CONFIG
+  will change the pattern layout on all console based appenders that output
+  current *TERMINAL-IO*
 ---------------|---------------------------------------------------------------
  :PATTERN      | For any new appenders added, specifies the conversion pattern
-               | for the PATTERN-LAYOUT
+               | for the PATTERN-LAYOUT. If not given, default pattern will be
+               | used, modified by below options
 ---------------|---------------------------------------------------------------
- :TWOLINE      | Changes pattern layout to print hard newline before actual log
-  or :2LINE    | message. Only makes sense with NOPRETTY or when logging into
-               | files.
-               | 
-               | Pretty printing does better job at line splitting then forced
-               | two line layout, with short log statements placed on a single
-               | line and longer ones wrapping.
+ :PRETTY       | Add {pretty} option to the pattern to force pretty printing
+ :NOPRETTY     | Add {nopretty} option to the pattern to force no pretty printing
+               | without one of these, global value is in effect
 ---------------|---------------------------------------------------------------
  :TIME/:NOTIME | Include time into default pattern, default is :TIME
 ---------------|---------------------------------------------------------------
  :FILE or      | Include file name into default pattern, :FILE2 uses alternate
  :FILE2        | position for the file (in front of the package).
- :NOFILE       | :NOFILE removes the file
+ :NOFILE       | :NOFILE does not show the file
 ---------------|---------------------------------------------------------------
  :THREAD       | Include thread name into default pattern, it will be after the
                | time, in [%t] format
 ---------------|---------------------------------------------------------------
  :NDC          | Include NDC context into default pattern, if thread is also
                | specified, it will be after the thread name, separated by dash
-               | like this: [threadname-ndc], and will not be shown if NIL or
-               | unbound
+               | like this: [threadname-ndc], and will not be shown if unbound
                |
                | If thread name is not specified, it will be included in place
                | of a thread name, in [%x] format, not taking any space if unset
-               | or NIL
 ---------------|---------------------------------------------------------------
- :PRETTY       | Add {pretty} option to the pattern to force pretty printing
- :NOPRETTY     | Add {nopretty} option to the pattern to force no pretty printing
-               | without one of these, global value is in effect
+ :NOPACKAGE    | Add {nopackage} option to the pattern (binds orig package at
+ :PACKAGE      | the site of the log statement. PACKAGE binds keyword package,
+               | so everything is printed with package prefix
 ---------------|---------------------------------------------------------------
- :PACKAGE      | Add {package} option to the pattern (binds orig package at the
- :NOPACKAGE    | site of the log statement. NOPACKAGE binds keyword package, so
-               | everything is printed with package prefix
+  :TWOLINE     | Changes pattern layout to print hard newline before actual log
+ (or :2LINE)   | message. Only makes sense with NOPRETTY or when logging into
+               | files.
+               | 
+               | Pretty printing does better job at line splitting then forced
+               | two line layout, with short log statements placed on a single
+               | line and longer ones wrapping.
 ---------------|---------------------------------------------------------------
-..Sole pattern | When only the pattern layout options are specified, without 
-options        | any options that add a new appender, this command will instead
-               | search for any existing console, this-console, or tricky-console
-               | appenders that log to current *DEBUG-IO*, and change their layout
-               |
-               | So (LOG:CONFIG :THREAD :PRETTY) will quickly change the existing
-               | console appender layout, to include thread and force pretty
-               | printing
+                   ASSORTED OTHER OPTIONS
 ---------------|---------------------------------------------------------------
  :PROPERTIES   | Configure with PROPERTY-CONFIGURATOR by parsing specified     
  FILE          | properties file                                               
@@ -229,22 +238,34 @@ options        | any options that add a new appender, this command will instead
                | startup of hierarchy watcher thread, which is used for
                | auto-flushing. 
 ---------------|---------------------------------------------------------------
- :OWN          | Makes logger non-additive (does not propagate to parent)
- :NOADDITIVE   |
- :ADDITIVE     | Sets additive flag back
+ :NOADDITIVE   | Makes logger non-additive (does not propagate to parent)
+ :OWN          | Shortcut for non-additive (usually has appenders on its own)
+ :ADDITIVE     | Sets additive flag back to T.
 ---------------|---------------------------------------------------------------
- :CLEAR        | Unset log level from all child loggers, and remove any
-               | appenders from them, except the ones with non-additive flag
+ :CLEAR        | Reset the child in the hierarchy, by unsetting their log level
+               | and/or removing appenders from them. Without any other flags
+               | unset the log levels.
+               |
+ :LEVELS       | Clears the log levels, this is the default
+ :APPENDERS    | Removes any appenders, levels will not be cleared unless
+               | :LEVELS is also specified
+               |
+ :ALL          | Normally :CLEAR does not touch non-additive loggers, that is
+               | the ones that don't pass messages to parents. This flag forces
+               | clearing of non-additive loggers 
+               |
+               | Note that this option does not change the logger being acted
+               | upon, just its children. To nuke absolutely everything including
+               | root logger use (LOG4CL:CLEAR-LOGGING-CONFIGURATION)
 ---------------|---------------------------------------------------------------
- :ALL          | Changes :CLEAR to process non-additive loggers
----------------|---------------------------------------------------------------
- :SELF         | Configures the LOG4CL-IMPL logger, which can be used to debug
-               | Log4CL itself.
+ :SELF         | Configures the LOG4CL logger, which can be used to debug
+               | Log4CL itself. Normally all other LOG:CONFIG hides the
+               | it from view.
 ---------------|---------------------------------------------------------------
  :FORCE-ADD    | Normally if you specify :CONSOLE :THIS-CONSOLE or
                | :TRICKY-CONSOLE without :SANE (which clears out existing
                | appenders), an error will be given if there are any standard
-               | console appenders that already log to *DEBUG-IO* or :STREAM
+               | console appenders that already log to *TERMINAL-IO* or :STREAM
                | argument.
                |
                | This is to prevent from creating duplicate output.
@@ -257,27 +278,34 @@ Examples:
 
 * (LOG:CONFIG :D) -- Changes root logger level to debug
 
-* (LOG:CONFIG :SANE) -- Drops all appenders, adds console appender and
-  tricky console appender, changes root level to INFO. 
+* (LOG:CONFIG :SANE) -- Drops all console appenders, change level
+  to INFO, makes all output appear on current console
 
-* (LOG:CONFIG :PRETTY :THREAD) - changes current console appenders
+* (LOG:CONFIG :SANE2) -- As above, but copy all other threads output
+  to current terminal.
+
+* (LOG:CONFIG :PRETTY :THREAD) - changes active console appenders
   layout to force pretty printing and add thread info.
 
-* (LOG:CONFIG :NOPRETTY :2LINE) - changes current console appenders
-  layout to force no pretty printing, and print on 2 lines
+* (LOG:CONFIG :NOPRETTY :PACKAGE) - changes layout to force no
+  pretty printing, and restoring original *PACKAGE* when printing
   
-* (LOG:CONFIG :WARN :RESET) -- Changes root logger level to warnings,
+* (LOG:CONFIG :WARN :CLEAR) -- Changes root logger level to warnings,
   and unset child logger levels.
 
-* (LOG:CONFIG (LOG:LOGGER) :SANE :OWN :DEBUG :DAILY \"mypackage.log\")
+* (LOG:CONFIG '(PACKAGE) :OWN :DEBUG :DAILY \"mypackage.log\")
 
-  Configures the current package (assuming LOG:LOGGER is issued from
-  REPL) logger with debug log level, logging into file mypackage.log
-  which will be rolled over daily, and makes logger non-additive so
-  messages will not be propagated to logger parents. (ie you'll have
-  to add console appender to that specific logger, to also see them on
-  console)
-" 
+  Configures the logger PACKAGE with debug log level, logging into
+  the file \"mypackage.log\" which will be rolled over daily;
+  makes logger non-additive so messages will not be propagated to
+  logger parents. (To see them on console, remove the :OWN flag, or
+  add :CONSOLE to the command)
+
+  Note: in above example if package name is dotted, you need to
+  specify the split category list, so if your package name is
+  COM.EXAMPLE.FOO logger categories will be '(COM EXAMPLE FOO)
+"
+ 
   (let ((logger nil)
         sane clear all own noown daily pattern
         file file2 nofile
@@ -295,7 +323,8 @@ Examples:
         stream
         pattern-specified-p
         appender-specified-p
-        force-add)
+        force-add
+        clear-levels clear-appenders)
     (declare (type (or null stream) stream))
     (cond ((logger-p (car args))
            (setq logger (pop args)))
@@ -303,8 +332,12 @@ Examples:
            (setq logger
                  (let ((cats (pop args))) 
                    (or (instantiate-logger *package* cats t nil) 
-                       (log4cl-error "Logger named ~s not found. If you want to create it, ~
-                       use (log:make) instead of explicit category list" cats)))))
+                       (log4cl-error "~@<Logger named ~S not found. If you want to create it, ~
+                       use (~A:~A (~A:~A ~S) ...) instead~:@>"
+                                     cats
+                                     '#:log '#:config
+                                     '#:log '#:logger
+                                     cats)))))
           ((member :self args)
            (setq logger +self-logger+ self t)
            (setq args (remove :self args))))
@@ -318,6 +351,8 @@ Examples:
            (log4cl-error "Specifying a logger is incompatible with :SELF"))
           (:sane (setq sane t global-console t tricky-console t))
           ((:clear :reset) (setq clear t))
+          (:levels (setq clear-levels t))
+          (:appenders (setq clear-appenders t))
           (:all (setq all t))
           ((:own :nonadditive :noadditive) (setq own t noown nil))
           (:additive (setq own nil noown t))
@@ -416,16 +451,20 @@ Examples:
                    (when child-hash
                      (maphash (lambda (name logger)
                                 (declare (ignore name))
-                                (when (or self (not (eq logger +self-logger+))) 
-                                  (funcall function logger))
-                                (unless (typep logger 'source-file-logger) 
-                                  (map-descendants-ignoring-self function logger)))
+                                (when (or self
+                                          (not (eq logger +self-logger+))) 
+                                  (funcall function logger) 
+                                  (unless (typep logger 'source-file-logger) 
+                                    (map-descendants-ignoring-self function logger))))
                               child-hash))))) 
         (map-descendants-ignoring-self
          (lambda (l)
            (when (or (logger-additivity l) all)
-             (set-log-level l +log-level-unset+ nil)
-             (remove-all-appenders-internal l nil)))
+             (when (or clear-levels (not clear-appenders)) 
+               (set-log-level l +log-level-unset+ nil))
+             (when clear-appenders 
+               (unless (eq l +self-meta-logger+) 
+                 (remove-all-appenders-internal l nil)))))
          logger)))
     ;; kind of separate from appender stuff
     (when (or own noown)
@@ -434,7 +473,8 @@ Examples:
       (if sane
           ;; Only remove all appenders if :clear was also given,
           ;; otherwise don't touch file appenders
-          (if clear (remove-all-appenders-internal logger nil) 
+          (if (and clear clear-appenders)
+              (remove-all-appenders-internal logger nil) 
               (dolist (a (logger-appenders logger))
                 (unless (typep a 'file-appender-base)
                   (remove-appender-internal logger a nil)))))
@@ -457,8 +497,8 @@ Examples:
         (let* (have-this-console-p
                have-global-console-p
                have-tricky-console-p
-               (stream (resolve-stream (or stream *debug-io*)))
-               (global-stream (resolve-stream *debug-io*))
+               (stream (resolve-stream (or stream *global-console*)))
+               (global-stream (resolve-stream *global-console*))
                (global-stream-same-p (eq stream global-stream))
                dups)
           (dolist (a (logger-appenders logger))
@@ -521,7 +561,8 @@ Examples:
     ;; new appender, we assume user wants to change layout for
     ;; existing console appenders
     (when (and pattern-specified-p (not appender-specified-p))
-      (let (didit) 
+      (let (didit
+            (global-stream (resolve-stream *global-console*)))
         (dolist (a (logger-appenders logger))
           ;; Only change global console appenders, or specific console
           ;; appender that log to console at log site
@@ -529,8 +570,7 @@ Examples:
             (when (or (typep a 'console-appender)
                       (and (typep a '(or this-console-appender
                                       tricky-console-appender))
-                           (eq (appender-stream a)
-                               (or stream *debug-io*))))
+                           (eq (appender-stream a) global-stream)))
               ;; Assumes slot assignments atomic, but so is everything
               ;; else in log4cl
               (setf (appender-layout a) layout)
@@ -738,7 +778,17 @@ Example output:
                (push (cons 5 0) indents)
                (print-properties layout)
                (pop indents)))
-      (print-one-logger logger))
+      (print-one-logger logger)
+      (let* ((global-stream (resolve-stream *standard-output*))
+             (appenders (effective-appenders logger)))
+        (unless (some (lambda (a)
+                        (typecase a
+                          (console-appender t)
+                          ((or this-console-appender tricky-console-appender)
+                           (eq (appender-stream a) global-stream))))
+                      appenders)
+          (format t "~%~@<Warning: No appenders reach resolved ~S: ~S~:@>~%"
+                  '*standard-output* global-stream))))
     (values)))
 
 ;; do default configuration

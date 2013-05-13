@@ -15,6 +15,9 @@
 
 (in-package #:log4cl)
 
+#-sbcl (defvar *global-console* (make-synonym-stream '*terminal-io*))
+#+sbcl (sb-ext:defglobal *global-console* (make-synonym-stream '*terminal-io*))
+
 (defmethod close-appender (appender)
   (declare (ignore appender)))
 
@@ -112,36 +115,40 @@ STREAM slot."))
 
 (defclass console-appender (stream-appender) () 
   (:documentation "A stream appender that writes messages to
-*debug-io* stream.  The *debug-io* is late-binding, that is its the
-value of that variable in the thread and at the moment of log message
-being written.  If instead you want an appender that would write log
-messages to the *debug-io* stream active when appender was created,
-use FIXED-STREAM-APPENDER class"))
+*TERMINAL-IO* stream, which must be a synonym stream"))
 
 (defclass this-console-appender (fixed-stream-appender temp-appender)
-  ((stream :initform *debug-io*))
-  (:documentation "An appender that remembers the value of *DEBUG-IO*
-that was in effect when appender is created, and prints its output to
-it, until it encounters STREAM-ERROR at which point it deletes
-itself."))
+  ((stream :initform *global-console*))
+  (:documentation
+   "An appender that captures the current value of *TERMINAL-IO*
+stream, and continues logging to it, until it encounters a stream
+error, at which point it will delete itself.
+
+To capture the target output stream, any chain of SYNONYM-STREAM or
+TWO-WAY-STREAM is followed recursively, until result is no longer
+either synonym or two way stream"))
 
 (defmethod initialize-instance :after ((a this-console-appender) &key &allow-other-keys)
   (with-slots (stream) a
     (setf stream (resolve-stream stream))))
 
 (defclass tricky-console-appender (this-console-appender) ()
-  (:documentation "An appender that remembers the value of *DEBUG-IO*
-that was in effect when appender is created, and prints its output to
-it unless current value of *DEBUG-IO* happens to be the same. Used
-together with CONSOLE-APPENDER, will copy output of other threads into
-the current console, without duplicating REPL thread output.
+  (:documentation
+   "Captures the *TERMINAL-IO* stream just like the
+THIS-CONSOLE-APPENDER does, but at runtime checks if current value of
+*TERMINAL-IO* resolves to the same value and only writes the
+message if its different.
+
+When used together with CONSOLE-APPENDER, results that current REPL
+thread logs to REPL, while other threads log both to their
+*TERMINAL-IO* and REPL.
 
 Auto-deletes itself when encounters stream error"))
 
 (defmethod appender-do-append :around
     ((this tricky-console-appender) logger level log-func)
   (declare (ignore logger level log-func))
-  (unless (eq (appender-stream this) (resolve-stream *debug-io*))
+  (unless (eq (appender-stream this) (resolve-stream *global-console*))
     (call-next-method)))
 
 #+bordeaux-threads
@@ -262,8 +269,9 @@ time of the flush with TIME"
   (values))
 
 (defmethod appender-stream ((this console-appender))
-  "Returns current value of *DEBUG-IO*"
-  *debug-io*)
+  "Returns current value of *GLOBAL-CONSOLE*, which is a synonym
+stream for *TERMINAL-IO*"
+  *global-console*)
 
 (defgeneric appender-filename (appender)
   (:documentation "Returns the appenders file name"))

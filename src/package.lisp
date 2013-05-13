@@ -100,32 +100,46 @@
                        ))
                   (:import-from :cl #:in-package)
                   ,@(shadow-and-export
-                     `(#:sexp #:expr #:config #:make ,@+log-level-macro-symbols+ ,@(level-expr-syms)
-                              #:with-hierarchy
-                              #:push #:pop
-                              #:with-package-hierarchy
-                              #:in-package-hierarchy
-                              #:in-hierarchy
-                              #:with-indent
-                              #:logger))
-                  ;; one letter logging macro forwarders
-                  (:shadow
-                   #:f #:e #:w #:i #:d #:d1 #:d2 #:d3 #:d4 #:t #:d5 #:d6 #:d7 #:d8 #:d9 #:c #:s
-                   #:ff #:ee #:ww #:ii #:dd #:dd1 #:dd2 #:dd3 #:dd4 #:tt #:dd5 #:dd6 #:dd7 #:dd8 #:dd9)
+                     `(#:sexp
+                       #:expr #:config  ,@+log-level-macro-symbols+ ,@(level-expr-syms)
+                       #:make #:category
+                       #:with-hierarchy
+                       #:push #:pop
+                       #:with-package-hierarchy
+                       #:in-package-hierarchy
+                       #:in-hierarchy
+                       #:with-indent
+                       ;; one letter logging macro forwarders
+                       #:f #:e #:w #:i #:d #:d1 #:d2 #:d3 #:d4
+                       #:t #:d5 #:d6 #:d7 #:d8 #:d9 #:c #:s))
+                  
                   (:export
-                   #:f #:e #:w #:i #:d #:d1 #:d2 #:d3 #:d4 #:t #:d5 #:d6 #:d7 #:d8 #:d9 #:c #:s
-                   #:ff #:ee #:ww #:ii #:dd #:dd1 #:dd2 #:dd3 #:dd4 #:tt #:dd5 #:dd6 #:dd7 #:dd8 #:dd9)))))
+                   #:f #:e #:w #:i #:d #:d1 #:d2 #:d3 #:d4 #:t #:d5 #:d6 #:d7 #:d8 #:d9 #:c #:s)))))
   (log4cl-defpackage))
 
 (defmacro forward-macro (name from-name &optional depreciate replacement)
   (if depreciate 
-      `(progn
-         (setf (documentation ',name 'function) (documentation ',from-name 'function))
-         (setf (macro-function ',name)
-               (lambda (&rest args)
-                 (log4cl-style-warning "Macro ~S is depreciated~^. Use ~S instead" ',name
-                                       ,@(when replacement `(',replacement)))
-                 (apply (macro-function ',from-name) args))))
+      (let ((replacement
+              ;; we want stuff to print as LOG4CL:SOMETHING rather
+              ;; then LOG4CL-IMPL:SOMETHING but can't change package
+              ;; name right now
+              (when replacement
+                (cond
+                  ((and (symbolp replacement)
+                        (eq *package* (symbol-package replacement)))
+                   (format nil "~A:~A" '#:log4cl replacement))
+                  ((and (consp replacement)
+                        (endp (cddr replacement))) 
+                   (format nil "~A:~A" (first replacement) (second replacement)))
+                  (t 
+                   (format nil "~S" replacement)))))) 
+        `(progn
+           (setf (documentation ',name 'function) (documentation ',from-name 'function))
+           (setf (macro-function ',name)
+                 (lambda (&rest args)
+                   (log4cl-style-warning "Macro ~S is depreciated~^. Use ~A instead" ',name
+                                         ,@(when replacement `(',replacement)))
+                   (apply (macro-function ',from-name) args)))))
       `(progn
          (setf (documentation ',name 'function) (documentation ',from-name 'function))
          (setf (macro-function ',name) (macro-function ',from-name)))))
@@ -152,6 +166,7 @@
   (let ((defs
           (loop for level in levels
                 ;; sexp-debug, sexp-info etc
+                as macro-name = (intern (symbol-name level) :log)
                 as sexp-macro-name = (intern (format nil "~A-~A"
                                                      (string '#:sexp)
                                                      (string level))
@@ -161,20 +176,20 @@
                                                                 (string'#:log-sexp)
                                                                 (string level))
                                                         :log4cl) 
-                                      (error "Unable to find logging macro for ~S" level))
-                collect `(forward-macro ,sexp-macro-name ,sexp-forward-name))))
+                                           (error "Unable to find logging macro for ~S" level))
+                collect `(forward-macro ,sexp-macro-name ,sexp-forward-name t ,macro-name))))
     `(progn
        ,@defs)))
 
 (forward-levels #.+log-level-macro-symbols+) 
 (forward-sexp-levels #.+log-level-macro-symbols+) 
-(forward-macro log:sexp log-sexp) 
+(forward-macro log:sexp log4cl:log-sexp) 
 
 ;; make (log:expr) same as (log:sexp) and (log:make) shortcut for (log:make-logger)
 (forward-macro log:expr log4cl:log-sexp)
 
-(forward-macro log:logger log4cl:make-logger) 
-(forward-macro log:make log4cl:make-logger t logger) 
+(forward-macro log:category log4cl:make-logger) 
+(forward-macro log:make log4cl:make-logger t log:category) 
 
 ;; one letter logging macros
 (forward-macro log:f log4cl:log-fatal)
@@ -208,5 +223,6 @@
 (forward-macro log:in-hierarchy log4cl:in-log-hierarchy t log4cl:in-log-hierarchy)
 (forward-macro log:in-package-hierarchy log4cl:in-package-log-hierarchy t log4cl:in-package-log-hierarchy)
 
-(forward-macro log4cl:with-ndc-context log4cl:with-ndc t)
+(forward-macro log4cl:with-ndc-context log4cl:with-ndc t log4cl:with-ndc)
+
 

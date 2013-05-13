@@ -117,13 +117,13 @@ appender"
 LOGGER-IDENTIFIER is optional and defaults to the root logger. It can be
 one of the following:
 
-- Logger instance ie result of (LOG:LOGGER) expansion, or any other form
+- Logger instance ie result of (LOG:CATEGORY) expansion, or any other form
   that returns a logger.
 
-- A list of logger categories, basically a shortcut for (LOG:LOGGER
+- A list of logger categories, basically a shortcut for (LOG:CATEGORY
   '(CAT1 CAT2 CAT3)). An error will be given if logger does not exist. If you want
   to ensure logger is created, even if it did not exist before, use
-  (LOG:CONFIG (LOG:LOGGER ...) ...)
+  (LOG:CONFIG (LOG:CATEGORY ...) ...)
 
 Without any options (LOG:CONFIG) displays current configuration
 

@@ -8,19 +8,19 @@
   "Test that log statement with explicit logger produce output"
   (with-package-log-hierarchy
     (reset-logging-configuration)
-    (is (equal (with-output-to-string (*global-console*)
+    (is (equal (with-output-to-string (*terminal-io*)
                  (log-warn (make-logger)  "Hello World!"))
                "WARN - Hello World!
 "))
-    (is (equal (with-output-to-string (*global-console*)
+    (is (equal (with-output-to-string (*terminal-io*)
                  (log-warn '(blah test foobar)  "Hello World!"))
                "WARN - Hello World!
 "))
-    (is (equal (with-output-to-string (*global-console*)
+    (is (equal (with-output-to-string (*terminal-io*)
                  (log-warn :foobar  "Hello World!"))
                "WARN - Hello World!
 "))
-    (is (equal (with-output-to-string (*global-console*)
+    (is (equal (with-output-to-string (*terminal-io*)
                  (log-warn 'foobar  "Hello World!"))
                "WARN - Hello World!
 "))))
@@ -45,7 +45,7 @@ a logger, and that logging macros are correctly handling this
 situation"
   (with-package-log-hierarchy
     (reset-logging-configuration)
-    (is (equal (with-output-to-string (*global-console*)
+    (is (equal (with-output-to-string (*terminal-io*)
                  (log-debug (returns-a-logger)  "Hello World!"))
                "DEBUG - Hello World!
 "))))

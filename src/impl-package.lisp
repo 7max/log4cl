@@ -204,15 +204,9 @@
                                   new-exports
                                   :test #'string=
                                   :key #'string))
-                (name-and-nickname
-                  ;; Under CCL rename-package screws up SETF functions, so keep
-                  ;; name/nickname swapped until the last file of the system
-                  (if (and p2 (equal (package-name p2)
-                                       (symbol-name '#:log4cl-impl)))
-                    '(#:log4cl-impl (:nicknames #:log4cl))
-                    '(#:log4cl (:nicknames #:log4cl-impl))))
                 (defpackage-form
-                  `(defpackage ,@name-and-nickname
+                  `(defpackage #:log4cl-impl
+                     (:nicknames #:log4cl)
                      (:use #:cl #:bordeaux-threads)
                      (:export ,@new-exports))))
            (when (and p2 removed-exports)

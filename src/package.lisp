@@ -31,7 +31,7 @@
                `(defpackage #:log
                   (:use)
                   ,@(reexport-from
-                     '#:log4cl-impl
+                     '#:log4cl
                      '(                 ;; class names
                        ;; #:fixed-stream-appender
                        ;; #:console-appender
@@ -116,7 +116,7 @@
                    #:ff #:ee #:ww #:ii #:dd #:dd1 #:dd2 #:dd3 #:dd4 #:tt #:dd5 #:dd6 #:dd7 #:dd8 #:dd9)))))
   (eval-when (:load-toplevel :compile-toplevel :execute)
     (let ((p1 (find-package :log4cl))
-          (p2 (find-package :log4cl-impl)))
+          (p2 (find-package :log4cl)))
       (when (and p2 p2 (not (eq p1 p2)))
         (delete-package p1))))
   (log4cl-defpackage))
@@ -146,7 +146,7 @@
                 as forward-name = (or (find-symbol (format nil "~A-~A"
                                                            (string '#:log)
                                                            (string level))
-                                                   :log4cl-impl) 
+                                                   :log4cl) 
                                       (error "Unable to find logging macro for ~S" level))
                 collect `(forward-macro ,macro-name ,forward-name))))
     `(progn
@@ -164,7 +164,7 @@
                 as sexp-forward-name = (or (find-symbol (format nil "~A-~A"
                                                                 (string'#:log-sexp)
                                                                 (string level))
-                                                        :log4cl-impl) 
+                                                        :log4cl) 
                                       (error "Unable to find logging macro for ~S" level))
                 collect `(forward-macro ,sexp-macro-name ,sexp-forward-name))))
     `(progn
@@ -175,60 +175,59 @@
 (forward-macro log:sexp log-sexp) 
 
 ;; make (log:expr) same as (log:sexp) and (log:make) shortcut for (log:make-logger)
-(forward-macro log:expr log4cl-impl:log-sexp)
+(forward-macro log:expr log4cl:log-sexp)
 
-(forward-macro log:logger log4cl-impl:make-logger) 
-(forward-macro log:make log4cl-impl:make-logger t logger) 
+(forward-macro log:logger log4cl:make-logger) 
+(forward-macro log:make log4cl:make-logger t logger) 
 
 ;; one letter logging macros
-(forward-macro log:f log4cl-impl:log-fatal)
-(forward-macro log:e log4cl-impl:log-sexp)
-(forward-macro log:w log4cl-impl:log-warn)
-(forward-macro log:i log4cl-impl:log-info)
+(forward-macro log:f log4cl:log-fatal)
+(forward-macro log:e log4cl:log-sexp)
+(forward-macro log:w log4cl:log-warn)
+(forward-macro log:i log4cl:log-info)
 
-(forward-macro log:d log4cl-impl:log-debug)
-(forward-macro log:d1 log4cl-impl:log-debu1)
-(forward-macro log:d2 log4cl-impl:log-debu2)
-(forward-macro log:d3 log4cl-impl:log-debu3)
-(forward-macro log:d4 log4cl-impl:log-debu4)
-(forward-macro log:t log4cl-impl:log-trace)
-(forward-macro log:d5 log4cl-impl:log-debu5)
-(forward-macro log:d6 log4cl-impl:log-debu6)
-(forward-macro log:d7 log4cl-impl:log-debu7)
-(forward-macro log:d8 log4cl-impl:log-debu8)
-(forward-macro log:d9 log4cl-impl:log-debu9)
-(forward-macro log:s log4cl-impl:log-sexp)
+(forward-macro log:d log4cl:log-debug)
+(forward-macro log:d1 log4cl:log-debu1)
+(forward-macro log:d2 log4cl:log-debu2)
+(forward-macro log:d3 log4cl:log-debu3)
+(forward-macro log:d4 log4cl:log-debu4)
+(forward-macro log:t log4cl:log-trace)
+(forward-macro log:d5 log4cl:log-debu5)
+(forward-macro log:d6 log4cl:log-debu6)
+(forward-macro log:d7 log4cl:log-debu7)
+(forward-macro log:d8 log4cl:log-debu8)
+(forward-macro log:d9 log4cl:log-debu9)
+(forward-macro log:s log4cl:log-sexp)
 
 ;; two letter logging macros for log-sexp
-(forward-macro log:ff log4cl-impl:log-sexp-fatal)
-(forward-macro log:ee log4cl-impl:log-sexp-error)
-(forward-macro log:ww log4cl-impl:log-sexp-warn)
-(forward-macro log:ii log4cl-impl:log-sexp-info)
+(forward-macro log:ff log4cl:log-sexp-fatal)
+(forward-macro log:ee log4cl:log-sexp-error)
+(forward-macro log:ww log4cl:log-sexp-warn)
+(forward-macro log:ii log4cl:log-sexp-info)
 
-(forward-macro log:dd log4cl-impl:log-sexp-debug)
-(forward-macro log:dd1 log4cl-impl:log-sexp-debu1)
-(forward-macro log:dd2 log4cl-impl:log-sexp-debu2)
-(forward-macro log:dd3 log4cl-impl:log-sexp-debu3)
-(forward-macro log:dd4 log4cl-impl:log-sexp-debu4)
-(forward-macro log:tt log4cl-impl:log-sexp-trace)
-(forward-macro log:dd5 log4cl-impl:log-sexp-debu5)
-(forward-macro log:dd6 log4cl-impl:log-sexp-debu6)
-(forward-macro log:dd7 log4cl-impl:log-sexp-debu7)
-(forward-macro log:dd8 log4cl-impl:log-sexp-debu8)
-(forward-macro log:dd9 log4cl-impl:log-sexp-debu9)
+(forward-macro log:dd log4cl:log-sexp-debug)
+(forward-macro log:dd1 log4cl:log-sexp-debu1)
+(forward-macro log:dd2 log4cl:log-sexp-debu2)
+(forward-macro log:dd3 log4cl:log-sexp-debu3)
+(forward-macro log:dd4 log4cl:log-sexp-debu4)
+(forward-macro log:tt log4cl:log-sexp-trace)
+(forward-macro log:dd5 log4cl:log-sexp-debu5)
+(forward-macro log:dd6 log4cl:log-sexp-debu6)
+(forward-macro log:dd7 log4cl:log-sexp-debu7)
+(forward-macro log:dd8 log4cl:log-sexp-debu8)
+(forward-macro log:dd9 log4cl:log-sexp-debu9)
 
 ;; depreciated forwards
-(forward-macro log:with-hierarchy log4cl-impl:with-log-hierarchy t log4cl-impl:with-log-hierarchy)
-(forward-macro log:with-package-hierarchy log4cl-impl:with-package-log-hierarchy t log4cl-impl:with-package-log-hierarchy)
-(forward-macro log:in-hierarchy log4cl-impl:in-log-hierarchy t log4cl-impl:in-log-hierarchy)
+(forward-macro log:with-hierarchy log4cl:with-log-hierarchy t log4cl:with-log-hierarchy)
+(forward-macro log:with-package-hierarchy log4cl:with-package-log-hierarchy t log4cl:with-package-log-hierarchy)
+(forward-macro log:in-hierarchy log4cl:in-log-hierarchy t log4cl:in-log-hierarchy)
 (forward-macro log:in-package-hierarchy log4cl:in-package-log-hierarchy t log4cl:in-package-log-hierarchy)
 
-(forward-macro log:with-indent log4cl-impl:with-log-indent)
+(forward-macro log:with-indent log4cl:with-log-indent)
 
 (forward-function log:config log-config)
 (forward-function log:c log-config)
 (forward-function log:pop restore)
 (forward-function log:push save)
 
-(when (equal (package-name *package*) (symbol-name '#:log4cl-impl))
-  (setq *package* (rename-package *package* '#:log4cl '(#:log4cl-impl))))
+

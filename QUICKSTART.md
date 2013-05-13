@@ -1,14 +1,17 @@
 # Quickstart
 ## Installation and loading
 
-### From [QuickLisp](http://www.quicklisp.org) 
+### Stable version: QuickLisp
 
 LOG4CL is now included in [QuickLisp](http://www.quicklisp.org). To
 load it use the command `(ql:quickload :log4cl)` from `REPL`. If
 QuickLisp can't find it, you need to update your QuickLisp
 distribution.
 
-### Latest GIT version
+This guide discusses the new 1.1.x version, for the QuickStart
+document on QuickLisp version, browse to the *stable* branch in GitHub.
+
+### Latest version
 
 To use the latest GIT version, which may contain improvements and bug
 fixes not yet available in [QuickLisp](http://www.quicklisp.org), you
@@ -19,10 +22,10 @@ can use [QuickLisp's](http://www.quicklisp.org) local-projects feature.
 
 Then use the `(ql:quickload :log4cl)` from `REPL` to load it.
 
-### Log4CL packages
-
-Do not try to include LOG4CL into your package's *:USE* list, instead use
-`log:` package prefix with your log statements.
+Best effort had been made so that unstable version can be loaded directly
+on top of the stable one, but due to many changes to Log4CL internals, while
+it seems to be working, its best to clean up your ~/.cache/common-lisp/**/log4cl/
+directory and restart the Lisp Image
 
 ## The Basics
 

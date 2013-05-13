@@ -14,11 +14,14 @@
 ;;; limitations under the License.
 
 (defpackage #:log4cl.slime
-  (:use :cl :log4cl)
-  (:export #:emacs-helper #:get-buffer-log-menu))
+  (:nicknames #:log4slime)
+  (:use #:cl #:log4cl)
+  (:export #:install #:emacs-helper #:get-buffer-log-menu
+           #:*quicklisp-directory*
+           #:*system-directory*))
 
 (in-package #:log4cl.slime)
-
+(log:package-options :shortest-nickname nil)
 
 ;; Accessors for slime (DSPEC LOC) 
 (defun slime-loc-type (loc) (first (first loc)))
@@ -259,4 +262,154 @@ be split into multiple ones, but I have no time right now"
           (funcall *old-compile-string-for-emacs*
                    string buffer position filename policy))))
 
+;;
+;; Some copy-paste from CLHS package
+;; 
 
+(defparameter *system-directory*
+  (make-pathname :name nil :type nil
+		 :defaults #.(or *logger-truename* *compile-file-truename* *load-truename*)))
+
+(defun %try-getting-authoritative-quicklisp-directory ()
+  (let ((ql (find-package '#:quicklisp)))
+    (and ql
+         (let ((home-symbol (find-symbol (string '#:*quicklisp-home*) ql)))
+           (and home-symbol
+                (boundp home-symbol)
+                (symbol-value home-symbol))))))
+
+(defvar *quicklisp-directory*
+  (or (%try-getting-authoritative-quicklisp-directory)
+      (make-pathname
+       :name nil :type nil
+       :defaults (merge-pathnames (make-pathname
+                                   :directory '(:relative "quicklisp"))
+                                  (user-homedir-pathname)))))
+
+(defun homepath (path)
+  "Format PATH replacing home dir with ~"
+  (let ((s (princ-to-string path))
+        (home (princ-to-string (user-homedir-pathname))))
+    (log4cl::replace-in-string
+     s home
+     (princ-to-string (make-pathname :directory '(:relative "~"))))))
+
+(defun install (&key force
+                     (destination-directory *quicklisp-directory*)
+                     just-message)
+  (let ((*print-pretty* t)
+        have-file-p
+        right-path-in-file-p
+        (dir (merge-pathnames (make-pathname
+                               :directory '(:relative :up "elisp"))
+                              *system-directory*)))
+    (flet ((print-dot-emacs-message (filename)
+             (format t "~%Add the following two statements to your ~~/.emacs file~%") 
+             (format t "------------------------------------------------------~%") 
+             (format t "(load ~S)~%" (homepath filename))
+             (format t "(global-log4cl-mode 1)~%")
+             (format t "------------------------------------------------------~%"))
+           (print-generate-file-message (filename)
+             (format t "~%~
+            ~@<File ~A does not exist. Use ~(~:<~A:~A~:>~) to generate it~
+            ~%~:@>"
+                     (homepath filename)
+                     `(#:log4slime #:install)))
+           (print-wrong-path-message (filename dir)
+             (format t "~%~@<File ~A exist but does not contain the right path to ~A. ~
+                             Use ~(~:<~A:~A ~:_~S ~S~:>~) to overwrite it~%~:@>"
+                     (homepath filename)
+                     (homepath dir)
+                     `(#:log4slime #:install :force t)))
+           (print-right-path-message (filename dir)
+             (format t "~%~
+            ~@<File ~A seem to already contain the right path to ~A. ~
+            You can still use ~(~:<~A:~A ~_~S ~S~:>~) to overwrite it~
+            ~%~:@>"
+                     (homepath filename)
+                     (homepath dir)
+                     `(#:log4slime #:install :force t)))
+           (generate-the-file (filename dir)
+             (with-open-file (out filename
+                                  :direction :output
+                                  :if-exists :supersede
+                                  :if-does-not-exist :create)
+               (format out ";; load log4cl support~%~%")
+               (format out "(add-to-list 'load-path ~S)~%"
+                       (homepath dir))
+               (format out "(require 'log4cl)~%"))
+             (format t "Wrote ~A~%" (homepath filename)))
+           (check-directories ()
+             (let ((ok t)) 
+               (when (not (probe-file destination-directory))
+                 (let ((directory (directory-namestring destination-directory)))
+                   (if (pathname-match-p destination-directory *quicklisp-directory*)
+                       (format t "~@<The following doesn't seem to be ~
+                       the correct QuickLisp directory location: ~
+                       \"~A\" does not exist. Try ~(~:<~A ~A:~A ~S~:@>~) ~:@>"
+                               (homepath directory)
+                               `(setf :log4slime *quicklisp-directory*
+                                      ,(directory-namestring
+                                        (make-pathname
+                                         :directory
+                                         '(:absolute "path" "to" "quicklisp")))))
+                       (format t "Destination directory \"~A\" does not exist."
+                               (homepath directory)))
+                   (setq ok nil)))
+               (when (not (probe-file dir))
+                 (format t "~@<The following doesn't seem to be ~
+                       the correct Log4CL source elisp directory location: ~
+                       \"~A\" does not exist. Try ~(~:<~A ~A:~A ~S~:@>~) ~:@>"
+                         (homepath dir)
+                         `(setf :log4slime *system-directory*
+                                ,(directory-namestring
+                                  (make-pathname
+                                   :directory
+                                   '(:absolute "path" "to" "log4cl" "src")))))
+                 (setq ok nil))
+               (or ok (return-from install (values)))
+               (setq dir (truename dir))
+               (setq destination-directory (truename destination-directory)))))
+      (check-directories)
+      (let* ((filename (make-pathname :name "log4cl-setup" :type "el"
+                                      :defaults destination-directory))
+             
+             (dir-string (homepath dir))
+             (alt-str (princ-to-string dir))
+             (force (when (not just-message) force)))
+        (setq have-file-p (probe-file filename))
+        (when have-file-p
+          (setq right-path-in-file-p
+                (with-open-file (fin filename :direction :input)
+                  (loop for line = (read-line fin nil)
+                        while line
+                        do (let (start)
+                             (dotimes (i (length line))
+                               (unless (position (char line i) " \t" :test #'char=)
+                                 (setq start i)
+                                 (return)))
+                             (when (and start
+                                        (not (char= #\; (char line start)))) 
+                               (when (or (search dir-string line)
+                                         (search alt-str line))
+                                 (return t))))))))
+        (cond (just-message
+               (cond ((null have-file-p) 
+                      (print-generate-file-message filename))
+                     ((null right-path-in-file-p)
+                      (print-wrong-path-message filename dir))))
+              (force
+               (generate-the-file filename dir)
+               (print-dot-emacs-message filename))
+              ((null have-file-p)
+               (generate-the-file filename dir)
+               (print-dot-emacs-message filename))
+              ((null right-path-in-file-p)
+               (print-wrong-path-message filename dir))
+              (t
+               (print-right-path-message filename dir)
+               (print-dot-emacs-message filename)))
+        (values)))))
+
+(unless (get :log4slime :no-emacs-startup-message)
+  (install :just-message t))

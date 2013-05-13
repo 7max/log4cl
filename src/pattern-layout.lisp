@@ -195,8 +195,8 @@ Following pattern characters are recognized:
 
      %<{pretty}     - bind *PRINT-PRETTY* to T at runtime 
      %<{nopretty}   - bind *PRINT-PRETTY* to NIL at runtime
-     %<{package}    - bind *PACKAGE* to original package
-     %<{nopackage}  - bind *PACKAGE* to :KEYWORD package
+     %<{package}    - bind *PACKAGE* to :KEYWORD package
+     %<{nopackage}  - bind *PACKAGE* to original package
 
    Both pretty and package can be used together like this %<{pretty}{package} ... %>
 
@@ -1268,10 +1268,10 @@ package does not exist at runtime"
   "Wrap content inside into PPRINT-LOGICAL-BLOCK"
   (flet ((doit (stream)
            (case (format-package fmt-info) 
-             (:package (let ((*package* (log-event-package logger)))
-                         (funcall wrap stream logger log-level log-func)))
-             (:nopackage (let ((*package* (symbol-package :keyword)))
+             (:nopackage (let ((*package* (log-event-package logger)))
                            (funcall wrap stream logger log-level log-func)))
+             (:package (let ((*package* (symbol-package :keyword)))
+                         (funcall wrap stream logger log-level log-func)))
              (t (funcall wrap stream logger log-level log-func))))) 
     (let ((pretty (format-pretty fmt-info))) 
       (if (not (eq pretty :nopretty))

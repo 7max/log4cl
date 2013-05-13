@@ -35,7 +35,7 @@
 (macrolet
     ((%define-log4cl-package ()
        (let* ((p2 (find-package '#:log4cl-impl)))
-         (let* ((old-exports (when (and p2 (package-used-by-list p2))
+         (let* ((old-exports (when p2
                                (let (list)
                                  (do-external-symbols (s p2 list)
                                    (push s list)))))

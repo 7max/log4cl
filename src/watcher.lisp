@@ -15,8 +15,8 @@
 
 (in-package #:log4cl)
 
-(defvar *watcher-thread-bindings* `((*debug-io* . ,*debug-io*)))
-
+(defvar *watcher-thread-bindings* nil
+  "Extra bindings for watcher thread")
 
 ;; Not sure if this stuff is needed, but since we exit hierarchy
 ;; watcher thread by asynchronous bt:destroy-thread, and SBCL provides

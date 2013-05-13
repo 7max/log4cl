@@ -349,7 +349,8 @@ Examples:
         (case arg
           (:self     ; still in the arglist means 1st arg was a logger
            (log4cl-error "Specifying a logger is incompatible with :SELF"))
-          (:sane (setq sane t global-console t tricky-console t))
+          (:sane (setq sane t global-console t))
+          (:sane2 (setq sane t global-console t tricky-console t))
           ((:clear :reset) (setq clear t))
           (:levels (setq clear-levels t))
           (:appenders (setq clear-appenders t))

@@ -307,7 +307,7 @@ be split into multiple ones, but I have no time right now"
              (format t "~%Add the following two statements to your ~~/.emacs file~%") 
              (format t "------------------------------------------------------~%") 
              (format t "(load ~S)~%" (homepath filename))
-             (format t "(global-log4cl-mode 1)~%")
+             (format t "(global-log4slime-mode 1)~%")
              (format t "------------------------------------------------------~%"))
            (print-generate-file-message (filename)
              (format t "~%~
@@ -334,10 +334,10 @@ be split into multiple ones, but I have no time right now"
                                   :direction :output
                                   :if-exists :supersede
                                   :if-does-not-exist :create)
-               (format out ";; load log4cl support~%~%")
+               (format out ";; load Log4slime support~%~%")
                (format out "(add-to-list 'load-path ~S)~%"
                        (homepath dir))
-               (format out "(require 'log4cl)~%"))
+               (format out "(require 'log4slime)~%"))
              (format t "Wrote ~A~%" (homepath filename)))
            (check-directories ()
              (let ((ok t)) 
@@ -371,7 +371,7 @@ be split into multiple ones, but I have no time right now"
                (setq dir (truename dir))
                (setq destination-directory (truename destination-directory)))))
       (check-directories)
-      (let* ((filename (make-pathname :name "log4cl-setup" :type "el"
+      (let* ((filename (make-pathname :name "log4slime-setup" :type "el"
                                       :defaults destination-directory))
              
              (dir-string (homepath dir))

@@ -432,7 +432,7 @@ Examples:
         (setq tricky-console t))
     (setq
      pattern-specified-p (or pattern oneline twoline thread
-                             ndc file file2 time notime
+                             ndc file file2 nofile time notime
                              pretty nopretty
                              package nopackage)
      appender-specified-p (or daily sane console))

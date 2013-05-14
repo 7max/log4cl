@@ -346,8 +346,7 @@ NAME-FORMAT
    : Expanded with date formatter to get the name of the current log file
 
 BACKUP-NAME-FORMAT
-   : Expanded with date formatter to get the name of the backup log
-   file
+   : Expanded with date formatter to get the name of the backup log file
 
 UTC-P
    : Should be non-NIL if name and backup patterns expand the UTC time

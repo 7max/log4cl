@@ -174,9 +174,13 @@ Without any options (LOG:CONFIG) displays current configuration
  :STREAM stream| Changes the stream used for above two dedicated stream
                | appenders.
 ---------------|---------------------------------------------------------------
- :DAILY FILE   | Adds file appender logging to the named file, which will be      
-               | rolled over every midnight into FILE.YYYYMMDD; Removes any 
-               | other FILE-APPENDER-BASE'ed appenders from the logger
+ :DAILY FILE   | Adds file appender logging to the named file, which will be
+               | re-opened every day, with old log file renamed to FILE.%Y%m%d.
+               |
+               | Removes any other file based appenders from the logger.
+               |
+               | FILE can also contain %Y%m%d like pattern, expansion of which
+               | will determine when new log file would be opened.
 ---------------|---------------------------------------------------------------
 
                             LAYOUT OPTIONS
@@ -255,8 +259,10 @@ Without any options (LOG:CONFIG) displays current configuration
                | clearing of non-additive loggers 
                |
                | Note that this option does not change the logger being acted
-               | upon, just its children. To nuke absolutely everything including
-               | root logger use (LOG4CL:CLEAR-LOGGING-CONFIGURATION)
+               | upon, just its children. See next option
+---------------|---------------------------------------------------------------
+ :REMOVE <num> | Removes specific appender from the logger. Numbers are 1-based,
+               | and are same ones displayed by LOG:CONFIG without arguments
 ---------------|---------------------------------------------------------------
  :SELF         | Configures the LOG4CL logger, which can be used to debug
                | Log4CL itself. Normally all other LOG:CONFIG hides the
@@ -272,6 +278,15 @@ Without any options (LOG:CONFIG) displays current configuration
                |
                | Adding :FORCE-ADD flag skips the above check, and allows you
                | to add new console appender regardless.
+---------------|---------------------------------------------------------------
+ :BACKUP       | Used together with :DAILY, specifies the :BACKUP-NAME-FORMAT,
+               | see docstring for the DAILY-FILE-APPENDER class.
+               |
+               | For example specifying a DAILY <file> :BACKUP NIL will always
+               | log to statically named FILE without rolling.
+               | 
+               | Defaults to NIL if FILE contains percent character or
+               | FILE.%Y%m%d otherwise.
 ---------------|---------------------------------------------------------------
 
 Examples:
@@ -293,10 +308,10 @@ Examples:
 * (LOG:CONFIG :WARN :CLEAR) -- Changes root logger level to warnings,
   and unset child logger levels.
 
-* (LOG:CONFIG '(PACKAGE) :OWN :DEBUG :DAILY \"mypackage.log\")
+* (LOG:CONFIG '(PACKAGE) :OWN :DEBUG :DAILY \"package-log.%Y%m%d\")
 
   Configures the logger PACKAGE with debug log level, logging into
-  the file \"mypackage.log\" which will be rolled over daily;
+  the file \"package-log.20130510\" which will be rolled over daily;
   makes logger non-additive so messages will not be propagated to
   logger parents. (To see them on console, remove the :OWN flag, or
   add :CONSOLE to the command)
@@ -308,6 +323,7 @@ Examples:
  
   (let ((logger nil)
         sane clear all own noown daily pattern
+        backup had-backup
         file file2 nofile
         time notime
         level layout console
@@ -324,7 +340,8 @@ Examples:
         pattern-specified-p
         appender-specified-p
         force-add
-        clear-levels clear-appenders)
+        clear-levels clear-appenders
+        remove)
     (declare (type (or null stream) stream))
     (cond ((logger-p (car args))
            (setq logger (pop args)))
@@ -382,9 +399,16 @@ Examples:
                  this-console nil))
           (:force-add (setq force-add t))
           (:watch (setq watch t))
+          (:backup
+           (setq backup (or (pop args)
+                            (log4cl-error ":BACKUP missing argument"))
+                 had-backup t))
           (:daily
            (setq daily (or (pop args)
                            (log4cl-error ":DAILY missing argument"))))
+          (:remove
+           (setq remove (or (pop args)
+                            (log4cl-error ":REMOVE missing argument"))))
           (:properties
            (setq properties (or (pop args)
                                 (log4cl-error ":PROPERTIES missing argument"))))
@@ -414,19 +438,25 @@ Examples:
      appender-specified-p (or daily sane console))
     
     (or logger (setq logger *root-logger*))
-    (or level sane clear daily properties own noown console pattern-specified-p
+    (or level remove sane clear daily properties own noown console pattern-specified-p
         (log4cl-error "Bad combination of options"))
     (or (not properties)
         (not (or sane daily console level pattern-specified-p))
         (log4cl-error ":PROPERTIES can't be used with other options"))
+    (or (not remove)
+        (not (or sane daily console level pattern-specified-p))
+        (log4cl-error ":REMOVE can't be used with other options"))
     (if (and pattern
              (or twoline oneline file file2 nofile time notime
                  thread ndc pretty nopretty
                  package nopackage))
         (error ":PATTERN isn't compatible with built-in pattern selection flags"))
-    ;; ZZZ
-    ;; Then if specified daily/console/sane/etc, create new appender
-    ;; otherwise go change layout on existing appenders, or self
+    (when remove
+      (let ((list (logger-appenders logger)))
+        (if (<= 1 remove (length list))
+            (remove-appender logger (nth (1- remove) list))
+            (log4cl-error "Bad appender number ~d" remove)))
+      (return-from log-config))
     (when (or appender-specified-p pattern-specified-p)
       (setq layout (make-instance 'pattern-layout
                     :conversion-pattern
@@ -486,7 +516,10 @@ Examples:
             (remove-appender-internal logger a nil)))
         (push (make-instance 'daily-file-appender
                :name-format daily
-               :backup-name-format (format nil "~a.%Y%m%d" daily)
+               :backup-name-format
+               (if had-backup backup
+                   (unless (position #\% daily)
+                     (format nil "~a.%Y%m%d" daily)))
                :layout layout)
               appenders))
       ;; Add new console appender, only in these situations
@@ -732,8 +765,9 @@ Example output:
                    (format t ", ~A" (log-level-to-string lvl)))
                  (terpri)
                  (when appenders
-                   (dolist (a appenders)
-                     (print-one-appender a)))
+                   (loop for num from 1
+                         for a in appenders
+                         do (print-one-appender a num)))
                  (when (some #'interesting-logger-p children)
                    (dolist (l children)
                      (when (interesting-logger-p l)
@@ -758,11 +792,11 @@ Example output:
                           (pprint-newline :fill)
                           (write value)))
                    do (terpri))))
-             (print-one-appender (a)
+             (print-one-appender (a num)
                ;; empty line for spacing
                (print-indent) (terpri)
                ;; now the appender node
-               (print-indent t) (format t "-~A" a)
+               (print-indent t) (format t "-(~d)-~A" num a)
                (unless (appender-enabled-p a)
                  (write-string " disabled"))
                (terpri)
@@ -780,7 +814,7 @@ Example output:
                (print-properties layout)
                (pop indents)))
       (print-one-logger logger)
-      (let* ((global-stream (resolve-stream *standard-output*))
+      (let* ((global-stream (resolve-stream *terminal-io*))
              (appenders (effective-appenders logger)))
         (unless (some (lambda (a)
                         (typecase a
@@ -788,8 +822,8 @@ Example output:
                           ((or this-console-appender tricky-console-appender)
                            (eq (appender-stream a) global-stream))))
                       appenders)
-          (format t "~%~@<Warning: No appenders reach resolved ~S: ~S~:@>~%"
-                  '*standard-output* global-stream))))
+          (format t "~%~@<Warning: No appenders can reach current ~9I~_~<~A: ~:_~A~:>~:>~%"
+                  (list '*terminal-io* global-stream)))))
     (values)))
 
 ;; do default configuration

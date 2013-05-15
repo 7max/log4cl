@@ -772,7 +772,7 @@ to the first log statement"
     ;;   file submenu, with current level checked
     ;;   current defun submenu with current level checked
     ;;
-    `("log4slime"
+    `("Log4CL"
       :active ,C
       :filter log4slime-filter-top
       ("+ROOT+" :filter log4slime-filter-root
@@ -848,7 +848,9 @@ to the first log statement"
                            (process-put conn 'log4slime-loaded (float-time))
                            (message "Can't load log4slime lisp support: %s." result)
                            nil)
-                       (message "Successfully loaded log4slime lisp support")
+                       ;; This hides Slime's "go forth and hack" MOTD
+                       ;; on restart, so comment it out
+                       ;; (message "Successfully loaded log4slime lisp support")
                        (process-put conn 'log4slime-loaded t)
                        t))))))))))
 
@@ -877,8 +879,8 @@ variable `log4slime-menu-levels'.
 global instead of local to files with `log4slime-mode' active"
   (easy-menu-define log4slime-popup-menu nil nil (log4slime-make-levels-menu 'log4slime-popup-logger)) 
   (if global 
-      (easy-menu-define log4slime-menu (current-global-map) "log4slime" (log4slime-make-menubar-menu))
-    (easy-menu-define log4slime-menu log4slime-mode-map "log4slime" (log4slime-make-menubar-menu))))
+      (easy-menu-define log4slime-menu (current-global-map) "Change Log4CL log levels" (log4slime-make-menubar-menu))
+    (easy-menu-define log4slime-menu log4slime-mode-map "Change Log4CL log levels" (log4slime-make-menubar-menu))))
 
 (log4slime-redefine-menus)
 

@@ -330,7 +330,7 @@ LEVEL is one of:
   :group 'log4slime
   :require 'log4slime)
 
-(defcustom log4slime-level-selection-single-key nil
+(defcustom log4slime-level-selection-single-key t
   "Non-nil means level selection exits after first change.
 When nil, you have to press q to exit it.  This variable can also
 have the value `expert'.  In this case, the window displaying the

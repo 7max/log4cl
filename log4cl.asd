@@ -14,8 +14,7 @@
 ;;; limitations under the License.
 
 (defpackage :log4cl.system
-  (:use #:cl #:asdf)
-  (:export #:load-log4slime))
+  (:use #:cl #:asdf))
 
 (in-package :log4cl.system)
 
@@ -75,17 +74,6 @@
         (funcall foo))))
   (values))
 
-(defun load-log4slime ()
-  "Entry point from Emacs to trigger loading Log4Slime if connection
-is restarted or such"
-  (flet ((%load-log4slime-quietly ()
-           ;; There is probably "more correct" way to pass parameter
-           ;; to a system being loaded, but I'm a slowpoke
-           (setf (get :log4slime :no-emacs-startup-message) t)
-           (asdf:load-system :log4slime))) 
-    (multiple-value-bind (ok err)
-        (ignore-errors (%load-log4slime-quietly))
-      (if ok :ok (princ-to-string err)))))
 
 
 

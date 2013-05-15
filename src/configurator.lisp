@@ -392,7 +392,8 @@ Examples:
           ((:this-console :this)
            (setq console t
                  this-console t
-                 tricky-console nil))
+                 tricky-console nil
+                 global-console nil))
           ((:tricky-console :tricky)
            (setq console t
                  tricky-console t

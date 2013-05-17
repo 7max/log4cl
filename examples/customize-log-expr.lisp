@@ -10,25 +10,22 @@
 ;;   
 
 
-(defpackage :example-3
+(defpackage :customize-log-expr
   (:use :cl)
   (:export :test))
 
-(in-package :example-3)
+(in-package :customize-log-expr)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defmethod log:naming-option ((pkg (eql *package*))
-                                option)
-    "Switch (log:expr) to do A: foobar   B: foobaz"
-    (declare (ignore pkg))
-    (case option
-      (:expr-value-separator ": ")
-      (:expr-value-suffix "  ~:_")
-      (t (call-next-method)))))
+;; Use even prettier printing of expressions, at expanse
+;; of slightly more code size/consing
+;;
+;; "~:_~<~(~W~): ~2I~_~W~:> "
+;; 
+(log:package-options :expr-print-format log4cl:+expr-format-fancy+)
 
 (defun test ()
   (let ((a 1) (b '(two three))
         (c (loop for i from 1 to 15 collect i)))
-    (log:expr "values are" a b c)))
+    (log:info "values are" a b c)))
 
 

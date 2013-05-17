@@ -1,5 +1,21 @@
+## 1.1.0 - Log4Slime 
+
+* 
+
+
 ## 1.0.0
- * (Bugfix): Fix SB-C package lock error when compiling on new SBCL. Last stable version
+ * (Bugfix): Fix SB-C package lock error when compiling on new SBCL.
+   Created stable branch stable version
+
+## 0.9.5
+
+* (Bugfix) DAILY-FILE-APPENDER was only rolling over the file if
+  rollover time passed in between two log mesjsages. Therefore a
+  short-lived command line utility configured with `(log:config :daily
+  "log.txt")` would never roll over the log.txt to
+  log.txt-yyyy-mm-dd.txt, unless it happen to run exactly at
+  midnight. This had now been corrected, and pre-existing log file
+  will be rolled over based on its modification time.
 
 ## 0.9.3
 

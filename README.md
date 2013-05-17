@@ -1,493 +1,539 @@
-# Quickstart
-## Installation and loading
 
-### From [QuickLisp](http://www.quicklisp.org) 
+# <a id="sec-1" name="sec-1"></a>Introduction
 
-LOG4CL is now included in [QuickLisp](http://www.quicklisp.org). To
-load it use the command `(ql:quickload :log4cl)` from `REPL`. If
-QuickLisp can't find it, you need to update your QuickLisp
-distribution.
+This document describes new development version of Log4CL, which is
+not yet available in QuickLisp. It will become available in QuickLisp
+after a few months shakeout. The Log4CL Emacs/Slime integration module
+is called **Log4Slime**.
 
-### Latest GIT version
+This guide is written with assumption you'll have Log4Slime loaded and
+enabled, because Log4Slime is the most likely reason you'll be using
+development version anyway.
 
-To use the latest GIT version, which may contain improvements and bug
-fixes not yet available in [QuickLisp](http://www.quicklisp.org), you
-can use [QuickLisp's](http://www.quicklisp.org) local-projects feature.
+## <a id="sec-1-1" name="sec-1-1"></a>Installation
 
-    $ cd ~/quicklisp/local-projects
-    $ git clone git://github.com/7max/log4cl.git 
+You will need to use QuickLisp's `~/quicklisp/local-projects` feature
 
-Then use the `(ql:quickload :log4cl)` from `REPL` to load it.
+```sh
+cd ~/quicklisp/local-projects
+git clone git://github.com/7max/log4cl.git 
+```
 
-### Log4CL packages
+Then use the `(ql:quickload :log4cl)` from REPL to load it. 
 
-Do not try to include LOG4CL into your package's *:USE* list, instead use
-`log:` package prefix with your log statements.
+Best effort had been made so that new development version can be
+loaded directly on top of the stable one, in the same Lisp image, but
+due to many changes to Log4CL internals, while it seems to be working,
+its recommended that you nuke FASL's from
+`~/.cache/common-lisp/**/log4cl/` directory (or use Slime's
+,delete-system-fasl command) and restart the Lisp.
 
-## The Basics
+## <a id="sec-1-2" name="sec-1-2"></a>Enabling Log4Slime
 
-     (log:info "Hello World")
+```cl
+(ql:quickload :log4slime)
+(log4slime:install)
+```
 
-         [14:39:03] [info] <cl-user> - Hello World
+You should get a message like this:
 
-     (log:i "I'm really lazy")
+```
+Wrote ~/quicklisp/log4slime-setup.el
 
-         [14:39:08] [info] <cl-user> - I'm really lazy
+Add the following two statements to your ~/.emacs file
+------------------------------------------------------
+(load "~/quicklisp/log4slime-setup.el")
+(global-log4slime-mode 1)
+------------------------------------------------------
+```
 
-     (log:debug "something")
+Follow the above instructions. The most likely point of failure here
+may be `log4slime.el` trying to poke the Lisp side to see if log4slime
+is loaded, and that for some reason it fails.
 
-As you can see package contains one letter shortcuts for all the log
-levels, for the lazy amongst us. Also note that debug log statement
-did not produce any output. Changing the log level is easy:
+If it fails, there should be a message in `*Messages*` buffer, that looks
+like this: `Unable to load log4slime lisp support: <lisp side condition>`
 
-    (log:config :debug)
+In case you did get the above message and you think you fixed the
+cause, you can make log4slime try again, by turning `M-x
+global-log4slime-mode` off/on a few times
 
-    (log:debug "something")
+You can verify if log4slime is enabled, by looking for the Log4CL menu
+on top menubar in REPL and Lisp mode buffers, or by submitting a log
+statement from REPL and seeing output colorized.
 
-    [14:41:44] [debug] <cl-user> - something
+<a id="The-Basics" name="The-Basics"></a>
 
-As with the log statements, you can abbreviate `config` and
-`:debug` to one letter, for example: `(log:c :d)`
+# <a id="sec-2" name="sec-2"></a>Hello world
 
-One additional logging utility function `(log:expr)`, helps you to
-quickly debug values of variables and expressions:
+```cl
+(progn
+  (log:info "I just ate a ~5f, feeling tired" pi) 
+  (when (log:debug)
+    (dotimes (sheep 3)
+      (log:debug sheep "zzz")))
+  (log:warn "doh fell asleep for" (random 10) "minutes"))
+```
 
-    (let ((a 1) (b 2))
-      (log:expr a b (+ a b)))
+Should produce the following output
+![nil](./images/screenshot-12.png)
 
-    [14:54:39] [debug] <cl-user> - A=1 B=2 (+ A B)=3
+You can notice several things right away.
 
-It function also has two aliases: `(log:sexp)` and `(log:s)`. For completeness
-there are also `(log:sexp-trace)`, `(log:sexp-info)` and so on, to allow for
-same expression logging with any log level
+-   You can intermix strings and expressions, and expressions will be
+    printed as their un-evaluated form as well as the their value;
+    using a constant `FORMAT` control string as first argument
+    automatically switches to `FORMAT` mode.
 
-### Log severity levels 
-LOG4CL has all the same log levels that Log4J does, and some
-additional ones. They are in the order of decreasing severity:
-*fatal*, *error*, *warn*, *info*, *debug*, *user1* through *user4*,
-*trace*, and finally *user5* through *user9*
+-   Log statements without arguments, turn into conditional expression
+    that tells you if logging is enabled or not
 
-There is also two special log levels *off* and *unset*, which 
-turn the logging off, and inherit the log level from the parent
-logger. The default log level for all loggers is *unset*.
+-   The log output contains some headers in addition to the raw log
+    message, such as the [log level](#level) that message was submitted with,
+    the time of the message as well as what looks like the name of the
+    current package, and (If you have Log4Slime loaded and turned on),
+    these headers use different faces from actual log message.
 
-When a logging is on for a log level, it is also enabled for levels
-with more severity. For example if *debug* level is on, then *info*
-and *error* are also on.
+## <a id="sec-2-1" name="sec-2-1"></a>Changing the log level
 
-### How to determine if logging is on programatically?
+You can change the [log level](#level) with by doing
+`(log:config :debug)` from `REPL`. Alternatively, with
+Log4Slime enabled in `REPL` buffer, you can right-click on the
+**cl-user** part and change the log level from a popup menu.
 
-Sometimes its useful to conditionally execute log statements. The
-logging macro without any arguments, will return `T` if logging is on:
+![nil](./images/screenshot-15.png)
 
-    (when (log:debug)
-      (print-detailed-debugging-info))
+There is a slight difference between doing it using above two
+methods, with `log:config` command, the level is changed for the
+`ROOT` [category](#category), but right clicking on the package
+name, changes the [log level](#level) only for that package.
 
-## Loggers and categories
+To change the `ROOT` [category](#category) from Emacs, you can use Log4CL
+dropdown submenu, or Emacs command `log4slime-level-selection` which
+is bound to `C-c C-g` by default.
 
-You may have noticed that the log output in addition to the time of
-the log message, its severity level and the actual log message,
-contains the string `<cl-user>`, which corresponds to the current
-package.
+After pressing `C-c C-g` which invokes the `log4slime-level-selection` command
+you get the following window.
 
-That string is the category of the log message, and is also referred
-to as *logger's category*, or simply a logger.
+![nil](./images/screenshot-11.png)
 
-*Logger* is an object, that acts as source of the log message, and
-also as a configuration point, which can have its own log level and
-appenders. Log messages are always logged into a specific logger
-object.
+Pressing "P" to select the "Package" shows the selected [category](#category)
+current [effective](#effective) log level and offers choice to set a different
+one. In above screenshot `CL-USER` [category](#category) does not have its own log level,
+instead in inherits one from the ROOT [category](#category)
 
-Loggers form a hierarchy, starting from the root logger. Each logger
-can have child loggers, and these loggers can have their own child loggers and
-so on. The full category name of the logger, is concatenation
-of all the parent logger names starting from the root logger, with some
-separator string, which defaults to `":"`
+![nil](./images/screenshot-10.png)
 
-So for a logger `A` which has a child logger `B`, which in turn has
-child logger `C`, the full category name of the logger C is `A:B:C`
+This concludes the very basic introduction, if you were confused by
+what various terms such as "[category](#category)" mean, click on the
+hyperlink to read more about Log4CL concepts.
 
-### Automatic naming of loggers
+Or you can skip the theory and just continue to learn by example.
 
-When you issue a log statement such as `(log:info "whatever")` LOG4CL
-determines the logger name automatically based on surrounding context.
-That's why, when you issue log statement from `REPL` with the current
-package being *CL-USER*, the logger message went to was also called
-`CL-USER`.
+<a id="naming" name="naming"></a>
 
-You can directly instantiate logger objects, by using
-the `(log:make-logger)` function:
+# <a id="sec-3" name="sec-3"></a>Automatic category naming
 
-    (log:make-logger)
+Try putting the from the previous section into a `DEFUN` instead of a
+`PROGN` form like so:
 
-    #<LOGGER CL-USER>
+```cl
+(defun hello ()
+  (log:info "I just ate a ~5f, feeling tired" pi) 
+  (when (log:debug)
+    (dotimes (sheep 3)
+      (log:debug sheep "zzz")))
+  (log:warn "doh fell asleep for" (random 10) "minutes"))
+```
 
-    (log:make-logger :a)
+If you run it now, the output under both **SBCL** and **CCL** should
+look like this.
 
-    #<LOGGER CL-USER:A>
+![nil](./images/screenshot-16.png)
 
-    (log:make-logger '(one two three))
+Right click on the blue function name, allows you to change the log
+level for that specific function.
 
-    #<LOGGER ONE:TWO:THREE>
+That is because Log4CL logging macros, automatically determine the
+[category](#category) for logging, based on the context where log statement
+appears. In above example the function was defined in the package
+CL-USER and function name was HELLO, so the target category of any
+logging inside the function, was automatically `CL-USER.HELLO`
 
-In the first example, the logger name is automatically determined from
-context, as with the default log statement. In the second
-example, specifying a keyword as the logger name, will create a
-sub-logger of such default logger. And finally the most generic syntax
-is using a quoted list, where each element names a logger starting
-from root.
+It starts with the package, then function. You can try
+putting one of the log statements inside of a `LABELS` or `FLET`
+forms, to see what happens.
 
-When submitting a log message, you can specify a logger object as a
-first argument:
+Also note the farthest to the right in the logging [category](#category)
+name, the more specific. The level for "hello" overrides that for
+"cl-user", which in turn overrides that of the root category.
 
-    (log:info (log:make-logger :a) "goes to logger A")
+## <a id="sec-3-1" name="sec-3-1"></a>Enter the source files
 
-    [15:14:51] [info] <cl-user:a> - goes to logger A
+For the next few examples, it is recommended that you load the
+examples come together with Log4CL, by doing `(ql:quickload :log4cl-examples)`
 
-    (log:info (log:make-logger '(one two three)) "goes to logger ONE:TWO:THREE")
+It should produce the following output:
 
-    [15:15:04] [info] <one:two:three> - goes to logger ONE:TWO:THREE
+![nil](./images/screenshot-17.png)
 
-As a shortcut you can omit the `(log:make-logger`) and specify a
-`(make-logger)` argument directly as a first argument of a logging
-function, with exception of `(log:expr)` and friends.
+One thing you should notice, is that source file where function is
+defined now appears as part of the log message too. Go to the source
+of "hello". Before you try to use Slime's famous `M-.` shortcut, try
+clicking on blue "greetings" word with a left mouse button.
 
-    (log:info '(one two three) "goes to logger ONE:TWO:THREE")
+If everything went better then expected, it should land you at the first
+log statement of the `(defun greetings ())`. Cool eh?
 
-    [15:18:02] [info] <one:two:three> - goes to logger ONE:TWO:THREE
+## <a id="sec-3-2" name="sec-3-2"></a>Naming in CLOS methods
 
-    (log:info :b "goes to logger CL-USER:B")
+Quickly browse through `naming-examples.lisp`. There are a few methods defined,
+including `:after/:around` methods, as well as some with `EQL` specializers. 
 
-    [15:18:15] [info] <cl-user:b> - goes to logger CL-USER:B
+Run a few of them from REPL, like so:
 
-### Automatic naming inside a function
+![nil](./images/screenshot-18.png)
 
-Under SBCL automatic logger naming goes farther then naming
-the logger after the current package:
+Log statements inside of methods, are using the [category](#category) name of the 
+generic function, extended with qualifier, and all non-T specializers.
 
-    (defun foo (x)
-      (log:expr x (1+ x))) 
+Note how by changing the level of the "foobar" you control all the
+methods, but can override them based on their specializers. Try
+setting :after category to different levels, to control all
+the :after methods together.
 
-    (foo 3)
+In addition to playing with methods, try `(setf (test.package.one:greetings) "Hey")` too.
 
-    [16:47:09] [debug] <cl-user:foo> - X=3 (1+ X)=4
+## <a id="sec-3-3" name="sec-3-3"></a>Context sensitivity
 
-    (defun foo (x)
-      (flet ((baz ()
-               (log:expr x (1+ x))))
-        (baz)))
+As you browse through source, and are inside of one of the methods, 
+check out the Log4CL dropdown menu. Note that "Defun" submenu changes
+for each method.
 
-    (foo 3)
+![nil](./images/screenshot-19.png)
 
-    [16:47:09] [debug] <cl-user:foo:baz> - X=3 (1+ X)=4
+## <a id="sec-3-4" name="sec-3-4"></a>Keyboard level selection
 
-It also handles methods:
+Also try `C-c C-g` shortcut in the same place. You can configure it
+not to show the selection window at all, by customizing the
+`log4slime-level-selection-single-key` Emacs variable.
 
-    (defmethod bar ((x number) y)
-      (flet ((baz ()
-        (log:expr x (1+ x) y)))
-           (baz)))
+After pressing `C-c C-g` while inside of the method
+![nil](./images/screenshot-20.png)
 
-    (bar 3 'foo)
+You can change keys for the selecting various levels by doing `M-x
+   customize-group RET log4slime RET`
 
-    [16:52:15] [debug] <cl-user:bar:number:baz> - X=3 (1+ X)=4 Y=FOO
+Note that keyboard selection ignores the Control key so `C-c C-g p
+   u` is same as `C-c C-g C-p C-u`
 
-    (defmethod bar :before (x y) (log:info "what happens before ~s ~s" x y))
+## <a id="sec-3-5" name="sec-3-5"></a>Resetting the mess
 
-    (bar 41 t)
+If you had forgotten which levels you set for what, and just want
+to see which levels are set where.
 
-  
-    [16:55:11] [info] <cl-user:bar:before> - what happens before 41 T
-    [16:55:11] [debug] <cl-user:bar:number:baz> - X=41 (1+ X)=42 Y=T
+You can display current logging configuration by doing
+`(log:config`) without any arguments, it willdisplay a tree
 
-### Configuring a specific logger category
+![nil](./images/screenshot-23.png)
 
-By default a call to `(log:config)` function configures the root
-logger. All the rest of the loggers in the system inherit the log
-level from their parent loggers, and eventually from the root logger.
+If you have had set a lot of custom levels, and now need to get rid
+of them, "Reset Children" menu item will nukes the log level from
+everything underneath the parent. Doing "Reset Children" on the
+ROOT category, gets rid of every other log level that was set
+anywhere. Keyboard equivalent is `C-c C-g r`
 
-It is possible to configure each logger to have its own log level, which
-will override the one inherited from the parent:
+![nil](./images/screenshot-22.png)
 
-    (log-config '(cl-user a) :debug)
-    (log-config '(cl-user b) :trace)
-    (log-config '(cl-user) :info)
+## <a id="sec-3-6" name="sec-3-6"></a>Logging configurations
 
-    (log:info "this is info")
+After setting the log levels of a few methods, try doing `(log:save :foo)` 
+then messing around.. You can restore the named configuration with 
+`(log:restore :foo)`. Configurations are saved in a file in the
+home directory, so they survive image restarts
 
-    [15:26:50] [info] <cl-user> - this is info
+See the [Finding needle in a haystack](#needle) section.
 
-    (log:debug "this is debug")
+# <a id="sec-4" name="sec-4"></a>The magic of (LOG:CONFIG)
 
-    (log:debug :a "this is debug")
+Section To be written, for now simply see [docstring for LOG:CONFIG](http://github.com/7max/log4cl/blob/master/src/configurator.lisp)
 
-    [15:27:05] [debug] <cl-user:a> - this is debug
+Read the docstring and play with options, below are a few examples:
 
-    (log:trace :a "this is trace")
+![nil](./images/screenshot-25.png)
 
-    (log:trace :b "this is trace")
+# <a id="sec-5" name="sec-5"></a>Pattern Layout
 
-    [15:27:22] [trace] <cl-user:b> - this is trace   
+Section to be written, for now see docstring for
+[docstring for PATTERN-LAYOUT](http://github.com/7max/log4cl/blob/master/src/pattern-layout.lisp)
+
+# <a id="sec-6" name="sec-6"></a>Common Practices
+
+Some common recipes.
+
+## <a id="sec-6-1" name="sec-6-1"></a>Log levels for production
+
+Generally log levels `INFO` and below, are used in normal
+operations of software, while levels higher then `INFO` are used
+by programmers.
+
+-   `FATAL` is used for un-recoverable errors, that
+    require restart of an application or major component, the `FATAL`
+    messages are to inform the user that something had died in a 
+    way that should not normally happen.
+
+-   `ERROR` is for serious but generally recoverable errors, that occur
+    doing a normal operation of software. File not found, or such.
+
+-   `WARN` is for "suspicious" things, or to inform the user that
+    some automatic corrective action had failed. Maximum number of retries reached
+    or such.
+
+-   `INFO` is for informing on major steps that software is performing, and
+    is usually thought of the maximum log level used in normal operations, its
+    "Say what you are doing but don't flood" type of messages.
+
+By default Log4CL is configured with root category having `INFO`
+log level.
+
+<a id="development" name="development"></a>
+
+## <a id="sec-6-2" name="sec-6-2"></a>Log levels for development
+
+`DEBUG` is for for informing about detailed steps taken by operations
+and printing intermediate values. 
+
+`TRACE` is for very detailed debugging, like printing variables inside
+loops and such.
+
+`DEBU1..DEBU9` log levels are numerically around the `TRACE` and can be used
+if you need more granularity. One possibility is that `(log:expr)` macro, can
+be configured via `LOG:PACKAGE-OPTIONS` mechanism, to use different
+log level then `DEBUG` and can set to use one of the extra levels.
+
+
+`OFF` log level is very important counter-part for `DEBUG` and
+`TRACE`.  Its used for "narrowing things down in reverse", which is
+described in the next section
+
+<a id="needle" name="needle"></a>
+
+## <a id="sec-6-3" name="sec-6-3"></a>Finding needle in a haystack
+
+Programmers often need to concentrate on a specific area of their
+software.  With traditional non-hierarchical logging system,
+having a lot of debug sprinkled around the code, flood the
+programmers with a lot of information they don't need, and makes
+it hard to find the messages relevant to the problem being
+debugged.
+
+Because Log4CL is hierarchical, its easy to narrow down the
+logging, to focus on exactly the right area, by using the
+following process.
+
+1.  Turn `DEBUG` on for the root category, or entire package and
+    then run your code through the functionality that you are
+    focusing on. REPL will fill with a lot of debugging output.
+
+2.  Right-click on each message that is not related to a problem,
+    and turn the corresponding category `OFF`. You can how go wide
+    or narrow, turn off entire packages or source files, or by
+    individual methods, functions or local functions. If you went
+    too far, use **Reset children** command on the parent category.
     
-In the above example we had configured logger `CL-USER` `CL-USER:A`
-and `CL-USER:B` with the *info*, *debug* and *trace* log levels, and
-tested submitting log messages to them. To make logger inherit its log
-level from its parent again, use the log level *unset* or use the
-*:clear* option of the configuration function.
+    If you use CLOS, use the category hierarchy to your advantage,
+    if for example you think problem relates to before or after
+    method, you can can control logging for all :AFTER methods of
+    generic function by clicking :after category in 
+    `(<gf name> :after <specializer> ...)`
+
+3.  Once you narrowed down the logging to your liking, you can
+    quickly save that configuration of log levels with
+    `(LOG:SAVE)`, and later (may be in a different image, or even
+    different machine) restore it with `(LOG:RESTORE)`, and you can
+    give these saved configuration names, such as
+    `(LOG:SAVE :bug-123)`
+
+# <a id="sec-7" name="sec-7"></a>Glossary
+
+Very small glossary of Log4CL concepts
+
+<a id="logger" name="logger"></a><a id="category" name="category"></a>
+
+## <a id="sec-7-1" name="sec-7-1"></a>Loggers and categories
 
-    (log:config '(cl-user) :unset)
+Loggers are named singleton objects that form a hierarchy, and are
+sources of log messages, or more correctly entry points where log
+message enter the logging system.  Each call to a logging macro like
+`(log:debug ...)` operates on a specific logger object 
+(See also [naming](#naming) section).
 
-    (log:debug "test")
+Logger's unique name is called "logger's category", or "category
+name". Loggers form a hierarchy, based on their category names,
+where child loggers have their category name prefixed by that of the
+parent, followed by a dot. So if we have loggers **A**, **A.B**, **A.B.C**
+and **A.B.D** then logger **A** is parent of **A.B**, which has two
+children **A.B.C** and **A.B.D** - as shown on below diagram.  (Note:
+ROOT logger category name is empty string)
 
-    [15:34:37] [debug] <cl-user> - test
+```
+ROOT---A---A.B---A.B.C
+             |
+             \---A.B.D
+```
 
-    (log:config '(cl-user) :info :clear)
+Because loggers are singletons, logger category name is usually shortened to just
+*CATEGORY* and is used inter-changeably with the word *LOGGER*; the convention
+is that thing is "a logger" when talking about actual Lisp object, and
+"category" otherwise.
 
-    (log:debug :a "this is debug)
+Each logger can have a [log level](#level) threshold, or if its
+does not have one, it inherits one from its parent. To ensure that
+for any logger, an effective log level can be determined, the ROOT
+logger always have a level.
 
-Note: *:clear* option resets the log level of all the child loggers of
-the specified logger, but not the logger itself. To do both use
-`(log:config '(logger) :unset :clear)`
+Loggers will only pass through messages, if logger's threshold level
+is equal or greater verbosity, then log message. For example if in
+above example logger A is configured with *info* log level, then
+`(log:warn ...)` and `(log:info)` messages will be passed through,
+but `(log:debug)` messages would not.
 
-### Displaying logger hierarchy configuration
+<a id="appender" name="appender"></a>
 
-Without any arguments, `(log:config)` will display logging hierarchy
-and its configuration on the standard output. It only prints
-"interesting" loggers, that have either an explicit log level, have
-any appenders, or are non-additive (meaning they don't propagate
-messages to the ancestor's appenders)
+## <a id="sec-7-2" name="sec-7-2"></a>Appenders
 
-    CL-USER> (log:config)
-    ROOT, DEBUG
-    |
-    +-#<CONSOLE-APPENDER {102576AD21}>
-    |     with #<PATTERN-LAYOUT {102566A5E1}>
-    |          :conversion-pattern "[%D{%H:%M:%S}] [%P] <%c{}{}{:downcase}> - %m%n"
-    |     :immediate-flush NIL
-    |     :flush-interval  1
-    |
-    +-LOG4CL-IMPL
-      |
-      +-SELF (non-additive), WARN
-        |
-        +-#<CONSOLE-APPENDER {101EAEB6B1}>
-              with #<PATTERN-LAYOUT {101E55FC21}>
-                   :conversion-pattern "[%d{%H:%M:%S}] [%-5P] <%c{}{}{:downcase}>%n  *%I{>} %m%n"
-              :immediate-flush NIL
-              :flush-interval  1
-    CL-USER> 
+Appenders process log messages by writing them to files, or
+displaying them on the screen. Appenders attach to a specific
+logger, and each logger can have many appenders attached.
 
-## Appenders and layouts
+When a log message passes through a logger that has appenders, they
+are all called in turn to do appender specific processing, be it
+writing log message to a file, or a terminal. After all of logger's
+appenders had processed the message, its passed on to the parent
+logger.
 
-While loggers are logical sinks for the log messages, appenders are
-physical ones, that are responsible for formatting the log messages
-and delivering them to their ultimate destination.
+So log messages inheritance flows in reverse order from the log
+level one, tricking up from child loggers towards root, with below
+exception.
 
-For example `CONSOLE-APPENDER` writes message to `*DEBUG-IO*` stream
-and `DAILY-FILE-APPENDER` writes messages into a file that rolls over
-each day.
+Each logger has a property called *additivity*, which is `T` by
+default, which controls the above process. When additivity is
+`NIL`, logger is called non-additive and any messages that reach
+it, will not be passed to the parents.
 
-### Layouts
+Usually only root logger, or non non-additive loggers will have any
+appenders attached to them.
 
-Appenders format the log messages by means of layouts. Layout receives
-information about logging event, and the stream to print output into,
-and is responsible for actual formatting of the message, such as
-adding timestamps or other formatting.
+<a id="layout" name="layout"></a>
 
-LOG4CL provides two layout classes:
+## <a id="sec-7-3" name="sec-7-3"></a>Layouts
 
-- `SIMPLE-LAYOUT` formats the message in a very primitive way, by
-  printing the log level followed by a dash and the user log message
+When appender decide they want to process the log message, they format
+the log message by means of a layout. Layout is a separate object, that attaches
+to each appender, and is responsible for the textual formatting of the message.
 
-- `PATTERN-LAYOUT` formats the message by specifying a conversion
-  pattern string, which has escape sequences for various part of the
-  log message. See Lisp docstring for `PATTERN-LAYOUT` class for the
-  description of the pattern layout elements.
+So while appender provides and manages any serialization for the
+stream to write to, the layout is actually formatting the log
+message into that stream.
 
-### Configuring appenders and layouts with `(log:config)` function
+Log4CL provides two layouts, SIMPLE-LAYOUT which is well, simple,
+and a very configurable PATTERN-LAYOUT, which specifies the formatting
+of log messages by mean of printf/format like control string.
 
-The versatile `(log:config)` function can also add and remove
-appenders and their layouts. See the Lisp docstring for full
-description, below are a few examples:
+Easiest way to use the pattern layout, is by using [LOG:CONFIG](http://github.com/7max/log4cl/blob/master/src/configurator.lisp)
+command to select between several predefined formats.
 
-- `:SANE` option removes all appenders from the logger, and adds a
-  `LOG:CONSOLE-APPENDER` with a pattern layout used in throughout the
-  examples in this document
+Or you can look for list of all supported format documentation for
+the [PATTERN-LAYOUT](http://github.com/7max/log4cl/blob/master/src/pattern-layout.lisp) class. Please note that if you are
+drafting your own format, that Log4SLime fontification relies on
+regular expressions and the log messages being in a certain
+order. If your layout is not a minor modification of an built-in
+one, the Log4Slime fontification may stop working.  You can of
+course adjust the regular expressions used by Log4Slime to match
+your own custom layout to compensate.
 
-            (log:config :sane)
+<a id="level" name="level"></a><a id="log-level" name="log-level"></a>
 
-            (log:info "test")
+## <a id="sec-7-4" name="sec-7-4"></a>Log Levels
 
-            [15:54:04] [info] <cl-user> - test
+In Log4CL log levels are numeric constants, in order of increased
+verbosity: 
 
-- `:TWOLINE` option changes the pattern layout used to have output on
-  two lines, the header line with time-stamp, log level, and logger's
-  category, and second line with the actual log message.
+-   Turn off logging `0=OFF`
 
-              (log:config :sane :twoline)
+-   Standard log levels `1=FATAL`, `2=ERROR`, `3=WARN`, `4=INFO`, `5=DEBUG`
 
-              (log:info "test")
+-   Extra debug levels `6..9` named `DEBU1` through `DEBU4`
 
-              [15:56:14] [ info] <cl-user>
-                * test
+-   Standard log level `10=TRACE`
 
+-   Extra debug level `11..15` named `DEBU5` through `DEBU9`
 
-- `:DAILY` option adds a `LOG:DAILY-FILE-APPENDER`, logging into the
-  specified file. The file will switch at midnight, with the old file
-  renamed by adding `<year><mon><day>` suffix to its name.
+<a id="effective" name="effective"></a>
 
-              (log:config :daily "log.txt")
+## <a id="sec-7-5" name="sec-7-5"></a>Effective log level
 
-              (log:info "test")
+Effective log level of the logger **X** is determined as follows.
 
-              [15:56:14] [ info] <cl-user>
-                * test
+1.  If logger has level threshold set, then this level is the effective log level.
 
-              $ cat log.txt
-              [15:58:50] [info] <cl-user> - test
-  It will use same pattern layout as the *:sane* option, it will also
-  accept *:twoline*. If both *:sane* and *:daily* are used, then
-  console appender is not added, you can use *:console* option to
-  force adding both file and console appenders.
+2.  If logger is not first child of a parent, whose category is same as the package 
+    name logger was instantiated from, the effective log level of **X** is the effective
+    log level of its parent logger.
 
-- `:PATTERN` option allows one to change the conversion pattern for
-  the new pattern layout used with new appenders added by *:sane*,
-  *:daily* and/or *:console* options
+3.  If logger is first child of a parent **P** named same as package,
+    and there exists a sibling logger **S**, with the last part of
+    category name equal to that of a source file logger **X** was
+    instantiated from, and **S** has a level threshold set, that level
+    is effective level of logger **X**
 
-              (log:config :sane :pattern "%d -- %p -- %m%n")
+4.  Otherwise effective level of logger **X** is effective level of its parent.
 
-              (log:info "test")
+ROOT logger always has a level threshold set, so above steps always
+result in a valid log level.
 
-              2012-02-23 21:05:12 -- INFO -- test
+Effective log level is returned by the function `(log4cl:effective-log-level LOGGER)` 
 
-- `:PROPERTIES` option configures logging system from Log4J style
-  properties file. There are important differences from Log4J:
+# <a id="sec-8" name="sec-8"></a>FAQ
 
-  - Logging configuration lines start with log4cl instead of log4j
+## <a id="sec-8-1" name="sec-8-1"></a>I don't see log messages from other threads.
 
-  - The default separator is colon instead of dot, similar to log
-    category names
+The `*TERMINAL-IO*` value bound in the other threads is probably different and points  
+to other place (likely `*inferior-lisp*` buffer under Slime)
 
-              $ cat tests/log4cl.properties
+1.  `(log:config :sane2)` will copy messages from other threads to `REPL`
+    while continuing output to thread specific `*TERMINAL-IO*` (`REPL`
+    thread will still only log to `REPL`)
 
-              log4cl:rootLogger = INFO, file1, console
-              log4cl:appender:console = log4cl:console-appender
-              log4cl:appender:console:layout = log4cl:pattern-layout
-              log4cl:appender:console:layout:conversion-pattern =    |%p| |%c| - %m%n
-              log4cl:appender:file1 = log4cl:file-appender
-              log4cl:appender:file1:file = /tmp/logfile.txt
-              log4cl:appender:file1:immediate-flush = true
-              
-              (log:config :properties "tests/log4cl.properties")
+2.  `(log:config :sane :this-console)` will redirect all logging to current console
+    regardless of thread local values of `*TERMINAL-IO*`
 
-              (log:info "testing")
+## <a id="sec-8-2" name="sec-8-2"></a>Why Log4CL starts its own thread, and how I get rid of it
 
-                  |INFO| |CL-USER| - testing
+Its a flusher thread to flush the appenders, it increases
+performance greatly when there is a lot of logging.oe
 
-              $ cat /tmp/logfile.txt
+You can stop it by calling `(log4cl:stop-hierarchy-watcher-thread)`
 
-              INFO - testing
-  Note that whitespace is not stripped from the start of conversion
-  pattern property, but is stripped from the beginning of the
-  file-name property.
+On SBCL Log4CL uses `*EXIT-HOOKS*` and `*SAVE-HOOKS*` to
+automatically flush all appenders on exit, so that last second of
+logging is not lost, and to terminate the watcher thread when
+saving image, which can't be done with multiple threads running.
 
-- `:WATCH` option together with *:PROPERTIES* option, will make LOG4CL
-  watch the file modification time, and reload it when it changes.
+## <a id="sec-8-3" name="sec-8-3"></a>I'd like just the log messages, and not all the extra stuff
 
-              (log:config :properties "tests/log4cl.properties" :watch)
+Use pattern layout with just %m%n format (message + newline)
 
-              (log:info "testing")
+## <a id="sec-8-4" name="sec-8-4"></a>How do I log into a file
 
-                  |INFO| |CL-USER| - testing
+`(log:config :daily "file.txt")` which will be backed up each day to
+`file.txt.YYYYMMDD`
 
-              $ cat /tmp/logfile.txt
+### <a id="sec-8-4-1" name="sec-8-4-1"></a>I want both log file and backup log file to have YYYYMMDD prefix or roll once per week
 
-              INFO - testing
-  Now modify and save the *log4cl.properites* file.
+`(log:config :daily "file.txt.%Y%m%d")` file will roll when %Y%m%d expansion
+changes.
 
-              |INFO| |LOG4CL| - Re-configured logging from tests/log4cl.properties
-  Now modify the file to have some error
-   
-              |ERROR| |LOG4CL| - Re-configuring from tests/log4cl.properties failed:
-              "log4cl:appender:console:layout:conversion-patter =    |%p| |%c| - %m%n"
-              Error at line 6:
-              Unknown property :CONVERSION-PATTER for class #<PATTERN-LAYOUT
-                                                              {10761F4841}>
+### <a id="sec-8-4-2" name="sec-8-4-2"></a>What about just one plain file, without rolling
 
-## Quick save/restore
-
-  Once you added extensive logging to the your application, it may become bothersome
-  to reconfigure log levels each time you work on a separate part of a big system.
-
-  For example, when focusing one module A, you need detailed debugging for it, but
-  when focusing on module B, the debug statements coming from A flooding your screen
-  are unhelpful. Of course one can use separate log4cl.properties file for each part
-  of theh system that you are developing, or have a separate .lisp
-  file with `(log:config)` statemements, but LOG4CL now provides a more intuitive
-  and agile facility.
-
-    LTR> (log:save :config-1)
-
-    #<log4cl-impl:logging-configuration :config-1 (18)>
-
-    LTR> (log:config :clear :info)
-    LTR> (log:save)
-
-    #<log4cl-impl:configuration "Saved on 2012-07-01 12:51:02" (1)>
-
-    LTR> (log:restore)
-
-    #<log4cl-impl:configuration :config-1 (18)>
-    
-    LTR> (log:restore)
-
-    #<log4cl-impl:configuration "Saved on 2012-07-01 11:44:18" (1)>
-
-    LTR> (log:list-configurations)
-      0. #<CONFIGURATION "Saved on 2012-07-01 11:44:18" (1)>
-      1. #<CONFIGURATION :CONFIG-1 (18)>
-
-    (log:restore 1)
-
-    #<log4cl-impl:configuration :config-1 (18)>
-
-    LTR> (log:config '(ltr scaling.lisp) :trace)
-    LTR> (log:save :config2)
-
-    #<log4cl-impl:configuration :config2 (19)>
-
-    LTR> (log:list-configurations)
-      0. #<CONFIGURATION :CONFIG2 (19)>
-      1. #<CONFIGURATION :CONFIG-1 (18)>
-      2. #<CONFIGURATION "Saved on 2012-07-01 11:44:18" (1)>
-
-The `(log:save)` function saves the logging configuration
-and `(log:restore)` restores last saved configuration.. There are up to 30
-configuration saved, and they are automatically persisted into the
-`~/.log4cl-configurations.lisp-expr` file, so they survive lisp
-restarts.  When restore function notices that current configuration is
-not in the configuration list, it will automatically create a
-"Autosave on <timestamp>" configuration, so you can recover from
-accidents.
-
-`log:save` and `log:restore` are also aliased to `log:push` and `log:pop`.
-
-## More documentation
-
-  Hopefully this Quick-Start guide covered enough to get you up and running, and
-  using basic logging in your application.
-
-  Description of the more advanced features, such as logging
-  hierarchies, and how to customize LOG4CL by adding your own
-  appenders and layouts, or customizing auto-naming will be covered
-  later once user manual is finished.
-
-  For now, you can browse the source code, where most generic
-  functions, classes and methods have detailed docstrings. When doing
-  so, please note that *LOG4CL* is simply a forwarder package, intended
-  to be used only for log statements, and not for any customizations;
-  the actual implementation of *LOG4CL* lives in the *LOG4CL-IMPL*
-  package, which exports everything needed to for writing your own
-  appenders and layouts. You can start with `src/appender.lisp` if you
-  are looking for examples.
-
+`(log:config :daily "file.txt" :backup nil)`

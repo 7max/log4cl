@@ -13,15 +13,56 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(in-package #:log4cl-test)
+(log4cl-test:defsubsuite #:log4cl-test.configurator)
+(in-package #:log4cl-test.configurator)
+(log4cl-test:subsuite-start)
 
-(in-suite test)
-(defsuite* test-configurator)
+(deftest test-clear-ignores-self-logger ()
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (let ((logger log4cl:+self-logger+))
+      (is (logger-log-level logger))
+      (log-config :clear)
+      (is (logger-log-level logger))
+      (log-config :clear :all)
+      (is (logger-log-level logger)))))
+
+(deftest test-clear-ignores-non-additive-logger ()
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (let ((logger1 (make-logger :one))
+          (logger2 (make-logger :one.two))
+          (logger3 (make-logger :one.two.three)))
+      (add-appender *root-logger* (make-instance 'console-appender))
+      (is (equal (logger-parent logger3) logger2))
+      (is (equal (logger-parent logger2) logger1))
+      (log-config logger1 :debug)
+      (log-config logger2 :nonadditive :trace)
+      (is (log-debug :logger logger1))
+      (is (not (log-trace :logger logger1)))
+      ;; no appenders
+      (is (not (log-warn :logger logger2)))
+      (is (not (log-warn :logger logger3)))
+      ;; appears after adding appenders
+      (add-appender logger2 (make-instance 'console-appender))
+      (is (log-trace :logger logger2))
+      (is (log-trace :logger logger3))
+      (log-config :clear)
+      ;; disappeared from normal loggers
+      (is (not (logger-log-level logger1)))
+      (is (not (log-debug :logger logger1)))
+      ;; but not from additive
+      (is (log-trace :logger logger2))
+      (is (log-trace :logger logger3))
+      (log-config :clear :all)
+      (is (not (log-warn :logger logger2)))
+      (is (not (log-warn :logger logger3))))))
+
 
 (defclass ignore-extra-stuff-parser (property-parser)
   ())
 
-(defmethod log4cl-impl::parse-property-keyword ((parser ignore-extra-stuff-parser)
+(defmethod log4cl::parse-property-keyword ((parser ignore-extra-stuff-parser)
                                    keyword
                                    tokens
                                    value)
@@ -118,7 +159,7 @@ one.two=three
         (is (equal (effective-log-level (make-logger)) +log-level-debug+))
         (is (equal 1 (length (effective-appenders (make-logger)))))
         (let ((appender (first (effective-appenders (make-logger)))))
-          (is (equal t (slot-value appender 'log4cl-impl::immediate-flush)))))
+          (is (equal t (slot-value appender 'log4cl::immediate-flush)))))
       (dolist (val '("off" "false" "nil" ""))
         (clear-logging-configuration)
         (finishes
@@ -128,7 +169,7 @@ one.two=three
                               log4cl:appender:A1 = console-appender" val))
             (configure config s)))
         (let ((appender (first (effective-appenders (make-logger)))))
-          (is (equal nil (slot-value appender 'log4cl-impl::immediate-flush))))))))
+          (is (equal nil (slot-value appender 'log4cl::immediate-flush))))))))
 
 (deftest test-property-configurator-number-property ()
   (with-package-log-hierarchy
@@ -144,7 +185,7 @@ one.two=three
       (is (equal (effective-log-level (make-logger)) +log-level-debug+))
       (is (equal 1 (length (effective-appenders (make-logger)))))
       (let ((appender (first (effective-appenders (make-logger)))))
-        (is (equal 123 (slot-value appender 'log4cl-impl::flush-interval)))))))
+        (is (equal 123 (slot-value appender 'log4cl::flush-interval)))))))
 
 (deftest test-property-configurator-errors ()
   (with-package-log-hierarchy
@@ -220,12 +261,12 @@ done via property configurator, rather then directly"
                      log4cl:appender:DAILY:name-format=~a" name-format))
           (configure config s)))
       (is (equal 1 (length (logger-appenders logger))))
-      (is (log-info logger))
-      (log-info logger "Hey")
+      (is (log-info :logger logger))
+      (log-info :logger logger "Hey")
       (let* ((a (first (logger-appenders logger)))
              (fname1 (appender-filename a)))
         (sleep 1.2)
-        (log-info logger "Hey again")
+        (log-info :logger logger "Hey again")
         (let ((fname2 (appender-filename a)))
           (log-sexp fname1 fname2)
           (unwind-protect
@@ -261,26 +302,26 @@ done via property configurator, rather then directly"
                log4cl:appender:DAILY:name-format=~a" name-format))
           (configure config s)))
       (is (equal 1 (length (logger-appenders logger))))
-      (is (log-debug logger))
-      (log-info logger "Hey")
+      (is (log-debug :logger logger))
+      (log-info :logger logger "Hey")
       (let* ((a (first (logger-appenders logger)))
              (fname1 (appender-filename a)))
         (sleep 1.2)
-        (log-debug logger "Hey again")
+        (log-debug :logger logger "Hey again")
         (let ((fname2 (appender-filename a)))
           (unwind-protect
                (progn
                  (is (not (equal fname1 fname2)))
                  (with-open-file (s fname1)
                    (is (equal (read-line s)
-                              (format nil "INFO ~a:~a Hey"
+                              (format nil "INFO ~a.~a Hey"
                                       (string 'bar)
                                       (string 'baz)))))
                  ;; So we don't have to sleep for auto-flush
                  (remove-all-appenders logger)
                  (with-open-file (s fname2)
                    (is (equal (read-line s) 
-                              (format nil "DEBUG ~a:~a Hey again"
+                              (format nil "DEBUG ~a.~a Hey again"
                                       (string 'bar)
                                       (string 'baz))))))
             (ignore-errors (delete-file fname1))
@@ -297,16 +338,16 @@ done via property configurator, rather then directly"
       (add-appender three (make-instance 'console-appender))
       (log-config one :sane)
       (log-config one :i)
-      (is (log-info one))
-      (is (log-info four))
-      (is (not (log-debug four)))
+      (is (log-info :logger one))
+      (is (log-info :logger four))
+      (is (not (log-debug :logger four)))
       (log-config three :own)
       (is (not (logger-additivity three)))
       (log-config clear :d)
-      (is (log-debug four))
+      (is (log-debug :logger four))
       (is (logger-appenders three))
       (log-config one :i :clear)
       (is (logger-appenders three))
-      (is (not (log-debug four)))
-      (log-config one :clear :all)
+      (is (not (log-debug :logger four)))
+      (log-config one :clear :appenders :all)
       (is (null (logger-appenders three))))))

@@ -13,7 +13,7 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(in-package #:log4cl-impl)
+(in-package #:log4cl)
 
 (defvar *hierarchy-max* 1
   "Number of hierarchies registered with the log4cl library. Each
@@ -48,7 +48,7 @@ WATCHER-HOOK of each hierarchy")
    ;;
    ;; Used for auto-reloading the modified files in
    ;; PROPERTY-CONFIGURATOR but can be used for other stuff.
-   (watch-tokens :initform nil)
+   (watch-tokens :initform nil :accessor watch-tokens)
    (%lock :initform (make-lock))))
 
 (defvar *hierarchies*
@@ -70,5 +70,6 @@ WATCHER-HOOK of each hierarchy")
 when hierarchy watcher thread is started. If a unhandled condition is
 signaled from this function the watcher thread will remove
 corresponding token from the list"))
+
 
 

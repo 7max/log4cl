@@ -13,16 +13,17 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(cl:in-package #:log4cl-impl)
-
-(defmethod package-wrapper ((pkg (eql *package*)) categories explitic-p)
-  "Make default logger in the log4cl package to be log4cl:self"
-  (if explitic-p categories
-      `(log4cl-impl self ,@categories)))
+(cl:in-package #:log4cl)
 
 (defvar *self-log-config* '(:sane :warn :own :two-line :immediate-flush))
 
-(defvar +self-logger+
-  (let ((logger (make-logger '(:log4cl-impl :self))))
+(defvar +self-meta-logger+
+  (let ((logger (make-logger '#:meta)))
     (setf (logger-additivity logger) nil)
     logger))
+
+(defvar +self-logger+
+  (let ((logger (%logger-parent +self-meta-logger+)))
+    (setf (logger-additivity logger) nil)
+    logger))
+

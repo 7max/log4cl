@@ -16,84 +16,129 @@
 ;;;
 ;;; Contains (log-config) function and default logging initialization
 ;;; 
-(in-package #:log4cl-impl)
-
-(defun clear-logging-configuration ()
-  "Delete all loggers configuration, leaving only LOG4CL.SELF"
-  (labels ((reset (logger)
-             (remove-all-appenders logger)
-             (setf (svref (logger-state logger) *hierarchy*)
-                   (make-logger-state))
-             (map-logger-children #'reset logger)))
-    (reset *root-logger*)
-    (when *self-log-config*
-      (apply 'log-config +self-logger+ *self-log-config*)))
-  (values))
-
-(defun reset-logging-configuration ()
-  "Clear the logging configuration in the current hierarchy, and
-configure root logger with INFO log level and a simple console
-appender"
-  (clear-logging-configuration)
-  (add-appender *root-logger* (make-instance 'console-appender))
-  (setf (logger-log-level *root-logger*) +log-level-warn+)
-  (log-info "Logging configuration was reset to sane defaults"))
+(in-package #:log4cl)
 
 (defun log-config (&rest args)
-  "User friendly way of configuring loggers. General syntax is:
+  "Very DWIM oriented friendly way of configuring loggers and appenders.
 
-    (LOG-CONFIG [LOGGER-IDENTIFIER] OPTION1 OPTION2...)
+    (LOG:CONFIG [LOGGER-IDENTIFIER] OPTION1 OPTION2...)
 
-LOGGER-IDENTIFIER can be one of:
+LOGGER-IDENTIFIER is optional and defaults to the root logger. It can be
+one of the following:
 
-* Logger instance ie result of (make-logger) expansion, or any form
+- Logger instance ie result of (LOG:CATEGORY) expansion, or any other form
   that returns a logger.
 
-* A list of logger categories, basically a shortcut for (MAKE-LOGGER
+- A list of logger categories, basically a shortcut for (LOG:CATEGORY
   '(CAT1 CAT2 CAT3)). An error will be given if logger does not exist. If you want
   to ensure logger is created, even if it did not exist before, use
-  (LOG-CONFIG (MAKE-LOGGER ...) ...)
+  (LOG:CONFIG (LOG:CATEGORY ...) ...)
 
-If not specified, default logger will be root logger
+Without any options (LOG:CONFIG) displays current configuration
 
-Valid options can be:
-
+---------------|---------------------------------------------------------------
   Option       | Description
 ---------------|---------------------------------------------------------------
+                               MAIN OPTIONS.
+---------------|---------------------------------------------------------------
  :INFO         | Or any other keyword identifying a log level, which can be    
- :DEBUG        | shortened to its shortest unambiguous prefix, such as :D      
+ :DEBUG        | shortened to its shortest unambiguous prefix, such as :D.
+               | Changes the logger level to that level.
 ---------------|---------------------------------------------------------------
- :CLEAR        | Removes log level and appenders from any child loggers,       
-               | appenders are not removed from non-additive loggers           
----------------|---------------------------------------------------------------
- :ALL          | Changes :CLEAR to remove appenders from non-additive          
-               | loggers                                                       
----------------|---------------------------------------------------------------
- :SANE         | Removes logger appenders, adds console appender with          
-               | pattern layout that makes messages look like this:            
+ :SANE         | Removes logger appenders, then arranges for the logging output
+               | to be always logged to dynamic value of *TERMINAL-IO*
                |                                                               
-               | [11:22:25] INFO  {category.name} - message
-               |
                | If used with :DAILY then console appender is not added, unless
-               | :CONSOLE or :THIS-CONSOLE is explicitly used
+               | :CONSOLE, :THIS-CONSOLE or :TRICKY-CONSOLE is also specified.
+               |
+               | The pattern layout added is affected by many of the pattern
+               | options below.
 ---------------|---------------------------------------------------------------
- :DAILY FILE   | Adds file appender logging to the named file, which will      
-               | be rolled over every midnight into FILE.YYYYMMDD; Removes any 
-               | other FILE-APPENDER-BASE'ed appenders from the logger
+                           APPENDER OPTIONS
 ---------------|---------------------------------------------------------------
  :CONSOLE      | Adds CONSOLE-APPENDER to the logger. Console appender logs
-               | into the *DEBUG-IO* at the call site.
+               | into current console as indicated by *TERMINAL-IO* stream
+---------------|---------------------------------------------------------------
+ :THIS-CONSOLE | Adds THIS-CONSOLE-APPENDER to the logger. It captures the
+  (or :THIS)   | current value of *TERMINAL-IO* by recursively resolving any
+               | synonym or two-way streams, and continues to log the
+               | remembered value, even if it goes out dynamic scope.
                |
- :THIS-CONSOLE | Adds FIXED-STREAM-APPENDER to the logger, with :stream argument
-               | taken from the current value of *DEBUG-IO*
+               | On any stream errors it will auto-remove itself.
 ---------------|---------------------------------------------------------------
-:STREAM stream | Adds FIXED-STREAM-APPENDER logging to specified stream
+:TRICKY-CONSOLE| Adds TRICKY-CONSOLE-APPENDER which acts exactly like 
+ (or :TRICKY)  | THIS-CONSOLE appender above, but it checks if dynamic value
+               | of *TERMINAL-IO* resolves to the same stream and ignores the
+               | log message if it does.
+               |
+               | When debugging multi-threaded code from REPL, this results in
+               | REPL thread logging to REPL, while threads with some other
+               | value of *TERMINAL-IO* stream will output to both.
+               |
+               | As a shortcut, if THIS-CONSOLE is specified and global console
+               | appender already exists, it will add TRICKY-CONSOLE instead.
 ---------------|---------------------------------------------------------------
- :PATTERN      | For any new appenders added, specifies the conversion pattern for the
-               | PATTERN-LAYOUT
+ :SANE2        | Shortcut for :SANE :TRICKY (mnemonic two -> multiple threads)
 ---------------|---------------------------------------------------------------
- :TWOLINE      | Changes default pattern layout to print user log message      
-  or :2LINE    | log message on 2nd line after the headers                     
+ :STREAM stream| Changes the stream used for above two dedicated stream
+               | appenders.
+---------------|---------------------------------------------------------------
+ :DAILY FILE   | Adds file appender logging to the named file, which will be
+               | re-opened every day, with old log file renamed to FILE.%Y%m%d.
+               |
+               | Removes any other file based appenders from the logger.
+               |
+               | FILE can also contain %Y%m%d like pattern, expansion of which
+               | will determine when new log file would be opened.
+---------------|---------------------------------------------------------------
+
+                            LAYOUT OPTIONS
+
+  General note about layout options, if any appender options are specified
+  the layout options only affect PATTERN-LAYOUT for new appenders created
+  by LOG:CONFIG command
+
+  But if no appender options are specified, but layout options are, LOG:CONFIG
+  will change the pattern layout on all console based appenders that output
+  current *TERMINAL-IO*
+---------------|---------------------------------------------------------------
+ :PATTERN      | For any new appenders added, specifies the conversion pattern
+               | for the PATTERN-LAYOUT. If not given, default pattern will be
+               | used, modified by below options
+---------------|---------------------------------------------------------------
+ :PRETTY       | Add {pretty} option to the pattern to force pretty printing
+ :NOPRETTY     | Add {nopretty} option to the pattern to force no pretty printing
+               | without one of these, global value is in effect
+---------------|---------------------------------------------------------------
+ :TIME/:NOTIME | Include time into default pattern, default is :TIME
+---------------|---------------------------------------------------------------
+ :FILE or      | Include file name into default pattern, :FILE2 uses alternate
+ :FILE2        | position for the file (in front of the package).
+ :NOFILE       | :NOFILE does not show the file
+---------------|---------------------------------------------------------------
+ :THREAD       | Include thread name into default pattern, it will be after the
+               | time, in [%t] format
+---------------|---------------------------------------------------------------
+ :NDC          | Include NDC context into default pattern, if thread is also
+               | specified, it will be after the thread name, separated by dash
+               | like this: [threadname-ndc], and will not be shown if unbound
+               |
+               | If thread name is not specified, it will be included in place
+               | of a thread name, in [%x] format, not taking any space if unset
+---------------|---------------------------------------------------------------
+ :NOPACKAGE    | Add {nopackage} option to the pattern (binds orig package at
+ :PACKAGE      | the site of the log statement. PACKAGE binds keyword package,
+               | so everything is printed with package prefix
+---------------|---------------------------------------------------------------
+  :TWOLINE     | Changes pattern layout to print hard newline before actual log
+ (or :2LINE)   | message. Only makes sense with NOPRETTY or when logging into
+               | files.
+               | 
+               | Pretty printing does better job at line splitting then forced
+               | two line layout, with short log statements placed on a single
+               | line and longer ones wrapping.
+---------------|---------------------------------------------------------------
+                   ASSORTED OTHER OPTIONS
 ---------------|---------------------------------------------------------------
  :PROPERTIES   | Configure with PROPERTY-CONFIGURATOR by parsing specified     
  FILE          | properties file                                               
@@ -106,53 +151,121 @@ Valid options can be:
                | startup of hierarchy watcher thread, which is used for
                | auto-flushing. 
 ---------------|---------------------------------------------------------------
- :OWN          | For :SANE and :DAILY makes logger non-additive                
-               | otherwise additive flag will be set                           
+ :NOADDITIVE   | Makes logger non-additive (does not propagate to parent)
+ :OWN          | Shortcut for non-additive (usually has appenders on its own)
+ :ADDITIVE     | Sets additive flag back to T.
+---------------|---------------------------------------------------------------
+ :CLEAR        | Reset the child in the hierarchy, by unsetting their log level
+               | and/or removing appenders from them. Without any other flags
+               | unset the log levels.
+               |
+ :LEVELS       | Clears the log levels, this is the default
+ :APPENDERS    | Removes any appenders, levels will not be cleared unless
+               | :LEVELS is also specified
+               |
+ :ALL          | Normally :CLEAR does not touch non-additive loggers, that is
+               | the ones that don't pass messages to parents. This flag forces
+               | clearing of non-additive loggers 
+               |
+               | Note that this option does not change the logger being acted
+               | upon, just its children. See next option
+---------------|---------------------------------------------------------------
+ :REMOVE <num> | Removes specific appender from the logger. Numbers are 1-based,
+               | and are same ones displayed by LOG:CONFIG without arguments
+---------------|---------------------------------------------------------------
+ :SELF         | Configures the LOG4CL logger, which can be used to debug
+               | Log4CL itself. Normally all other LOG:CONFIG hides the
+               | it from view.
+---------------|---------------------------------------------------------------
+ :FORCE-ADD    | Normally if you specify :CONSOLE :THIS-CONSOLE or
+               | :TRICKY-CONSOLE without :SANE (which clears out existing
+               | appenders), an error will be given if there are any standard
+               | console appenders that already log to *TERMINAL-IO* or :STREAM
+               | argument.
+               |
+               | This is to prevent from creating duplicate output.
+               |
+               | Adding :FORCE-ADD flag skips the above check, and allows you
+               | to add new console appender regardless.
+---------------|---------------------------------------------------------------
+ :BACKUP       | Used together with :DAILY, specifies the :BACKUP-NAME-FORMAT,
+               | see docstring for the DAILY-FILE-APPENDER class.
+               |
+               | For example specifying a DAILY <file> :BACKUP NIL will always
+               | log to statically named FILE without rolling.
+               | 
+               | Defaults to NIL if FILE contains percent character or
+               | FILE.%Y%m%d otherwise.
 ---------------|---------------------------------------------------------------
 
 Examples:
 
-* (LOG-CONFIG :D) -- Changes root logger level to debug
+* (LOG:CONFIG :D) -- Changes root logger level to debug
 
-* (LOG-CONFIG :SANE) -- Changes root logger level to info, removes its
-   appenders, adds console appender with pattern layout
+* (LOG:CONFIG :SANE) -- Drops all console appenders, change level
+  to INFO, makes all output appear on current console
 
-* (LOG-CONFIG :SANE :THIS-CONSOLE) -- Same as above but adds fixed
-   stream appender logging to current value of *DEBUG-IO* instead of
-   regular console appender..
+* (LOG:CONFIG :SANE2) -- As above, but copy all other threads output
+  to current terminal.
 
-* (LOG-CONFIG :WARN :SANE :CLEAR :ALL) -- Changes root logger level to
-  warnings, removes its appenders, adds console appender with pattern
-  layout; then resets all child loggers log levels, and removes their
-  appenders.
+* (LOG:CONFIG :PRETTY :THREAD) - changes active console appenders
+  layout to force pretty printing and add thread info.
 
-* (LOG-CONFIG (MAKE-LOGGER :FOOBAR) :SANE :OWN :D :DAILY \"debug.log\")
+* (LOG:CONFIG :NOPRETTY :PACKAGE) - changes layout to force no
+  pretty printing, and restoring original *PACKAGE* when printing
+  
+* (LOG:CONFIG :WARN :CLEAR) -- Changes root logger level to warnings,
+  and unset child logger levels.
 
-  Configures the specified logger with debug log level, logging into
-  file debug.log which will be rolled over daily, and makes it
-  non-additive ie any messages will not be propagated to logger
-  parents.
-" 
+* (LOG:CONFIG '(PACKAGE) :OWN :DEBUG :DAILY \"package-log.%Y%m%d\")
+
+  Configures the logger PACKAGE with debug log level, logging into
+  the file \"package-log.20130510\" which will be rolled over daily;
+  makes logger non-additive so messages will not be propagated to
+  logger parents. (To see them on console, remove the :OWN flag, or
+  add :CONSOLE to the command)
+
+  Note: in above example if package name is dotted, you need to
+  specify the split category list, so if your package name is
+  COM.EXAMPLE.FOO logger categories will be '(COM EXAMPLE FOO)
+"
+ 
   (let ((logger nil)
-        sane clear all own daily pattern 
-        twoline level layout console
+        sane clear all own noown daily pattern
+        backup had-backup
+        file file2 nofile
+        time notime
+        level layout console
+        oneline twoline
         orig-args
         self appenders
         immediate-flush
         properties watch
-        this-console
-        stream)
+        this-console tricky-console global-console
+        pretty nopretty
+        package nopackage
+        thread ndc
+        stream
+        pattern-specified-p
+        appender-specified-p
+        force-add
+        clear-levels clear-appenders
+        remove)
     (declare (type (or null stream) stream))
     (cond ((logger-p (car args))
            (setq logger (pop args)))
           ((consp (car args))
-           (setq logger (%get-logger
-                         (pop args)
-                         (naming-option *package* :category-separator)
-                         (naming-option *package* :category-case))))
+           (setq logger
+                 (let ((cats (pop args))) 
+                   (or (instantiate-logger *package* cats t nil) 
+                       (log4cl-error "~@<Logger named ~S not found. If you want to create it, ~
+                       use (~A:~A (~A:~A ~S) ...) instead~:@>"
+                                     cats
+                                     '#:log '#:config
+                                     '#:log '#:logger
+                                     cats)))))
           ((member :self args)
-           (setq logger (make-logger '(log4cl-impl self))
-                 self t)
+           (setq logger +self-logger+ self t)
            (setq args (remove :self args))))
     (setq logger (or logger *root-logger*))
     (unless (setq orig-args args)
@@ -160,29 +273,59 @@ Examples:
     (loop
       (let ((arg (or (pop args) (return))))
         (case arg
-          (:self ; still in the arglist means 1st arg was a logger
+          (:self     ; still in the arglist means 1st arg was a logger
            (log4cl-error "Specifying a logger is incompatible with :SELF"))
-          (:sane (setq sane t))
-          (:clear (setq clear t))
+          (:sane (setq sane t global-console t))
+          (:sane2 (setq sane t global-console t tricky-console t))
+          ((:clear :reset) (setq clear t))
+          (:levels (setq clear-levels t))
+          (:appenders (setq clear-appenders t))
           (:all (setq all t))
-          (:own (setq own t))
+          ((:own :nonadditive :noadditive) (setq own t noown nil))
+          (:additive (setq own nil noown t))
+          (:file (setq file t file2 nil nofile nil))
+          (:file2 (setq file nil file2 t nofile nil))
+          (:nofile (setq file nil file2 nil nofile t))
+          (:time (setq time t notime nil))
+          (:notime (setq time nil notime t))
           (:immediate-flush (setq immediate-flush t))
-          ((:twoline :two-line) (setq twoline t))
-          (:console (setq console t))
-          (:this-console (setq this-console t
-                               console t))
+          ((:twoline :two-line :2line) (setq oneline nil twoline t))
+          ((:oneline :one-line :1line) (setq oneline t twoline nil))
+          (:console (setq console t global-console t))
+          (:thread (setq thread t))
+          (:ndc (setq ndc t))
+          (:pretty (setq pretty t nopretty nil))
+          (:nopretty (setq nopretty t pretty nil))
+          (:package (setq package t nopackage nil))
+          (:nopackage (setq nopackage t package nil))
+          ((:this-console :this)
+           (setq console t
+                 this-console t
+                 tricky-console nil
+                 global-console nil))
+          ((:tricky-console :tricky)
+           (setq console t
+                 tricky-console t
+                 this-console nil))
+          (:force-add (setq force-add t))
           (:watch (setq watch t))
+          (:backup
+           (setq backup (or (pop args)
+                            (log4cl-error ":BACKUP missing argument"))
+                 had-backup t))
           (:daily
            (setq daily (or (pop args)
                            (log4cl-error ":DAILY missing argument"))))
+          (:remove
+           (setq remove (or (pop args)
+                            (log4cl-error ":REMOVE missing argument"))))
           (:properties
            (setq properties (or (pop args)
                                 (log4cl-error ":PROPERTIES missing argument"))))
           (:stream
            (setq stream (or (pop args)
                             (log4cl-error ":STREAM missing argument"))
-                 console t
-                 this-console t))
+                 console t))
           (:pattern
            (setq pattern (or (pop args)
                              (log4cl-error ":PATTERN missing argument"))))
@@ -192,35 +335,90 @@ Examples:
                       (log4cl-error "Only one log level can be specified"))
                      (lvl (setq level lvl))
                      ((keywordp arg)
-                      (log4cl-error "Invalid LOG-CONFIG keyword ~s" arg))
+                      (log4cl-error "Invalid LOG:CONFIG keyword ~s" arg))
                      (t (log4cl-error
                          "Don't know what do with argument ~S" arg))))))))
+    (if (and stream (not this-console) (not tricky-console))
+        (setq tricky-console t))
+    (setq
+     pattern-specified-p (or pattern oneline twoline thread
+                             ndc file file2 nofile time notime
+                             pretty nopretty
+                             package nopackage)
+     appender-specified-p (or daily sane console))
+    
     (or logger (setq logger *root-logger*))
-    (or level sane clear daily properties own console
-        (log4cl-error "A log level or one of :SANE :CLEAR :OWN :DAILY :CONSOLE or :PROPERTIES must be specified"))
+    (or level remove sane clear daily properties own noown console pattern-specified-p
+        (log4cl-error "Bad combination of options"))
     (or (not properties)
-        (not (or sane daily pattern console level))
-        (log4cl-error ":PROPERTIES can't be used with :SANE :DAILY :PATTERN or log level"))
+        (not (or sane daily console level pattern-specified-p))
+        (log4cl-error ":PROPERTIES can't be used with other options"))
+    (or (not remove)
+        (not (or sane daily console level pattern-specified-p))
+        (log4cl-error ":REMOVE can't be used with other options"))
+    (if (and pattern
+             (or twoline oneline file file2 nofile time notime
+                 thread ndc pretty nopretty
+                 package nopackage))
+        (error ":PATTERN isn't compatible with built-in pattern selection flags"))
+    (when remove
+      (let ((list (logger-appenders logger)))
+        (if (<= 1 remove (length list))
+            (remove-appender logger (nth (1- remove) list))
+            (log4cl-error "Bad appender number ~d" remove)))
+      (return-from log-config))
+    (when (or appender-specified-p pattern-specified-p)
+      (setq layout (make-instance 'pattern-layout
+                    :conversion-pattern
+                    (or pattern (figure-out-pattern
+                                 :oneline (if (or oneline twoline) oneline t)
+                                 :twoline (if (or oneline twoline) twoline nil)
+                                 :time (if (or time notime) time t)
+                                 :file (if (or file file2 nofile) file t)
+                                 :file2 (if (or file file2 nofile) file2 nil)
+                                 :pretty pretty
+                                 :nopretty nopretty
+                                 :package package
+                                 :nopackage nopackage
+                                 :thread thread
+                                 :ndc ndc)))))
+    (when (and own (eq logger *root-logger*))
+      (error "Can't set root logger non-additive"))
     (when level
       (set-log-level logger level nil))
     (when clear
-      (map-logger-descendants
-       (lambda (l)
-         (set-log-level l +log-level-unset+ nil)
-         (when (or (logger-additivity l) all)
-           (remove-all-appenders-internal l nil)))
-       logger))
-    (when own
-      (set-additivity logger nil nil))
-    (when (or daily sane console)
-      (let ((default-pattern "[%D{%H:%M:%S}] [%P] <%c{}{}{:downcase}> - %m%n")
-            (twoline-pattern "[%D{%H:%M:%S}] [%-5P] <%c{}{}{:downcase}>%n  *%I{>} %m%n"))
-        (setq layout (make-instance 'pattern-layout
-                      :conversion-pattern
-                      (or pattern
-                          (if twoline twoline-pattern
-                              default-pattern)))))
-      (if sane (remove-all-appenders-internal logger nil))
+      (labels ((map-descendants-ignoring-self (function logger) 
+                 (let ((child-hash (%logger-child-hash logger)))
+                   (when child-hash
+                     (maphash (lambda (name logger)
+                                (declare (ignore name))
+                                (when (or self
+                                          (not (eq logger +self-logger+))) 
+                                  (funcall function logger) 
+                                  (unless (typep logger 'source-file-logger) 
+                                    (map-descendants-ignoring-self function logger))))
+                              child-hash))))) 
+        (map-descendants-ignoring-self
+         (lambda (l)
+           (when (or (logger-additivity l) all)
+             (when (or clear-levels (not clear-appenders)) 
+               (set-log-level l +log-level-unset+ nil))
+             (when clear-appenders 
+               (unless (eq l +self-meta-logger+) 
+                 (remove-all-appenders-internal l nil)))))
+         logger)))
+    ;; kind of separate from appender stuff
+    (when (or own noown)
+      (set-additivity logger (not own) nil))
+    (when (or daily sane console) 
+      (if sane
+          ;; Only remove all appenders if :clear was also given,
+          ;; otherwise don't touch file appenders
+          (if (and clear clear-appenders)
+              (remove-all-appenders-internal logger nil) 
+              (dolist (a (logger-appenders logger))
+                (unless (typep a 'file-appender-base)
+                  (remove-appender-internal logger a nil)))))
       ;; create daily appender
       (when daily
         (dolist (a (logger-appenders logger))
@@ -228,60 +426,252 @@ Examples:
             (remove-appender-internal logger a nil)))
         (push (make-instance 'daily-file-appender
                :name-format daily
-               :backup-name-format (format nil "~a.%Y%m%d" daily)
+               :backup-name-format
+               (if had-backup backup
+                   (unless (position #\% daily)
+                     (format nil "~a.%Y%m%d" daily)))
                :layout layout)
-            appenders))
-      ;; create console appender
+              appenders))
+      ;; Add new console appender, only in these situations
+      ;; 
+      ;; a) :console or :this-console is explicitly used
+      ;; b) :sane is specified and :daily not
       (when (or (and sane (not daily))
                 console)
-        (push
-            (if this-console
-                (make-instance 'fixed-stream-appender
-                 :stream (or stream *debug-io*)
-                 :layout layout)
-                (make-instance 'console-appender :layout layout))
-            appenders))
+        (let* (have-this-console-p
+               have-global-console-p
+               have-tricky-console-p
+               (stream (resolve-stream (or stream *global-console*)))
+               (global-stream (resolve-stream *global-console*))
+               (global-stream-same-p (eq stream global-stream))
+               dups)
+          (dolist (a (logger-appenders logger))
+            (when (appender-enabled-p a)
+              (typecase a
+                (console-appender (setq have-global-console-p t)
+                 (push a dups))
+                (tricky-console-appender
+                 (when (eq stream (appender-stream a))
+                   (setq have-tricky-console-p t)
+                   (push a dups)))
+                (this-console-appender
+                 (when (eq stream (appender-stream a))
+                   (setq have-this-console-p t)
+                   (push a dups))))))
+          (when (not force-add)
+            ;; if user tries to add this-console, and we have global
+            ;; one add tricky one instead
+            (when (and (or have-global-console-p global-console)
+                       this-console
+                       global-stream-same-p)
+              (setq this-console nil
+                    tricky-console t))
+            ;; (format t " have (this global tricky) = ~s ~%" (list have-this-console-p have-global-console-p have-tricky-console-p))
+            ;; (format t " want (this global tricky) = ~s ~%" (list this-console global-console tricky-console))
+            ;; duplicate check
+            (when (or (and global-console
+                           (or have-global-console-p
+                               (and have-this-console-p
+                                    global-stream-same-p)))
+                      (and this-console
+                           (or (and have-global-console-p global-stream-same-p)
+                               have-this-console-p))
+                      (and tricky-console
+                           (or have-tricky-console-p
+                               have-this-console-p))) 
+              (error "~@<Already logging to the same stream with ~4I~_~S ~%Specify either :SANE or :FORCE-ADD~:>"
+                     dups)))
+          (when global-console
+            (push (make-instance 'console-appender :layout layout)
+                  appenders))
+          (when (or tricky-console this-console) 
+            (push
+             (if tricky-console
+                 (make-instance 'tricky-console-appender
+                  :stream stream :layout layout)
+                 (make-instance 'this-console-appender
+                  :stream stream :layout layout))
+             appenders))))
+      ;; (format t "here appenders = ~s ~%" appenders)
       ;; now add all of them to the logger
       (dolist (a appenders)
         (when immediate-flush
           (setf (slot-value a 'immediate-flush) t))
-        (add-appender-internal logger a nil))
-      (set-additivity logger (not own) nil))
+        (add-appender-internal logger a nil)))
     (when properties
       (configure (make-instance 'property-configurator) properties
                  :auto-reload watch))
+    ;; When pattern options are specified, but not the option to add
+    ;; new appender, we assume user wants to change layout for
+    ;; existing console appenders
+    (when (and pattern-specified-p (not appender-specified-p))
+      (let (didit
+            (global-stream (resolve-stream *global-console*)))
+        (dolist (a (logger-appenders logger))
+          ;; Only change global console appenders, or specific console
+          ;; appender that log to console at log site
+          (when (appender-enabled-p a) 
+            (when (or (typep a 'console-appender)
+                      (and (typep a '(or this-console-appender
+                                      tricky-console-appender))
+                           (eq (appender-stream a) global-stream)))
+              ;; Assumes slot assignments atomic, but so is everything
+              ;; else in log4cl
+              (setf (appender-layout a) layout)
+              (setq didit t))))
+        (unless didit
+          (error "Did not find any appenders to change."))))
     (when self
       ;; This is special adhoc case of configuring the LOG4CL-iMPL:SELF.  We need
       ;; special processing, because we want self-logging to survive
       ;; the (clear-logging-configuration), which is done doing tests
-      (let ((config (cons :own
-                          ;; we don't remember these
-                          (remove-if (lambda (x)
-                                       (member x '(:own :self :clear :all)))
-                                     orig-args))))
-        ;; if specified new appenders, simply remember new configuration
-        (if (or sane daily) (setq *self-log-config* config)
-            ;; otherwise merge specified config and the remembered one
-            ;; This is so (log-config :self :d) would still do same
-            ;; thing as (log-config :self :d :sane), if old value of
-            ;; *self-log-config* contained :sane
-            (let (tmp doit)
-              (when (setq tmp (member :sane *self-log-config*))
-                (push :sane config)
-                (setq doit t))
-              (when (setq tmp (member :daily *self-log-config*))
-                (setq config (append config (subseq tmp 0 2)))
-                (setq doit t))
-              (when (and (setq tmp (member :pattern *self-log-config*))
-                         (not pattern))
-                (setq config (append config (subseq tmp 0 2)))
-                (setq doit t))
-              (when (and (setq tmp (member :twoline *self-log-config*))
-                         (not pattern))
-                (setq config (cons :twoline (remove :twoline config))))
-              (when doit (setq *self-log-config* config))))))
+      (let ((config
+              (cons
+               :own
+               ;; we don't remember these
+               (remove-if (lambda (x)
+                            (member x '(:own :self :clear :all :twoline :two-line
+                                        :2line :oneline :one-line :1line
+                                        :file :file2 :nofile
+                                        :time :notime
+                                        :pretty :nopretty
+                                        :package :nopackage
+                                        :thread :ndc)))
+                          orig-args))))
+        ;; If anything non-default was specified, remember
+        (let ((lst '(:sane :daily :console :this-console :tricky-console))) 
+          (if (null (intersection lst config))
+              (dolist (elem (reverse lst))
+                (when (member elem *self-log-config*)
+                  (push elem config)))))
+        (and twoline (push :twoline config)) 
+        (and file (push :file config)) 
+        (and file2 (push :file2 config)) 
+        (and nofile (push :nofile config)) 
+        (and notime (push :notime config))
+        (and time (push :time config))
+        (and pretty (push :pretty config))
+        (and nopretty (push :nopretty config))
+        (and package (push :package config))
+        (and nopackage (push :nopackage config))
+        (and thread (push :thread config))
+        (and ndc (push :ndc config))
+        (when (and (null level)
+                   (logger-log-level logger))
+          (push (aref +log-level-to-keyword+
+                      (logger-log-level logger))
+                config))
+        (setq *self-log-config* config)))
     ;; finally recalculate reach-ability
     (adjust-logger logger)))
+
+(defun clear-logging-configuration ()
+  "Delete all loggers configuration, leaving only LOG4CL-IMPL"
+  (labels ((reset (logger)
+             (remove-all-appenders logger)
+             (setf (svref (%logger-state logger) *hierarchy*)
+                   (make-logger-state))
+             (map-logger-children #'reset logger)))
+    (reset *root-logger*)
+    (when *self-log-config*
+      (apply 'log-config +self-logger+ *self-log-config*))
+    (add-appender +self-meta-logger+ (make-instance 'console-appender
+                                      :layout (make-instance 'simple-layout)
+                                      :immediate-flush t))
+    (log-config +self-meta-logger+ :own))
+  (values))
+
+(defun reset-logging-configuration ()
+  "Clear the logging configuration in the current hierarchy, and
+configure root logger with INFO log level and a simple console
+appender"
+  (clear-logging-configuration)
+  (add-appender *root-logger* (make-instance 'console-appender))
+  (setf (logger-log-level *root-logger*) +log-level-warn+)
+  (log-info "Logging configuration was reset to sane defaults"))
+
+
+(defparameter *default-patterns*
+  '((:oneline t :time t :file t :pattern
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+    (:oneline t :time t :file2 t :pattern
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+    (:oneline t :time nil :file t :pattern
+     "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+    (:oneline t :time nil :file2 t :pattern
+     "%&%<%I%;<;;>;-5p%t %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+    (:oneline t :time t :pattern
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+    (:oneline t :time nil :pattern
+     "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+    (:twoline t :time t :file t :pattern
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
+    (:twoline t :time t :file2 t :pattern
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
+    (:twoline t :time nil :file t :pattern
+     "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
+    (:twoline t :time nil :file2 t :pattern
+     "%&%<%I%;<;;>;-5p%t %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
+    (:twoline t :time t :pattern
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
+    (:twoline t :time nil :pattern
+     "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")))
+
+(defun replace-in-string (s x y)
+  (let ((n (search x s)))
+    (if (not n) s
+      (concatenate
+       'string
+       (subseq s 0 n)
+       y
+       (subseq s (+ n (length x)))))))
+
+(defun figure-out-pattern (&rest args)
+  (let ((pat (find-if (lambda (elem)
+                        (every (lambda (prop)
+                                 (eql (getf args prop)
+                                      (getf elem prop)))
+                               '(:oneline :twoline :time :file :file2)))
+                      *default-patterns*)))
+    (let ((pat (getf (or pat (first *default-patterns*)) :pattern)))
+      ;; handle pretty, ndc and thread
+      (flet ((s/ (x y)
+               (setq pat (replace-in-string pat x y)))) 
+        (cond ((getf args :pretty)
+               (s/ "%<" "%<{pretty}"))
+              ((getf args :nopretty) 
+               (s/ "%<" "%<{nopretty}")))
+        (cond ((getf args :package)
+               (s/ "%<" "%<{package}"))
+              ((getf args :nopackage) 
+               (s/ "%<" "%<{nopackage}")))
+        (cond
+          ((and (getf args :thread)
+                (getf args :ndc))
+           (s/ "%t" " [%t%:;-;x]"))
+          ((getf args :thread)
+           (s/ "%t" " [%t]"))
+          ((getf args :ndc)
+           (s/ "%t" "%:; [;;];x"))
+          (t (s/ "%t" "")))
+        pat))))
+
+
+(defun appender-extra-print-properties (a)
+  "Make an list of extra properties when printing appender configuration.
+Some of the properties are included only conditionally, such as last
+error or error count"
+  (with-slots (message-count
+               error-count
+               ignored-error-count
+               last-error
+               last-ignored-error) a 
+    (append
+     '((:message-count message-count nil))
+     (when (plusp error-count) '((:error-count error-count nil)))
+     (when (plusp ignored-error-count) '((:ignored-error-count ignored-error-count nil)))
+     (when last-error '((:last-error last-error nil)))
+     (when last-ignored-error '((:last-ignored-error last-ignored-error nil))))))
 
 (defun show-logger-settings (logger)
   "Print logger settings and its children to *STANDARD-OUTPUT*
@@ -323,10 +713,13 @@ Example output:
                  (if present result
                      (setf (gethash l interesting-cache)
                            (or (eq l logger)
-                               (logger-appenders l)
-                               (not (logger-additivity l))
-                               (logger-log-level l)
-                               (some #'interesting-logger-p (logger-children l)))))))
+                               (and (not (eq l +self-logger+))
+                                    (or 
+                                     (logger-appenders l) 
+                                     (not (logger-additivity l)) 
+                                     (logger-log-level l) 
+                                     (and (not (typep l 'source-file-logger))
+                                          (some #'interesting-logger-p (logger-children l))))))))))
              (print-indent (&optional node-p)
                (dolist (elem (reverse indents))
                  (let* ((lastp (eq elem (car indents)))
@@ -354,7 +747,9 @@ Example output:
                (let* ((lvl (logger-log-level l))
                       (appenders (logger-appenders l))
                       (additivity (logger-additivity l))
-                      (children (remove-if-not #'interesting-logger-p (logger-children l)))
+                      (children
+                        (unless (typep l 'source-file-logger)
+                          (remove-if-not #'interesting-logger-p (logger-children l))))
                       (cnt-nodes (+ (length appenders)
                                     (length children))))
                  (print-indent t)
@@ -365,21 +760,22 @@ Example output:
                        (t (format t "~A" (logger-name l))
                           (push (cons 1 cnt-nodes) indents)))
                  (unless additivity
-                   (write-string " (non-additive)"))
+                   (write-string " non-additive"))
                  (when lvl
                    (format t ", ~A" (log-level-to-string lvl)))
                  (terpri)
                  (when appenders
-                   (dolist (a appenders)
-                     (print-one-appender a)))
+                   (loop for num from 1
+                         for a in appenders
+                         do (print-one-appender a num)))
                  (when (some #'interesting-logger-p children)
                    (dolist (l children)
                      (when (interesting-logger-p l)
                        (print-indent) (terpri)
                        (print-one-logger l))))
                  (pop indents)))
-             (print-properties (obj)
-               (let* ((prop-alist (property-alist obj))
+             (print-properties (obj &optional extra-props)
+               (let* ((prop-alist (append (property-alist obj) extra-props))
                       (name-width (loop for prop in prop-alist maximize
                                            (length (format nil "~s" (first prop)))))
                       (indent (with-output-to-string (*standard-output*)
@@ -387,24 +783,29 @@ Example output:
                       (*print-pretty* t))
                  (loop
                    for (initarg slot nil) in prop-alist
-                   do (pprint-logical-block (nil nil :per-line-prefix indent)
-                        (pprint-indent :block 0)
-                        (write initarg :case :downcase)
-                        (pprint-tab :section-relative 1 (1+ name-width))
-                        (pprint-newline :miser)
-                        (pprint-indent :block 0)
-                        (write (slot-value obj slot)))
+                   do (pprint-logical-block (*standard-output* nil :per-line-prefix indent)
+                        (let ((value (slot-value obj slot))) 
+                          (pprint-indent :block 0) 
+                          (write initarg :case :downcase) 
+                          (pprint-tab :section-relative 1 (1+ name-width))
+                          (pprint-indent :block 2)
+                          (pprint-newline :fill)
+                          (write value)))
                    do (terpri))))
-             (print-one-appender (a)
+             (print-one-appender (a num)
                ;; empty line for spacing
                (print-indent) (terpri)
                ;; now the appender node
-               (print-indent t) (format t "-~A~%" a) 
+               (print-indent t) (format t "-(~d)-~A" num a)
+               (unless (appender-enabled-p a)
+                 (write-string " disabled"))
+               (terpri)
                ;; indent appender attributes and layout under the appender,
                ;; don't draw the tree for them
                (push (cons 5 0) indents)
                (print-layout (slot-value a 'layout))
-               (print-properties a)
+               (print-properties
+                a (appender-extra-print-properties a))
                (pop indents))
              (print-layout (layout)
                (print-indent)
@@ -412,17 +813,26 @@ Example output:
                (push (cons 5 0) indents)
                (print-properties layout)
                (pop indents)))
-      (print-one-logger logger))
+      (print-one-logger logger)
+      (let* ((global-stream (resolve-stream *terminal-io*))
+             (appenders (effective-appenders logger)))
+        (unless (some (lambda (a)
+                        (typecase a
+                          (console-appender t)
+                          ((or this-console-appender tricky-console-appender)
+                           (eq (appender-stream a) global-stream))))
+                      appenders)
+          (format t "~%~@<Warning: No appenders can reach current ~9I~_~<~A: ~:_~A~:>~:>~%"
+                  (list '*terminal-io* global-stream)))))
     (values)))
 
 ;; do default configuration
-(defvar *default-init-done-p* nil)
-
-(defun perform-default-init ()
-  (unless *default-init-done-p*
-    (setq *default-init-done-p* t)
-    (clear-logging-configuration)
-    (log-config :i :sane :immediate-flush)))
+(let ((done nil)) 
+  (defun perform-default-init ()
+    (unless done
+      (setq done t)
+      (clear-logging-configuration)
+      (log-config :i :sane :immediate-flush))))
 
 (perform-default-init)
 
@@ -461,20 +871,44 @@ Returns a list of CONFIGURATION-ELEMENT objects"
                 for level = (logger-log-level logger)
                 if level collect (make-element logger level)))))
 
+(defun make-logger-configuration-load-form (logger)
+  "Different version of loggers load-form, that does not
+remember the file name. This allows saved logging configuration
+to be restored, even if loggers had moved to a different file,
+without overwriting their file with its value when configuration
+was saved."
+  (let ((pkg-start (logger-pkg-idx-start logger))
+        (pkg-end (logger-pkg-idx-end logger))) 
+    (if (typep logger 'source-file-logger) 
+        ;; for source-file-loggers, that represent the entire file we
+        ;; still remember the file
+        `(%get-logger ',(logger-categories logger)
+                      ,(%logger-category-separator logger)
+                      nil nil t
+                      ,(logger-file logger)
+                      ,(when (plusp pkg-start) (1- pkg-start))
+                      ,(when (plusp pkg-end) (1- pkg-end)) t)
+        ;; but not for regular loggers
+        `(%get-logger ',(logger-categories logger)
+                      ,(%logger-category-separator logger)
+                      nil nil t
+                      nil
+                      ,(when (plusp pkg-start) (1- pkg-start))
+                      ,(when (plusp pkg-end) (1- pkg-end))
+                      ,(typep logger 'source-file-logger)))))
+
 (defmethod print-object ((elem configuration-element) stream)
   (with-slots (logger level) elem
     (if (not *print-readably*)
         (print-unreadable-object (elem stream :type t)
-          (princ (if (logger-parent logger) (logger-category logger)
+          (princ (if (%logger-parent logger) (%logger-category logger)
                      "+ROOT+") stream)
           (princ #\Space stream)
           (prin1 level stream))
         (format stream  "#.~S"
                 `(make-instance 'configuration-element
                   :logger
-                  (%get-logger ',(logger-categories logger)
-                               ,(logger-category-separator logger)
-                               nil)
+                  ,(make-logger-configuration-load-form logger)
                   :level ,level)))))
 
 (defmethod print-object ((cnf configuration) stream)
@@ -694,3 +1128,78 @@ lift the older equivalent configuration to the top of the list"
   (loop for cnt from 0 
         for cnf in *configurations*
         do (format stream "~4:<~d.~> ~A~%" cnt cnf)))
+
+(defmacro package-options (&whole args
+                           &key package category-case category-separator
+                                shortest-nickname
+                                expr-print-format 
+                                expr-log-level
+                                old-logging-macros
+                           &allow-other-keys)
+  "Set custom options for expansion of logging macros in a specified
+package. 
+
+  PACKAGE - the package options are being set for, defaults to
+  *PACKAGE*. No references to the package itself will be retained,
+  instead options are keyed by package name string
+
+
+  CATEGORY-CASE - Determining how logger naming converts symbols to in
+  the category name.
+
+    Valid values are: 
+    - NIL        :  As printed by PRINC (ie affected by active *READTABLE*)
+    - :UPCASE    :  Convert to upper case
+    - :DOWNCASE  :  Convert to lower case
+    - :INVERT    :  Invert in the same way inverted READTABLE-CASE does it
+    - :PRESERVE  :  Do not change
+
+  Note that pattern layout offers similar facility that changes how
+  logger category is printed on the output side
+
+
+  SHORTEST-NICKNAME  - When T (default), the shortest of package name or
+  any of its nicknames will be used as logger category, otherwise official
+  package name will be used.
+
+  CATEGORY-SEPARATOR - String that separates logging categories, defaults to dot.
+
+  EXPR-PRINT-FORMAT - The FORMAT control string, for two arguments
+  used to print expressions, first argument is quoted expression form,
+  and second argument is value. Default is \"~W=~W~^ ~:_\". If
+  format string contains ~:> directive (terminate pretty printing block),
+  then corresponding format argument will be a (NAME VALUE) list
+
+  EXPR-LOG-LEVEL - the log level for the (LOG:EXPR) macro. Default
+  is :DEBUG.
+
+  OLD-LOGGING-MACROS - If set, log statement without constant format
+  string such as (LOG:DEBUG a b c d) will be interpreted as logging to
+  logger stored in variable A with format string B and more format
+  arguments, instead of treating them as (LOG:EXPR a b c d)
+  "
+  ;; Lambda list only for Slime-doc 
+  (declare (ignorable package category-case category-separator
+                      expr-print-format shortest-nickname
+                      expr-log-level
+                      old-logging-macros))
+  `(eval-when (:compile-toplevel :load-toplevel :execute)
+     (%set-package-options ,@(rest args))))
+
+(defun %set-package-options (&key (package *package*)
+                                  (category-case nil category-casep)
+                                  category-separator
+                                  expr-print-format
+                                  (shortest-nickname t shortest-nicknamep)
+                                  expr-log-level
+                                  (old-logging-macros nil old-logging-macrosp))
+  "Processes the naming configuration options"
+  (let* ((nc (find-or-create-naming-configuration (find-package package) t))
+         (*naming-configuration* nc))
+    (prog1 nc 
+      (when category-casep (setf (%category-case nc) category-case)) 
+      (when category-separator (setf (%category-separator nc) category-separator)) 
+      (when expr-print-format (setf (%expr-print-format nc) expr-print-format))
+      (when shortest-nicknamep (setf (%use-shortest-nickname nc) shortest-nickname))
+      (when expr-log-level (setf (%expr-log-level nc) (make-log-level expr-log-level)))
+      (when old-logging-macrosp (setf (%old-logging-macros nc) old-logging-macros)))))

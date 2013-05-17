@@ -13,7 +13,7 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(in-package #:log4cl-impl)
+(in-package #:log4cl)
 
 (defclass simple-layout (layout) ()
   (:documentation
@@ -34,6 +34,7 @@ dash. For example: INFO - user log message"))
                              log-func)
   "Format the log message with the simple layout"
   (declare (ignore logger))
+  (fresh-line stream)
   (write-log-level level stream)
   (write-string " - " stream)
   (call-user-log-message log-func stream)

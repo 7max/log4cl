@@ -13,46 +13,9 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(in-package #:log4cl-test)
-
-(in-suite test)
-
-(deftest test-pattern-layout (pattern expected-result
-                                      &key
-                                      (level +log-level-info+)
-                                      (logger (make-logger '(one two three)))
-                                      (message "message"))
-  "Output a log message into an appender with a pattern layout with
-specified PATTERN and compare its output to EXPECTED-RESULT"
-  (with-package-log-hierarchy
-    (clear-logging-configuration)
-    (let ((output
-            (with-output-to-string (s)
-              (add-appender *root-logger*
-                            (make-instance 'fixed-stream-appender
-                             :stream s
-                             :layout (make-instance 'pattern-layout
-                                      :conversion-pattern pattern)))
-              (setf (logger-log-level *root-logger*) level)
-              ;; TODO need a macro that logs with specified level
-              (cond 
-                ((eql level +log-level-fatal+) (log-fatal logger "~a" message))
-                ((eql level +log-level-error+) (log-error logger "~a" message))
-                ((eql level +log-level-warn+) (log-warn logger "~a" message))
-                ((eql level +log-level-info+) (log-info logger "~a" message))
-                ((eql level +log-level-debug+) (log-debug logger "~a" message))
-                ((eql level +log-level-user1+) (log-user1 logger "~a" message))
-                ((eql level +log-level-user2+) (log-user2 logger "~a" message))
-                ((eql level +log-level-user3+) (log-user3 logger "~a" message))
-                ((eql level +log-level-user4+) (log-user4 logger "~a" message))
-                ((eql level +log-level-trace+) (log-trace logger "~a" message))
-                ((eql level +log-level-user5+) (log-user5 logger "~a" message))
-                ((eql level +log-level-user6+) (log-user6 logger "~a" message))
-                ((eql level +log-level-user7+) (log-user7 logger "~a" message))
-                ((eql level +log-level-user8+) (log-user8 logger "~a" message))
-                ((eql level +log-level-user9+) (log-user9 logger "~a" message))))))
-      (is (equal output expected-result))))
-  (values))
+(log4cl-test:defsubsuite :log4cl-test.layouts)
+(in-package :log4cl-test.layouts)
+(log4cl-test:subsuite-start)
 
 
 (deftest test-pattern-parsing ()
@@ -118,9 +81,50 @@ message")
   (test-pattern-layout "%p \\- %m" "INFO - message")
   (test-pattern-layout "%p \\\\-\\\\ %m" "INFO \\-\\ message"))
 
+(deftest test-pattern-layout-optional ()
+  (with-ndc () 
+    (test-pattern-layout "%x" "")
+    (test-pattern-layout "<%x>" "<>")
+    (test-pattern-layout "%3x" "   ")
+    (test-pattern-layout "<%3x>" "<   >")
+    (test-pattern-layout "%:3x" "")
+    (test-pattern-layout "%:-3x" "")
+    (with-ndc (nil)
+      (test-pattern-layout "%x" (format nil "~A" nil))
+      (test-pattern-layout "%:x" (format nil "~A" nil))
+      (test-pattern-layout "%:4x" (format nil "~A " nil))
+      (test-pattern-layout "%:-4x" (format nil " ~A" nil)))
+    (with-ndc ("A")
+      (test-pattern-layout "%x" "A")
+      (test-pattern-layout "%:x" "A")
+      (test-pattern-layout "%:3x" "A  ")
+      (test-pattern-layout "%:-3x" "  A"))
+    (with-ndc () 
+      (test-pattern-layout "%;<;;>;x" "<>")
+      (test-pattern-layout "%;<;;>;3x" "<>   ") 
+      (test-pattern-layout "%;<;;>;-3x" "   <>"))
+    (with-ndc ("A")
+      (test-pattern-layout "%;<;;>;x" "<A>")
+      (test-pattern-layout "%;<;;>;3x" "<A>  ")
+      (test-pattern-layout "%;<;;>;-3x" "  <A>")
+      (test-pattern-layout "%;<;3x" "<A  ")
+      (test-pattern-layout "%;;;>;-3x" "  A>"))
+    (with-ndc ()
+      (test-pattern-layout "%:;<;;>;x" "")
+      (test-pattern-layout "%:;<;;>;3x" "")
+      (test-pattern-layout "%:;<;;>;-3x" "")
+      (test-pattern-layout "%:;<;3x" "")
+      (test-pattern-layout "%:;;;>;-3x" ""))
+    (with-ndc ("A")
+      (test-pattern-layout "%:;-=<;;>;x" "-=<A>")
+      (test-pattern-layout "%:;<;;>;3x" "<A>  ")
+      (test-pattern-layout "%:;<;;>;-3x" "  <A>")
+      (test-pattern-layout "%:;<;3x" "<A  ")
+      (test-pattern-layout "%:;;;>;-3x" "  A>"))))
+
 (deftest test-pattern-log-level ()
   "Test %p pattern"
-  (loop for level from +log-level-fatal+ to +log-level-user9+
+  (loop for level from +log-level-fatal+ to +log-level-debu9+
         do (test-pattern-layout "%p"
                                 (log-level-to-string level)
                                 :level level)))
@@ -131,7 +135,7 @@ message")
       (dolist (s list)
         (if sep (princ sep)
             (setq sep separator))
-        (princ (symbol-name s))))))
+        (princ (if (stringp s) s (symbol-name s)))))))
 
 (deftest test-make-expected ()
   "Test function for making expected results"
@@ -150,7 +154,7 @@ case conversion"
         (logger (make-logger '(one two three))))
     (labels
         ((test-category (pattern &key
-                                 (separator ":")
+                                 (separator ".")
                                  (categories categories)
                                  (logger logger))
            (let ((expected
@@ -161,12 +165,12 @@ case conversion"
       ;; test using system native case
       (test-category "%c{4}")
       (test-category "%c{3}")
-      (test-category "%c{2}" :separator ":" :categories '(two three))
-      (test-category "%c{1}" :separator ":" :categories '(three))
-      (test-category "%c{4}{.}" :separator ".")
-      (test-category "%c{3}{.}" :separator ".")
-      (test-category "%c{2}{.}" :separator "." :categories '(two three))
-      (test-category "%c{1}{.}" :separator "." :categories '(three))
+      (test-category "%c{2}" :separator "." :categories '(two three))
+      (test-category "%c{1}" :separator "." :categories '(three))
+      (test-category "%c{4}{_}" :separator "_")
+      (test-category "%c{3}{_}" :separator "_")
+      (test-category "%c{2}{_}" :separator "_" :categories '(two three))
+      (test-category "%c{1}{_}" :separator "_" :categories '(three))
       ;; create loggers named with upper, lower and mixed cases
       ;; and test various combination of case conversion on them
       (let ((logger-mixed (make-logger '(|One| |Two| |Three|)))
@@ -178,157 +182,157 @@ case conversion"
         ;; test unchanged mixed case
         (test-category "%c{4}" :logger logger-mixed :categories cats-mixed)
         (test-category "%c{3}" :logger logger-mixed :categories cats-mixed)
-        (test-category "%c{2}" :separator ":" :logger logger-mixed
+        (test-category "%c{2}" :separator "." :logger logger-mixed
                                :categories (last cats-mixed 2))
-        (test-category "%c{1}" :separator ":" :logger logger-mixed
+        (test-category "%c{1}" :separator "." :logger logger-mixed
                                :categories (last cats-mixed 1))
-        (test-category "%c{4}{.}" :separator "."
+        (test-category "%c{4}{_}" :separator "_"
                                   :logger logger-mixed :categories cats-mixed)
-        (test-category "%c{}{.}" :separator "."
+        (test-category "%c{}{_}" :separator "_"
                                   :logger logger-mixed :categories cats-mixed)
-        (test-category "%c{2}{.}" :separator "."
+        (test-category "%c{2}{_}" :separator "_"
                                   :logger logger-mixed :categories
                                   (last cats-mixed 2))
-        (test-category "%c{1}{.}" :separator "."
+        (test-category "%c{1}{_}" :separator "_"
                                   :logger logger-mixed :categories
                                   (last cats-mixed 1))
         ;; test invert does not change the case
         (test-category "%c{4}{}{:invert}" :logger logger-mixed :categories cats-mixed)
         (test-category "%c{3}{}{:invert}" :logger logger-mixed :categories cats-mixed)
-        (test-category "%c{2}{}{:invert}" :separator ":" :logger logger-mixed
+        (test-category "%c{2}{}{:invert}" :separator "." :logger logger-mixed
                                           :categories (last cats-mixed 2))
-        (test-category "%c{1}{}{:invert}" :separator ":" :logger logger-mixed
+        (test-category "%c{1}{}{:invert}" :separator "." :logger logger-mixed
                                           :categories (last cats-mixed 1))
-        (test-category "%c{4}{.}{:invert}" :separator "."
+        (test-category "%c{4}{_}{:invert}" :separator "_"
                                            :logger logger-mixed
                                            :categories cats-mixed)
-        (test-category "%c{}{.}{:invert}" :separator "."
+        (test-category "%c{}{_}{:invert}" :separator "_"
                                           :logger logger-mixed
                                           :categories cats-mixed)
-        (test-category "%c{2}{.}{:invert}" :separator "."
+        (test-category "%c{2}{_}{:invert}" :separator "_"
                                            :logger logger-mixed :categories
                                            (last cats-mixed 2))
-        (test-category "%c{1}{.}{:invert}" :separator "."
+        (test-category "%c{1}{_}{:invert}" :separator "_"
                                            :logger logger-mixed :categories
                                            (last cats-mixed 1))
         ;; test forced upper case
-        (test-category "%c{4}{:}{:upcase}"
+        (test-category "%c{4}{.}{:upcase}"
                        :logger logger-mixed
                        :categories cats-upcase)
         (test-category "%c{}{}{:upcase}"
                        :logger logger-mixed
                        :categories cats-upcase)
         (test-category "%c{2}{}{:upcase}"
-                       :separator ":"
+                       :separator "."
                        :logger logger-mixed
                        :categories (last cats-upcase 2))
         (test-category "%c{1}{}{:upcase}"
-                       :separator ":"
+                       :separator "."
                        :logger logger-mixed
                        :categories (last cats-upcase 1))
-        (test-category "%c{4}{.}{:upcase}"
-                       :separator "."
+        (test-category "%c{4}{_}{:upcase}"
+                       :separator "_"
                        :logger logger-mixed
                        :categories cats-upcase)
-        (test-category "%c{}{.}{:upcase}"
-                       :separator "."
+        (test-category "%c{}{_}{:upcase}"
+                       :separator "_"
                        :logger logger-mixed :categories cats-upcase)
-        (test-category "%c{2}{.}{:upcase}"
-                       :separator "."
+        (test-category "%c{2}{_}{:upcase}"
+                       :separator "_"
                        :logger logger-mixed :categories
                        (last cats-upcase 2))
-        (test-category "%c{1}{.}{:upcase}"
-                       :separator "."
+        (test-category "%c{1}{_}{:upcase}"
+                       :separator "_"
                        :logger logger-mixed :categories
                        (last cats-upcase 1))
         ;; test forced lower case
-        (test-category "%c{4}{:}{:downcase}"
+        (test-category "%c{4}{.}{:downcase}"
                        :logger logger-mixed
                        :categories cats-downcase)
         (test-category "%c{}{}{:downcase}"
                        :logger logger-mixed
                        :categories cats-downcase)
         (test-category "%c{2}{}{:downcase}"
-                       :separator ":"
+                       :separator "."
                        :logger logger-mixed
                        :categories (last cats-downcase 2))
         (test-category "%c{1}{}{:downcase}"
-                       :separator ":"
+                       :separator "."
                        :logger logger-mixed
                        :categories (last cats-downcase 1))
-        (test-category "%c{4}{.}{:downcase}"
-                       :separator "."
+        (test-category "%c{4}{_}{:downcase}"
+                       :separator "_"
                        :logger logger-mixed
                        :categories cats-downcase)
-        (test-category "%c{}{.}{:downcase}"
-                       :separator "."
+        (test-category "%c{}{_}{:downcase}"
+                       :separator "_"
                        :logger logger-mixed :categories cats-downcase)
-        (test-category "%c{2}{.}{:downcase}"
-                       :separator "."
+        (test-category "%c{2}{_}{:downcase}"
+                       :separator "_"
                        :logger logger-mixed :categories
                        (last cats-downcase 2))
-        (test-category "%c{1}{.}{:downcase}"
-                       :separator "."
+        (test-category "%c{1}{_}{:downcase}"
+                       :separator "_"
                        :logger logger-mixed :categories
                        (last cats-downcase 1))
         ;; test that invert works on lower-case named logger
-        (test-category "%c{4}{:}{:invert}"
+        (test-category "%c{4}{.}{:invert}"
                        :logger logger-downcase
                        :categories cats-upcase)
         (test-category "%c{}{}{:invert}"
                        :logger logger-downcase
                        :categories cats-upcase)
         (test-category "%c{2}{}{:invert}"
-                       :separator ":"
+                       :separator "."
                        :logger logger-downcase
                        :categories (last cats-upcase 2))
         (test-category "%c{1}{}{:invert}"
-                       :separator ":"
+                       :separator "."
                        :logger logger-downcase
                        :categories (last cats-upcase 1))
-        (test-category "%c{4}{.}{:invert}"
-                       :separator "."
+        (test-category "%c{4}{_}{:invert}"
+                       :separator "_"
                        :logger logger-downcase
                        :categories cats-upcase)
-        (test-category "%c{}{.}{:invert}"
-                       :separator "."
+        (test-category "%c{}{_}{:invert}"
+                       :separator "_"
                        :logger logger-downcase :categories cats-upcase)
-        (test-category "%c{2}{.}{:invert}"
-                       :separator "."
+        (test-category "%c{2}{_}{:invert}"
+                       :separator "_"
                        :logger logger-downcase :categories
                        (last cats-upcase 2))
-        (test-category "%c{1}{.}{:invert}"
-                       :separator "."
+        (test-category "%c{1}{_}{:invert}"
+                       :separator "_"
                        :logger logger-downcase :categories
                        (last cats-upcase 1))
         ;; test that invert works on upper-case named logger
-        (test-category "%c{4}{:}{:invert}"
+        (test-category "%c{4}{.}{:invert}"
                        :logger logger-upcase
                        :categories cats-downcase)
         (test-category "%c{}{}{:invert}"
                        :logger logger-upcase
                        :categories cats-downcase)
         (test-category "%c{2}{}{:invert}"
-                       :separator ":"
+                       :separator "."
                        :logger logger-upcase
                        :categories (last cats-downcase 2))
         (test-category "%c{1}{}{:invert}"
-                       :separator ":"
+                       :separator "."
                        :logger logger-upcase
                        :categories (last cats-downcase 1))
-        (test-category "%c{4}{.}{:invert}"
-                       :separator "."
+        (test-category "%c{4}{_}{:invert}"
+                       :separator "_"
                        :logger logger-upcase
                        :categories cats-downcase)
-        (test-category "%c{}{.}{:invert}"
-                       :separator "."
+        (test-category "%c{}{_}{:invert}"
+                       :separator "_"
                        :logger logger-upcase :categories cats-downcase)
-        (test-category "%c{2}{.}{:invert}"
-                       :separator "."
+        (test-category "%c{2}{_}{:invert}"
+                       :separator "_"
                        :logger logger-upcase :categories
                        (last cats-downcase 2))
-        (test-category "%c{1}{.}{:invert}"
-                       :separator "."
+        (test-category "%c{1}{_}{:invert}"
+                       :separator "_"
                        :logger logger-upcase :categories
                        (last cats-downcase 1))))))
 
@@ -371,18 +375,32 @@ works correctly with it"
                                      (- (length expected) i)))
                 :logger logger)))))
 
+
+(deftest test-pattern-category-3 ()
+  (test-pattern-layout "%-5c{1}" (make-expected '(three) "."))
+  (test-pattern-layout "%-5c{1}{:}" (make-expected '(three) ":")))
+
+(deftest test-pattern-category-4 ()
+  (test-pattern-layout "%-12c{2}" (concatenate 'string
+                                               "   "
+                                               (make-expected '(two three) ".")))
+  (test-pattern-layout "%-12c{2}{:}" (concatenate 'string
+                                                  "   "
+                                                  (make-expected '(two three) ":")))
+  (test-pattern-layout "%-12c{2}{--}" (concatenate 'string
+                                                  "  "
+                                                  (make-expected '(two three) "--"))))
+
 (deftest test-pattern-category-extended-precision ()
   "Test the category precision in the form of %c{<from>,<count>}"
-  (test-pattern-layout "%c{0,0}" (make-expected '(one two three) ":"))
-  (test-pattern-layout "%c{0,20}" (make-expected '(one two three) ":"))
+  (test-pattern-layout "%c{0,0}" (make-expected '(one two three) "."))
+  (test-pattern-layout "%c{0,20}" (make-expected '(one two three) "."))
   (test-pattern-layout "%c{3,20}" "")
   (test-pattern-layout "%c{3,-1}" "")
-  (test-pattern-layout "%c{2,1}" (make-expected '(three) ":"))
-  (test-pattern-layout "%c{1,1}" (make-expected '(two) ":"))
-  (test-pattern-layout "%c{0,2}" (make-expected '(one two) ":"))
-  (test-pattern-layout "%c{1,2}" (make-expected '(two three) ":"))
-
-  ;; repeat above with different separator
+  (test-pattern-layout "%c{2,1}" (make-expected '(three) "."))
+  (test-pattern-layout "%c{1,1}" (make-expected '(two) "."))
+  (test-pattern-layout "%c{0,2}" (make-expected '(one two) "."))
+  (test-pattern-layout "%c{1,2}" (make-expected '(two three) "."))
 
   (test-pattern-layout "%c{0,0}{----}" (make-expected '(one two three) "----"))
   (test-pattern-layout "%c{0,20}{----}" (make-expected '(one two three) "----"))
@@ -525,9 +543,9 @@ two asserts "
 
 (deftest test-pattern-ndc-context ()
   (test-pattern-layout "%x" "")
-  (with-ndc-context ("blah")
+  (with-ndc ("blah")
     (test-pattern-layout "%x" "blah"))
-  (with-ndc-context (:foo)
+  (with-ndc (:foo)
     (test-pattern-layout "[%-5x]" (format nil "[ ~s]" :foo))))
 
 (deftest test-pattern-process-id ()
@@ -560,11 +578,48 @@ two asserts "
         ;; If dst is in effect in the summer, test that %z is
         ;; different from winter one
         (is (not (equal (with-output-to-string (s)
-                            (log4cl-impl::format-time s "%z" ut-winter nil))
+                            (log4cl::format-time s "%z" ut-winter nil))
                         (with-output-to-string (s)
-                            (log4cl-impl::format-time s "%z" ut-summer nil)))))
+                            (log4cl::format-time s "%z" ut-summer nil)))))
         ;; Otherwise should be same
         (is (equal (with-output-to-string (s)
-                       (log4cl-impl::format-time s "%z" ut-winter nil))
+                       (log4cl::format-time s "%z" ut-winter nil))
                    (with-output-to-string (s)
-                       (log4cl-impl::format-time s "%z" ut-summer nil)))))))
+                       (log4cl::format-time s "%z" ut-summer nil)))))))
+
+(deftest test-pattern-layout-ndc-nonstring ()
+  "Unit test for bug where numbers were not printed correctly as NDC"
+  (with-ndc () 
+    (test-pattern-layout "%x" "")
+    (test-pattern-layout "<%x>" "<>")
+    (test-pattern-layout "%3x" "   ")
+    (test-pattern-layout "<%3x>" "<   >")
+    (test-pattern-layout "%:3x" "")
+    (test-pattern-layout "%:-3x" "")
+    (with-ndc (99)
+      (test-pattern-layout "%x" "99")
+      (test-pattern-layout "%:x" "99")
+      (test-pattern-layout "%:3x" "99 ")
+      (test-pattern-layout "%:-3x" " 99"))
+    (with-ndc () 
+      (test-pattern-layout "%;<;;>;x" "<>")
+      (test-pattern-layout "%;<;;>;3x" "<>   ") 
+      (test-pattern-layout "%;<;;>;-3x" "   <>"))
+    (with-ndc (99)
+      (test-pattern-layout "%;<;;>;x" "<99>")
+      (test-pattern-layout "%;<;;>;3x" "<99> ")
+      (test-pattern-layout "%;<;;>;-3x" " <99>")
+      (test-pattern-layout "%;<;3x" "<99 ")
+      (test-pattern-layout "%;;;>;-3x" " 99>"))
+    (with-ndc ()
+      (test-pattern-layout "%:;<;;>;x" "")
+      (test-pattern-layout "%:;<;;>;3x" "")
+      (test-pattern-layout "%:;<;;>;-3x" "")
+      (test-pattern-layout "%:;<;3x" "")
+      (test-pattern-layout "%:;;;>;-3x" ""))
+    (with-ndc (99)
+      (test-pattern-layout "%:;-=<;;>;x" "-=<99>")
+      (test-pattern-layout "%:;<;;>;3x" "<99> ")
+      (test-pattern-layout "%:;<;;>;-3x" " <99>")
+      (test-pattern-layout "%:;<;3x" "<99 ")
+      (test-pattern-layout "%:;;;>;-3x" " 99>"))))

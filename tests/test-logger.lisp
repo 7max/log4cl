@@ -12,25 +12,17 @@
 ;;; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
-
-(cl:defpackage :log4cl-test
-  (:use :cl :log4cl-impl :stefil)
-  (:export :test :speed
-           :handle-appender-error)
-  (:shadow :speed))
-
 (in-package #:log4cl-test)
 
-(in-root-suite)
-(defsuite* test)
+(in-suite test)
 
 (deftest basics (logger)
   "Test some basic facts about the logger structure"
   (with-package-log-hierarchy
     (is (not (null logger)))
-    (is (not (null (log4cl-impl::logger-state logger))))
+    (is (not (null (log4cl::logger-state logger))))
     (is (not (null (logger-category logger))))
-    (is (eql (length (log4cl-impl::logger-state logger)) log4cl-impl::*hierarchy-max*))))
+    (is (eql (length (log4cl::logger-state logger)) log4cl::*hierarchy-max*))))
 
 (deftest make-logger-by-list-of-categories ()
   "Test MAKE-LOGGER macro with static list of categories"
@@ -39,9 +31,9 @@
       (basics logger)
       (is (equal (logger-category logger)
                  (concatenate 'string
-                              (symbol-name 'one) ":"
-                              (symbol-name 'two) ":"
-                              (symbol-name 'three) ":"
+                              (symbol-name 'one) "."
+                              (symbol-name 'two) "."
+                              (symbol-name 'three) "."
                               (symbol-name 'four))))
       (is (equal (logger-name logger) (symbol-name 'four)))
       (is (eql (logger-depth logger) 4)))))
@@ -87,7 +79,7 @@ configuration"
   "Test that default logging configuration produces correct output"
   (with-package-log-hierarchy
     (reset-logging-configuration)
-    (is (equal (with-output-to-string (*debug-io*)
+    (is (equal (with-output-to-string (*terminal-io*)
                  (log-warn "Hello World!"))
                "WARN - Hello World!
 "))))
@@ -96,19 +88,19 @@ configuration"
   "Test that log statement with explicit logger produce output"
   (with-package-log-hierarchy
     (reset-logging-configuration)
-    (is (equal (with-output-to-string (*debug-io*)
-                 (log-warn (make-logger)  "Hello World!"))
+    (is (equal (with-output-to-string (*terminal-io*)
+                 (log-warn :logger (make-logger)  "Hello World!"))
                "WARN - Hello World!
 "))
-    (is (equal (with-output-to-string (*debug-io*)
-                 (log-warn '(log4cl test foobar)  "Hello World!"))
+    (is (equal (with-output-to-string (*terminal-io*)
+                 (log-warn '(blah test foobar)  "Hello World!"))
                "WARN - Hello World!
 "))
-    (is (equal (with-output-to-string (*debug-io*)
+    (is (equal (with-output-to-string (*terminal-io*)
                  (log-warn :foobar  "Hello World!"))
                "WARN - Hello World!
 "))
-    (is (equal (with-output-to-string (*debug-io*)
+    (is (equal (with-output-to-string (*terminal-io*)
                  (log-warn 'foobar  "Hello World!"))
                "WARN - Hello World!
 "))))
@@ -131,7 +123,12 @@ situation"
   (with-package-log-hierarchy
     (reset-logging-configuration)
     (let ((logger (make-logger :foobar)))
-      (is (log-warn logger)))))
+      (is (log-warn :logger logger)))))
+
+(defun returns-a-logger ()
+  (let ((logger (make-logger)))
+    (log-config logger :d)
+    logger))
 
 (deftest logger-by-expression ()
   "Test logging macros to verify that we can make a function returning
@@ -139,20 +136,11 @@ a logger, and that logging macros are correctly handling this
 situation"
   (with-package-log-hierarchy
     (reset-logging-configuration)
-    (log-info "Here1")))
-
-(deftest test-counting-appender ()
-  (with-package-log-hierarchy
-    (clear-logging-configuration)
-    (let ((a (make-instance 'counting-appender)))
-      (add-appender *root-logger* a)
-      (log-config :i)
-      (log-info "hey")
-      (is (equal 1 (slot-value a 'count)))
-      (log-debug "moo")
-      (is (equal 1 (slot-value a 'count)))
-      (log-info "hey again")
-      (is (equal 2 (slot-value a 'count))))))
+    (is (equal (with-output-to-string (*terminal-io*)
+                 (log-debug :logger
+                            (returns-a-logger)  "Hello World!"))
+               "DEBUG - Hello World!
+"))))
 
 (defun test-runtime-logger-of-wrong-type-helper (&optional arg)
   arg)
@@ -163,7 +151,16 @@ situation"
     (clear-logging-configuration)
     (log:config :i)
     (let ((e (test-runtime-logger-of-wrong-type-helper)))
-      (signals type-error (log:info e))
+      ;; tests with NIL
+      (signals type-error (log:info :logger e))
+      ;; tests with condition
       (setq e (test-runtime-logger-of-wrong-type-helper (make-condition 'error)))
-      (signals type-error (log:info e))))
+      (signals type-error (log:info :logger e))))
   (values))
+
+(deftest should-not-unset-root-logger ()
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (log-config *root-logger* :unset)
+    (is (equal (logger-log-level *root-logger*) +log-level-off+))))
+

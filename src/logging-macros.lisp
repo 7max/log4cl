@@ -13,7 +13,7 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(in-package #:log4cl-impl)
+(in-package #:log4cl)
 
 (defmacro with-log-indent ((&optional (indent '(1+ *log-indent*)))
                            &body body)
@@ -97,38 +97,9 @@ and a suffix after each value, which defaults to \" ~:_\" (a space
 followed by conditional newline) can be customized per package via
 NAMING-OPTION generic function
 "
-  (multiple-value-bind (logger-form sexps)
-      (resolve-logger-form *package* env
-                           (cond
-                             ((or (stringp (first sexps))
-                                  (and
-                                   (symbolp (first sexps))
-                                   (not (constantp (first sexps))))
-                                  (and (listp (first sexps))
-                                       (not (constantp (first sexps)))
-                                       (not (member (caar sexps)
-                                                    +make-logger-symbols+))))
-                              `((make-logger) ,@sexps))
-                             (t sexps)))
-    (let* ((args nil)
-           (format 
-             (with-output-to-string (*standard-output*)  
-               (princ "~@<~;")
-               (setq args
-                     (loop 
-                       for arg in sexps
-                       if (stringp arg)
-                       do (format t "~a " arg)
-                       else
-                       do (format t "~A~A~A~A"
-                                  "~W"
-                                  (naming-option *package* :expr-value-separator)
-                                  "~W"
-                                  (naming-option *package* :expr-value-suffix))
-                       and collect `(quote ,arg)
-                       and collect arg))
-               (princ "~:>"))))
-      `(,level ,logger-form ,format ,@args))))
+  (declare (ignore env))
+  (with-package-naming-configuration (*package*) 
+    `(,level from-log-expr ,@sexps)))
 
 (defmacro deflog-sexp-macros (levels)
   (let (list)
@@ -158,13 +129,20 @@ will produce log message:
        "
                  `(log-sexp-with-level ,',log-macro-name ,@args))
               list)))
-    `(progn
-       ,@(reverse list)
-       ,(let ((debug (copy-list (find 'log-sexp-debug list :key 'second))))
-          (setf (second debug) 'log-sexp)
-          debug))))
+    `(progn ,@(reverse list))))
 
 (deflog-sexp-macros #.+log-level-macro-symbols+)
+
+(defmacro log-sexp (&rest args)
+  (with-package-naming-configuration (*package*) 
+    (let* ((level (naming-option *package* :expr-log-level))
+           (log-sexp-macro-name (intern (format nil "~a-~a"
+                                                (string '#:log-sexp)
+                                                (string (aref +log-level-to-keyword+ level)))
+                                        :log4cl-impl)))
+      `(,log-sexp-macro-name ,@args))))
+
+(setf (documentation 'log-sexp 'function) (documentation 'log-sexp-debug 'function))
 
 (defmacro with-log-hierarchy ((hierarchy) &body body)
   "Binds the *CURRENT-HIERARCHY* to the specified hierarchy for the
@@ -188,11 +166,16 @@ package for the dynamic scope of BODY."
   `(in-log-hierarchy *package*))
 
 (defmacro make-logger (&optional (arg nil arg-p) &environment env)
-  (resolve-logger-form *package* env (if arg-p (list arg))))
+  (with-package-naming-configuration (*package*) 
+    (resolve-logger-form *package* env (if arg-p `(from-make-logger ,arg)))))
 
-(defmacro with-ndc-context ((context) &body body)
+(defmacro with-ndc ((&optional (ndc nil ndcp)) &body body)
   "Execute forms in BODY with *NDC-CONTEXT* set to CONTEXT. The
 context is printed by the %x pattern layout format"
-  `(let ((*ndc-context* ,context))
-     ,@body))
+  (if ndcp 
+      `(let ((*ndc-context* ,ndc))
+         ,@body)
+      `(let ((*ndc-context* nil))
+         (makunbound '*ndc-context*)
+         ,@body)))
 

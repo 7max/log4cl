@@ -13,32 +13,52 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(in-package #:log4cl-impl)
+(in-package #:log4cl)
+
+#-sbcl (defvar *global-console* (make-synonym-stream '*terminal-io*))
+#+sbcl (sb-ext:defglobal *global-console* (make-synonym-stream '*terminal-io*))
+
+(defmethod close-appender (appender)
+  (declare (ignore appender)))
+
+(defmethod save-appender (appender)
+  (declare (ignore appender)))
 
 (defmethod property-alist ((instance appender))
   "Abstract appender has no properties"
   '())
 
-(defun log-appender-error (appender condition)
-  (log-error '(log4cl) "Appender ~s disabled because of ~s" appender condition))
+(defun log-appender-disabled (appender condition)
+  (ignore-errors 
+   (log-error :logger +self-meta-logger+ "~@<Caught ~S ~:_~A ~_~
+                                             Appender ~S disabled~:>"
+              (type-of condition) condition appender)))
 
 (defmethod handle-appender-error (appender condition)
-  (log-appender-error appender condition))
+  (log-appender-disabled appender condition)
+  :disable)
 
 (defclass counting-appender (appender)
   ((count :initform 0))
-  (:documentation "Count the number of times APPENDER-DO-APPEND was called"))
+  (:documentation "Appender that counts Count the number of times
+APPENDER-DO-APPEND was called, and writes its output to null sink"))
+
+(defmethod appender-do-append :before ((appender counting-appender) logger level log-func)
+  (declare (ignore logger level log-func))
+  (incf (slot-value appender 'count)))
 
 (defmethod appender-do-append ((appender counting-appender) logger level log-func)
-  (with-slots (layout count)
-      appender
-    (incf count)
-    ;; we need to actually format the log message, to invoke any side effects
-    ;; that formatting it may produce, this is used in testing error handling
-    (with-output-to-string (s)
-      (layout-to-stream layout s logger level log-func))
-    (when (next-method-p)
-      (call-next-method))))
+  ;; we need to actually format the log message, to invoke any side effects
+  ;; that formatting it may produce, this is used in testing error handling
+  (with-output-to-string (s)
+    (layout-to-stream (slot-value appender 'layout) s logger level log-func))
+  (when (next-method-p)
+    (call-next-method)))
+
+(defclass temp-appender ()
+  ((error-type :initarg :error-type :initform 'error :accessor temp-appender-error-type))
+  (:documentation "A mixing for STREAM-APPENDER that will remove the
+appender if it encounters an error matching ERROR-TYPE"))
 
 (defclass serialized-appender (appender)
   ((%lock :initform (make-lock)))
@@ -76,12 +96,18 @@ ADD-WATCH-TOKEN"))
   (:documentation "Should return the stream to which appender will write log messages"))
 
 (defclass fixed-stream-appender-base (stream-appender)
-  ((stream :accessor appender-stream))
+  ((stream :accessor appender-stream) 
+   (stream-owner :initarg :stream-owner :initform nil))
   (:documentation "Appender that writes message to the stream in STREAM slot"))
 
 (defclass fixed-stream-appender (fixed-stream-appender-base)
   ((stream :initarg :stream :accessor appender-stream))
-  (:documentation "Appender that writes message to the stream in STREAM slot"))
+  (:documentation "Appender that writes message to the stream in
+STREAM slot."))
+
+(defmethod property-alist ((instance fixed-stream-appender-base))
+  (append (call-next-method)
+          '((:stream-owner stream-owner nil))))
 
 (defmethod property-alist ((instance fixed-stream-appender))
   (append (call-next-method)
@@ -89,11 +115,41 @@ ADD-WATCH-TOKEN"))
 
 (defclass console-appender (stream-appender) () 
   (:documentation "A stream appender that writes messages to
-*debug-io* stream.  The *debug-io* is late-binding, that is its the
-value of that variable in the thread and at the moment of log message
-being written.  If instead you want an appender that would write log
-messages to the *debug-io* stream active when appender was created,
-use FIXED-STREAM-APPENDER class"))
+*TERMINAL-IO* stream, which must be a synonym stream"))
+
+(defclass this-console-appender (fixed-stream-appender temp-appender)
+  ((stream :initform *global-console*))
+  (:documentation
+   "An appender that captures the current value of *TERMINAL-IO*
+stream, and continues logging to it, until it encounters a stream
+error, at which point it will delete itself.
+
+To capture the target output stream, any chain of SYNONYM-STREAM or
+TWO-WAY-STREAM is followed recursively, until result is no longer
+either synonym or two way stream"))
+
+(defmethod initialize-instance :after ((a this-console-appender) &key &allow-other-keys)
+  (with-slots (stream) a
+    (setf stream (resolve-stream stream))))
+
+(defclass tricky-console-appender (this-console-appender) ()
+  (:documentation
+   "Captures the *TERMINAL-IO* stream just like the
+THIS-CONSOLE-APPENDER does, but at runtime checks if current value of
+*TERMINAL-IO* resolves to the same value and only writes the
+message if its different.
+
+When used together with CONSOLE-APPENDER, results that current REPL
+thread logs to REPL, while other threads log both to their
+*TERMINAL-IO* and REPL.
+
+Auto-deletes itself when encounters stream error"))
+
+(defmethod appender-do-append :around
+    ((this tricky-console-appender) logger level log-func)
+  (declare (ignore logger level log-func))
+  (unless (eq (appender-stream this) (resolve-stream *global-console*))
+    (call-next-method)))
 
 #+bordeaux-threads
 (defmethod appender-added :after (logger (appender stream-appender))
@@ -141,7 +197,9 @@ unless IMMEDAITE-FLUSH property is set."
               (finish-output (appender-stream appender)))))))))
 
 (defun maybe-flush-appender-stream (appender stream)
-  "Flush the APPENDER's stream if needed"
+  "Flush the APPENDER's stream if needed, assumes that output had been
+just made to an appender. Should be called with the appender lock
+held"
   (with-slots (immediate-flush flush-interval %last-flush-time
                %output-since-flush)
       appender
@@ -155,6 +213,35 @@ unless IMMEDAITE-FLUSH property is set."
                (finish-output stream)
                (setf %output-since-flush nil
                      %last-flush-time    time)))))))
+
+(defmethod appender-do-flush ((appender stream-appender) time)
+  "Flush the non-immediate-flush appender unconditionally if there
+been any output. TIME will be used to mark the time of the flush"
+  (with-slots (immediate-flush  %last-flush-time %lock
+               %output-since-flush)
+      appender
+    (when (and (not immediate-flush)
+               %output-since-flush)
+      (with-lock-held (%lock)
+        (setf %last-flush-time    time
+              %output-since-flush nil)
+        (finish-output (appender-stream appender))))))
+
+(defun flush-appender (appender &optional (time (get-universal-time)))
+  "Immediately flush the appender output if necessary, marking the
+time of the flush with TIME"
+  (appender-do-flush appender time))
+
+(defun flush-all-appenders (&optional (all-hierarchies t))
+  "Flush any appenders that had output since being flushed"
+  (let ((time (get-universal-time)))
+    (map nil (lambda (x) (flush-appender x time))
+         (all-appenders all-hierarchies))))
+
+(defun save-all-appenders (&optional (all-hierarchies t))
+  "Flush any appenders that had output since being flushed"
+  (map nil (lambda (x) (save-appender x))
+       (all-appenders all-hierarchies)))
 
 (defmethod appender-do-append :around
     ((this serialized-appender) logger level log-func)
@@ -182,26 +269,38 @@ unless IMMEDAITE-FLUSH property is set."
   (values))
 
 (defmethod appender-stream ((this console-appender))
-  "Returns current value of *DEBUG-IO*"
-  *debug-io*)
+  "Returns current value of *GLOBAL-CONSOLE*, which is a synonym
+stream for *TERMINAL-IO*"
+  *global-console*)
 
 (defgeneric appender-filename (appender)
   (:documentation "Returns the appenders file name"))
 
-(defun maybe-close-file (appender)
-  (when (and (slot-boundp appender 'stream))
+(defgeneric appender-next-backup-file (appender)
+  (:documentation "Returns the appenders next backup file name"))
+
+(defgeneric appender-last-backup-file (appender)
+  (:documentation "Returns the appenders last backup file name"))
+
+(defun maybe-close-stream (appender)
+  (when (and (slot-boundp appender 'stream)
+             (slot-value appender 'stream-owner))
     (close (slot-value appender 'stream))
     (slot-makunbound appender 'stream)))
 
-(defclass file-appender-base (fixed-stream-appender-base) () 
+(defclass file-appender-base (fixed-stream-appender-base)
+  ((stream-owner :initform t))
   (:documentation "Appender that writes to a file and closes it when
 its no longer attached to loggers"))
 
-(defmethod close-appender ((appender file-appender-base))
-  (maybe-close-file appender))
+(defmethod close-appender ((appender fixed-stream-appender-base))
+  (maybe-close-stream appender))
+
+(defmethod save-appender ((appender fixed-stream-appender-base))
+  (maybe-close-stream appender))
 
 (defclass file-appender (file-appender-base)
-  ((filename :initarg :file)) 
+  ((filename :initarg :file :reader appender-filename)) 
   (:documentation "Appender that writes to a file with a fixed file
 name"))
 
@@ -209,19 +308,15 @@ name"))
   (append (call-next-method)
           '((:file filename :string-skip-whitespace))))
 
-(defmethod appender-filename ((appender file-appender-base))
-  (slot-value appender 'filename))
-
 (defclass rolling-file-appender-base (file-appender-base)
   ((%rollover-check-period :initform 60 :initarg :rollover-check-period)
    (%next-rollover-time :initform 0))
-  (:documentation
-  "File appender that periodically checks if it needs to rollover the
-log file.
+  (:documentation "File appender that periodically checks if it needs
+to rollover the log file.
 
 Properties:
 
-ROLLOVER-CHECK-PERIOD
+ROLLOVER-CHECK-PERIOD 
 
 : An integer, when current time advances past the boundary evenly divisible by this
 number a call to MAYBE-ROLL-FILE will be made to check if log file needs
@@ -236,9 +331,10 @@ to be rolled over"))
    (name-format :initarg :name-format)
    (utc-p :initform nil :initarg :utc)
    ;; File name of the currently active log file
-   (%current-file-name :initform nil)
+   (%current-file-name :initform nil :reader appender-filename)
    ;; The name that the currently active file will be renamed into
-   (%next-backup-name :initform nil))
+   (%next-backup-name :initform nil :reader appender-next-backup-file)
+   (%last-backup-name :initform nil :reader appender-last-backup-file))
   (:documentation "An appender that writes to the file named by
 expanding a pattern.  The expansion is done by the same
 converter as the %d conversion pattern of the PATTERN-LAYOUT, which is
@@ -250,8 +346,7 @@ NAME-FORMAT
    : Expanded with date formatter to get the name of the current log file
 
 BACKUP-NAME-FORMAT
-   : Expanded with date formatter to get the name of the backup log
-   file
+   : Expanded with date formatter to get the name of the backup log file
 
 UTC-P
    : Should be non-NIL if name and backup patterns expand the UTC time
@@ -296,9 +391,6 @@ day.
             (:backup-name-format backup-name-format :string-skip-whitespace)
             (:utc utc-p boolean))))
 
-(defmethod appender-filename ((appender daily-file-appender))
-  (slot-value appender '%current-file-name))
-
 (defun next-time-boundary (time check-period)
   "Given universal time TIME return next boundary evenly divisible by
 CHECK-PERIOD seconds "
@@ -326,7 +418,7 @@ CHECK-PERIOD seconds "
 
 (defun create-appender-file (appender)
   (let ((filename (appender-filename appender)))
-    (maybe-close-file appender)
+    (maybe-close-stream appender)
     (setf (slot-value appender 'stream)
           (open (ensure-directories-exist filename)
                 #+ccl :sharing #+ccl :external
@@ -353,25 +445,62 @@ them. One possible extension could be having daily log file and a
 weekly backup, that is appended to each day")
   (:method (appender log-filename backup-filename)
     (declare (ignore appender))
-    (rename-file log-filename backup-filename)))
+    (rename-file log-filename backup-filename))
+  (:method ((appender daily-file-appender) log-filename backup-filename)
+    (declare (ignore log-filename))
+    (with-slots (%last-backup-name) appender
+      (setf %last-backup-name backup-filename)
+      (call-next-method))))
 
 (defmethod maybe-roll-file ((appender daily-file-appender)) 
   "Expands FILENAME and BACKUP patterns, and if one of them changed,
 switches to the new log file"
   (with-slots (name-format backup-name-format
-               %current-file-name %next-backup-name utc-p) appender
+               %current-file-name %next-backup-name
+               %last-backup-name utc-p) appender
     (let* ((time (log-event-time))
-           (new-file (expand-name-format name-format time utc-p))
-           (new-bak (expand-name-format
-                     (or backup-name-format name-format) time utc-p)))
-      ;; (log-sexp time new-file new-bak %current-file-name %next-backup-name)
-      (unless (and (equal new-file %current-file-name)
-                   (equal new-bak %next-backup-name))
-        (when %current-file-name
-          (maybe-close-file appender)
-          (unless (equal %current-file-name %next-backup-name)
-            (backup-log-file appender %current-file-name %next-backup-name)))
+           (new-file (expand-name-format name-format time utc-p)))
+      ;; Handle roll over of the log file that we never written to,
+      ;; based on its modification time, only happens once at initial
+      ;; log into the newly created appender
+      (when (and (null %current-file-name)
+                 (null %next-backup-name)
+                 (probe-file new-file))
         (setq %current-file-name new-file
-              %next-backup-name new-bak)))))
+              %next-backup-name (expand-name-format
+                                 (or backup-name-format name-format)
+                                 (file-write-date new-file)
+                                 utc-p)))
+      ;; Normal code path
+      (let ((new-bak (expand-name-format
+                      (or backup-name-format name-format)
+                      time utc-p))) 
+        (unless (and (equal new-file %current-file-name)
+                     (equal new-bak %next-backup-name))
+          (when %current-file-name 
+            (maybe-close-stream appender) 
+            (unless (equal %current-file-name %next-backup-name)
+              (backup-log-file appender %current-file-name %next-backup-name)))
+          (setq %current-file-name new-file
+                %next-backup-name new-bak))))))
 
 
+(defmethod handle-appender-error ((a temp-appender) c)
+  (cond ((typep c (temp-appender-error-type a)) 
+         (let ((loggers (appender-loggers a)))
+           (ignore-errors 
+            (log-error :logger +self-meta-logger+ "~@<Caught ~S ~:_~A ~_~
+                                                    Removing ~S ~_from ~
+                                                   ~{~S~^, ~:_~}~:>"
+                       (type-of c) c a loggers))) 
+         (dolist (l (appender-loggers a))
+           (remove-appender l a))
+         :ignore)
+        (t (if (next-method-p) (call-next-method) :ignore))))
+
+(defun resolve-stream (stream)
+  "Dereference synonym streams"
+  (typecase stream
+    (synonym-stream (resolve-stream (symbol-value (synonym-stream-symbol stream))))
+    (two-way-stream (resolve-stream (two-way-stream-output-stream stream)))
+    (t stream)))

@@ -13,7 +13,7 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(in-package #:log4cl-impl)
+(in-package #:log4cl)
 
 #+sbcl
 (declaim (sb-ext:always-bound
@@ -98,3 +98,5 @@ function. Holds per-hierarchy lock doing its operation"
   (with-slots (watch-tokens) hierarchy
     (with-hierarchy-lock (hierarchy)
       (setf watch-tokens (remove token watch-tokens :test test :key key)))))
+
+

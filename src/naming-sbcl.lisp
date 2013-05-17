@@ -13,7 +13,7 @@
 ;;; See the License for the specific language governing permissions and
 ;;; limitations under the License.
 
-(in-package #:log4cl-impl)
+(in-package #:log4cl)
 
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -75,6 +75,7 @@ will be: package.foo.bar.baz
 "
   (if (symbolp debug-name)
       (when (and (not (member debug-name +sbcl-wrapper-ignore+))
+                 (symbol-package debug-name)
                  (not (equal 0 (search "CLEANUP-FUN-"
                                        (symbol-name debug-name)))))
         debug-name)
@@ -89,7 +90,9 @@ will be: package.foo.bar.baz
         ((eq 'sb-pcl::fast-method (first debug-name))
          (rest debug-name))
         ((member (first debug-name) +sbcl-wrapper-names+)
-         (include-block-debug-name? (second debug-name))))))
+         (include-block-debug-name? (second debug-name)))
+        ((eq (first debug-name) 'setf)
+         debug-name))))
 
 (defun sbcl-get-block-name  (env)
   "Return a list naming SBCL lexical environment. For example when
@@ -98,29 +101,19 @@ return \(FOOBAR FOO\)"
   (let* ((names-from-lexenv
            (nreverse
             (loop
-               with last = nil
-               as lambda = (sb-c::lexenv-lambda env)
-               then (sb-c::lambda-parent lambda)
-               while lambda
-               as debug-name = (include-block-debug-name? (sb-c::leaf-debug-name lambda))
-               if (and debug-name (not (eq last debug-name)))
-               collect debug-name
-               and do (setq last debug-name))))
+              with last = nil
+              as lambda = (sb-c::lexenv-lambda env)
+              then (sb-c::lambda-parent lambda)
+              while lambda
+              as debug-name = (include-block-debug-name? (sb-c::leaf-debug-name lambda))
+              if (and debug-name (not (eq last debug-name)))
+              collect debug-name
+              and do (setq last debug-name))))
          (name (or names-from-lexenv sb-pcl::*method-name*)))
-    (when (and (consp (car name))
-               (equal (length name) 1))
-      (setq name (car name)))
-    (labels ((flatten (list)
-               (when list
-                 (loop for elem in list
-                       if (consp elem)
-                       ;; flatten method specializers and remove T ones
-                       append (flatten (remove t elem))
-                       else collect elem))))
-      (flatten name))))
+    (fix-method-spec-list name)))
 
 
 (defmethod enclosing-scope-block-name (package env)
   "Return the enclosing block name suitable for naming a logger"
   (declare (ignore package))
-  (sbcl-get-block-name env))
+  (when env (sbcl-get-block-name env)))

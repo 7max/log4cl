@@ -18,97 +18,6 @@
 ;;; 
 (in-package #:log4cl)
 
-(defun clear-logging-configuration ()
-  "Delete all loggers configuration, leaving only LOG4CL-IMPL"
-  (labels ((reset (logger)
-             (remove-all-appenders logger)
-             (setf (svref (%logger-state logger) *hierarchy*)
-                   (make-logger-state))
-             (map-logger-children #'reset logger)))
-    (reset *root-logger*)
-    (when *self-log-config*
-      (apply 'log-config +self-logger+ *self-log-config*))
-    (add-appender +self-meta-logger+ (make-instance 'console-appender
-                                      :layout (make-instance 'simple-layout)
-                                      :immediate-flush t))
-    (log-config +self-meta-logger+ :own))
-  (values))
-
-(defun reset-logging-configuration ()
-  "Clear the logging configuration in the current hierarchy, and
-configure root logger with INFO log level and a simple console
-appender"
-  (clear-logging-configuration)
-  (add-appender *root-logger* (make-instance 'console-appender))
-  (setf (logger-log-level *root-logger*) +log-level-warn+)
-  (log-info "Logging configuration was reset to sane defaults"))
-
-
-(defparameter *default-patterns*
-  '((:oneline t :time t :file t :pattern
-     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
-    (:oneline t :time t :file2 t :pattern
-     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
-    (:oneline t :time nil :file t :pattern
-     "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
-    (:oneline t :time nil :file2 t :pattern
-     "%&%<%I%;<;;>;-5p%t %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
-    (:oneline t :time t :pattern
-     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
-    (:oneline t :time nil :pattern
-     "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
-    (:twoline t :time t :file t :pattern
-     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
-    (:twoline t :time t :file2 t :pattern
-     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
-    (:twoline t :time nil :file t :pattern
-     "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
-    (:twoline t :time nil :file2 t :pattern
-     "%&%<%I%;<;;>;-5p%t %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
-    (:twoline t :time t :pattern
-     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
-    (:twoline t :time nil :pattern
-     "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")))
-
-(defun replace-in-string (s x y)
-  (let ((n (search x s)))
-    (if (not n) s
-      (concatenate
-       'string
-       (subseq s 0 n)
-       y
-       (subseq s (+ n (length x)))))))
-
-(defun figure-out-pattern (&rest args)
-  (let ((pat (find-if (lambda (elem)
-                        (every (lambda (prop)
-                                 (eql (getf args prop)
-                                      (getf elem prop)))
-                               '(:oneline :twoline :time :file :file2)))
-                      *default-patterns*)))
-    (let ((pat (getf (or pat (first *default-patterns*)) :pattern)))
-      ;; handle pretty, ndc and thread
-      (flet ((s/ (x y)
-               (setq pat (replace-in-string pat x y)))) 
-        (cond ((getf args :pretty)
-               (s/ "%<" "%<{pretty}"))
-              ((getf args :nopretty) 
-               (s/ "%<" "%<{nopretty}")))
-        (cond ((getf args :package)
-               (s/ "%<" "%<{package}"))
-              ((getf args :nopackage) 
-               (s/ "%<" "%<{nopackage}")))
-        (cond
-          ((and (getf args :thread)
-                (getf args :ndc))
-           (s/ "%t" " [%t%:;-;x]"))
-          ((getf args :thread)
-           (s/ "%t" " [%t]"))
-          ((getf args :ndc)
-           (s/ "%t" "%:; [;;];x"))
-          (t (s/ "%t" "")))
-        pat))))
-
 (defun log-config (&rest args)
   "Very DWIM oriented friendly way of configuring loggers and appenders.
 
@@ -656,6 +565,96 @@ Examples:
     ;; finally recalculate reach-ability
     (adjust-logger logger)))
 
+(defun clear-logging-configuration ()
+  "Delete all loggers configuration, leaving only LOG4CL-IMPL"
+  (labels ((reset (logger)
+             (remove-all-appenders logger)
+             (setf (svref (%logger-state logger) *hierarchy*)
+                   (make-logger-state))
+             (map-logger-children #'reset logger)))
+    (reset *root-logger*)
+    (when *self-log-config*
+      (apply 'log-config +self-logger+ *self-log-config*))
+    (add-appender +self-meta-logger+ (make-instance 'console-appender
+                                      :layout (make-instance 'simple-layout)
+                                      :immediate-flush t))
+    (log-config +self-meta-logger+ :own))
+  (values))
+
+(defun reset-logging-configuration ()
+  "Clear the logging configuration in the current hierarchy, and
+configure root logger with INFO log level and a simple console
+appender"
+  (clear-logging-configuration)
+  (add-appender *root-logger* (make-instance 'console-appender))
+  (setf (logger-log-level *root-logger*) +log-level-warn+)
+  (log-info "Logging configuration was reset to sane defaults"))
+
+
+(defparameter *default-patterns*
+  '((:oneline t :time t :file t :pattern
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+    (:oneline t :time t :file2 t :pattern
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+    (:oneline t :time nil :file t :pattern
+     "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+    (:oneline t :time nil :file2 t :pattern
+     "%&%<%I%;<;;>;-5p%t %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+    (:oneline t :time t :pattern
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+    (:oneline t :time nil :pattern
+     "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N - %:_%m%>%n")
+    (:twoline t :time t :file t :pattern
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
+    (:twoline t :time t :file2 t :pattern
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
+    (:twoline t :time nil :file t :pattern
+     "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase}%:; ;F (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
+    (:twoline t :time nil :file2 t :pattern
+     "%&%<%I%;<;;>;-5p%t %:;;; / ;F%g{}{}{:downcase}::(%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
+    (:twoline t :time t :pattern
+     "%&%<%I%;<;;>;-5p [%D{%H:%M:%S}]%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")
+    (:twoline t :time nil :pattern
+     "%&%<%I%;<;;>;-5p%t %g{}{}{:downcase} (%C{}{ }{:downcase})%2.2N%:n* %m%>%n")))
+
+(defun replace-in-string (s x y)
+  (let ((n (search x s)))
+    (if (not n) s
+      (concatenate
+       'string
+       (subseq s 0 n)
+       y
+       (subseq s (+ n (length x)))))))
+
+(defun figure-out-pattern (&rest args)
+  (let ((pat (find-if (lambda (elem)
+                        (every (lambda (prop)
+                                 (eql (getf args prop)
+                                      (getf elem prop)))
+                               '(:oneline :twoline :time :file :file2)))
+                      *default-patterns*)))
+    (let ((pat (getf (or pat (first *default-patterns*)) :pattern)))
+      ;; handle pretty, ndc and thread
+      (flet ((s/ (x y)
+               (setq pat (replace-in-string pat x y)))) 
+        (cond ((getf args :pretty)
+               (s/ "%<" "%<{pretty}"))
+              ((getf args :nopretty) 
+               (s/ "%<" "%<{nopretty}")))
+        (cond ((getf args :package)
+               (s/ "%<" "%<{package}"))
+              ((getf args :nopackage) 
+               (s/ "%<" "%<{nopackage}")))
+        (cond
+          ((and (getf args :thread)
+                (getf args :ndc))
+           (s/ "%t" " [%t%:;-;x]"))
+          ((getf args :thread)
+           (s/ "%t" " [%t]"))
+          ((getf args :ndc)
+           (s/ "%t" "%:; [;;];x"))
+          (t (s/ "%t" "")))
+        pat))))
 
 
 (defun appender-extra-print-properties (a)

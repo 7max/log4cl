@@ -15,7 +15,7 @@
 
 (in-package #:log4cl)
 
-(defparameter +expr-format-simple+ "~W: ~W~^ ~:_")
+(defparameter +expr-format-simple+ "~W: ~W ~:_")
 (defparameter +expr-format-fancy+ "~:_~<~(~W~): ~2I~_~W~:> ")
 
 (defclass naming-configuration ()
@@ -409,16 +409,12 @@ list of arguments to FORMAT starting with control string"
                        (n2 (position #\Space arg :test-not #'char=
                                                  :from-end t))) 
                   (when n1 (setq arg (substr arg n1 (1+ n2)))) 
-                  ;; if either last arg, or literal string contains
-                  ;; tildes, print it indirectly via ~A format, so
-                  ;; that ~^ stop out in the separator expression
-                  ;; does not exit if log statement has literal suffix
-                  ;; like so (log:debug a b c "blah")
-                  (cond ((or (null args)
-                             (position #\~ arg))
-                         (princ "~A")
-                         (push arg fmt-args))
-                        (t (princ arg)))
+                  (cond ((position #\~ arg)
+                         (loop for c character across arg
+                               if (char= c #\~)
+                               do (write-string "~~")
+                               else do (write-char c)))
+                        (t (write-string arg)))
                   ;; Don't add extra space after literal if current or
                   ;; next arg is all whitespace literal
                   (unless (or (not n1)    ; current arg is whitespace

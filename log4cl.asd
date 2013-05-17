@@ -45,7 +45,7 @@
                               (:file "package")))))
 
 (defsystem :log4cl-test
-  :version "0.9.3"
+  :version "1.1.0"
   :depends-on (:log4cl :stefil)
   :components ((:module "tests"
                 :serial t

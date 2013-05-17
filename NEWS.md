@@ -1,7 +1,58 @@
 ## 1.1.0 - Log4Slime 
 
-* 
+* Log4CL now has Slime/Emacs integration, which is available in a
+  system :log4slime. It colorizes the log output, and provides
+  ability to change log levels from Emacs.
 
+* Default category separator changed to dot.
+
+* The old CLOS method of setting option is depreciated in favor of new
+  (LOG:PACKAGE-OPTIONS) macro
+
+* LOG package namespace was cleaned up, and its now an actual
+  package named LOG. The LOG4CL package is now nickname for
+  LOG4CL-IMPL
+
+* Loggers now retain information about source file and package they
+  were instantiated from, with corresponding PATTERN-LAYOUT formats
+  to print them
+
+  As a consequence to pass a dynamically determined logger object to a
+  log statement, now requires (log:debug :logger
+  (form-that-returs-a-logger))
+
+* (log:info a b c) and such now automatiaclly do (log:expr) like processing
+  if they don't detect a format control string as first argument.
+
+* Automatic category naming implemented on Clozure Common Lisp (CCL),
+  working exactly like SBCL one.
+
+* Pattern layout extended with control of pretty printing and other enchencements
+
+* Much more robust error handling in standard appenders, better reporting
+  of errors.
+
+* It is possible to set a log level for the source file, it takes precedence
+  over the package category.
+
+* On SBCL Log4CL hierarchy watcher thread that is used for flushing, a
+  is automatically terminated on exit, and before SAVE-LISP-AND-DIE.
+
+* Added API to flush all appenders, LOG4CL:FLUSH-ALL-APPENDERS, which
+  is automatically called on SBCL from exit hooks. This prevents
+
+* (LOG:CONFIG) now has many new pattern layout related options
+  :pretty, :nopretty, :file, :file2, :nofile, :time, :notime, :package
+  :nopackage, :ndc, :thread
+
+  These options change the built-in pattern used for :sane, :console
+  and other options that add new appender
+
+* (LOG:CONFIG) with only the pattern options, will change existing console
+  appender instead of adding a new one.
+
+* (LOG:CONFIG) appender displays a number next to each appender, and allows
+  removing of appenders via :REMOVE <n> option
 
 ## 1.0.0
  * (Bugfix): Fix SB-C package lock error when compiling on new SBCL.

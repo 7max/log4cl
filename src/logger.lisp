@@ -307,17 +307,19 @@ FORCE-STRING-CASE -- Whenever elements of category which are strings,
 should also undergo case conversion according to CAT-CASE
 
 CREATEP    -- Create the logger if it does not exist
+FILE       -- pathname, source file being compiled
 
-FLAGS      -- a number or a list, only used if logger did not exist before.
+PKG-IDX-START/PKG-IDX-END -- zero based indexes as to where
+in CATEGORIES package name starts ends, meaning of indexes
+is like SUBSEQ.. If package is unknown, both must be NIL
 
-When a number, will be directly used as flags, this should only happen
-when logger is restored by the LOAD-FORM expression from an an .fasl
-file
+For historical reason the above indexes are incremented by one before
+being stored in FLAGS slot, and functions LOGGER-PKG-IDX-START/END
+return them 1 based, with 0 being used as a flag that there is no
+package name in the category.
 
-Otherwise should be a list in the form of (&optional PKG-IDX-START
-PKG-IDX-END) with the fields being zero based indexes in the
-CATEGORIES list of start/end (exclusive) of the category that
-represents the package name."
+IS-FILE-P -- T when its an actual SOURCE-FILE-LOGGER being requested,
+which is a special type of leaf logger representing the source file."
 
   (let ((source-file-logger nil)
         (names (make-array 0 :adjustable t :fill-pointer t)))
@@ -594,7 +596,7 @@ context of the current application."
 
 
 (defun logger-children (logger)
-  "Return a list of LOGGER's direct children"
+  "Return a freshly consed list of LOGGER's direct children"
   (let ((hash (%logger-child-hash logger)))
     (when hash
       (loop for child being each hash-value in (%logger-child-hash logger)

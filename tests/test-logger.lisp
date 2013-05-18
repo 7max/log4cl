@@ -164,3 +164,22 @@ situation"
     (log-config *root-logger* :unset)
     (is (equal (logger-log-level *root-logger*) +log-level-off+))))
 
+
+(deftest test-ndc-unbind ()
+  "Unit test for bug where numbers were not printed correctly as NDC"
+  (unwind-protect
+       (progn 
+         (with-ndc (1) 
+           (is (equal *ndc-context* 1))) 
+         (is (null (boundp '*ndc-context*)))
+         ;; sets global value
+         (setq *ndc-context* 2)
+         (with-ndc (3)
+           (is (equal *ndc-context* 3))
+           (with-ndc ()
+             (is (null (boundp '*ndc-context*))))
+           ;; back to bound
+           (is (equal *ndc-context* 3)))
+         ;; See that global value not changed
+         (is (equal *ndc-context* 2)))
+    (makunbound '*ndc-context*)))

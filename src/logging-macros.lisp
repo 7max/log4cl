@@ -175,7 +175,7 @@ context is printed by the %x pattern layout format"
   (if ndcp 
       `(let ((*ndc-context* ,ndc))
          ,@body)
-      `(let ((*ndc-context* nil))
-         (makunbound '*ndc-context*)
+      `(progv '(*ndc-context*)
+           ()
          ,@body)))
 

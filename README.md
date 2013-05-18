@@ -179,7 +179,7 @@ It should produce the following output:
 
 One thing you should notice, is that source file where function is
 defined now appears as part of the log message too. Go to the source
-of "hello". Before you try to use Slime's famous `M-.` shortcut, try
+of "greetings". Before you try to use Slime's famous `M-.` shortcut, try
 clicking on blue "greetings" word with a left mouse button.
 
 If everything went better then expected, it should land you at the first

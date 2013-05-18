@@ -39,7 +39,7 @@
   is automatically terminated on exit, and before SAVE-LISP-AND-DIE.
 
 * Added API to flush all appenders, LOG4CL:FLUSH-ALL-APPENDERS, which
-  is automatically called on SBCL from exit hooks. This prevents
+  is automatically called on SBCL from exit hooks. 
 
 * (LOG:CONFIG) now has many new pattern layout related options
   :pretty, :nopretty, :file, :file2, :nofile, :time, :notime, :package

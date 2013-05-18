@@ -310,7 +310,7 @@ Examples:
           (:force-add (setq force-add t))
           (:watch (setq watch t))
           (:backup
-           (setq backup (or (pop args)
+           (setq backup (if args (pop args)
                             (log4cl-error ":BACKUP missing argument"))
                  had-backup t))
           (:daily

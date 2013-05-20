@@ -205,7 +205,7 @@ appended to it"
       (is (zerop (length output))))))
 
 (deftest test-appender-error-ignore ()
-  "Verify that returning :RETRY from HANDLE-APPENDER-ERROR works"
+  "Verify that returning :IGNORE from HANDLE-APPENDER-ERROR works"
   (with-package-log-hierarchy
     (clear-logging-configuration)
     (let ((output

@@ -116,16 +116,14 @@ statement from REPL and seeing output colorized.
 
    [[file:./images/screenshot-11.png]]
 
-   Pressing "P" to select the "Package" shows the selected [[category][category]]
-   current [[effective]] log level and offers choice to set a different
-   one. In above screenshot =CL-USER= [[category][category]] does not have its own log level,
-   instead in inherits one from the ROOT [[category][category]]
-   
+   Pressing "p" to select the package category shows [[effective log level]]
+   and allows you to change like so
+
    [[file:./images/screenshot-10.png]]
 
    This concludes the very basic introduction, if you were confused by
-   what various terms such as "[[category][category]]" mean, click on the
-   hyperlink to read more about Log4CL concepts.
+   what various terms such as "[[category][category]]" mean, click on the hyperlink
+   to read more about Log4CL concepts.
 
    Or you can skip the theory and just continue to learn by example.
 
@@ -164,7 +162,7 @@ statement from REPL and seeing output colorized.
   name, the more specific. The level for "hello" overrides that for
   "cl-user", which in turn overrides that of the root category.
 
-** Enter the source files
+** Naming in source files
    
   For the next few examples, it is recommended that you load the
   examples come together with Log4CL, by doing =(ql:quickload :log4cl-examples)=
@@ -192,11 +190,14 @@ statement from REPL and seeing output colorized.
   
   Log statements inside of methods, are using the [[category]] name of the 
   generic function, extended with qualifier, and all non-T specializers.
+
+  Try going to the source of the above methods by clicking on them. It should land
+  in the right method, without showing Slime's XREF window.
   
-  Note how by changing the level of the "foobar" you control all the
+  Note how by changing the level of the =foobar= you control all the
   methods, but can override them based on their specializers. Try
-  setting :after category to different levels, to control all
-  the :after methods together.
+  setting =:after= category to different levels, to control all
+  the =:after= methods together.
 
   In addition to playing with methods, try =(setf (test.package.one:greetings) "Hey")= too.
   
@@ -208,7 +209,7 @@ statement from REPL and seeing output colorized.
 
   [[file:./images/screenshot-19.png]]
 
-** Keyboard level selection  
+** Keyboard level selection
    Also try =C-c C-g= shortcut in the same place. You can configure it
    not to show the selection window at all, by customizing the
    =log4slime-level-selection-single-key= Emacs variable.
@@ -249,7 +250,7 @@ statement from REPL and seeing output colorized.
 
   See the [[needle][Finding needle in a haystack]] section.
 
-* The magic of (LOG:CONFIG) 
+* The magic of (LOG:CONFIG)
   Section To be written, for now simply see [[src:configurator][docstring for LOG:CONFIG]]
 
   Read the docstring and play with options, below are a few examples:

@@ -832,7 +832,7 @@ Example output:
     (unless done
       (setq done t)
       (clear-logging-configuration)
-      (log-config :i :sane :immediate-flush))))
+      (log-config :i :sane2 :immediate-flush))))
 
 (perform-default-init)
 

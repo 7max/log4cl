@@ -193,10 +193,11 @@ Following pattern characters are recognized:
    The opening pattern can have extra arguments, with following
    meaning:
 
-     %<{pretty}     - bind *PRINT-PRETTY* to T at runtime 
-     %<{nopretty}   - bind *PRINT-PRETTY* to NIL at runtime
-     %<{package}    - bind *PACKAGE* to :KEYWORD package
-     %<{nopackage}  - bind *PACKAGE* to original package
+     %<{pretty}[{<num>}]  - bind *PRINT-PRETTY* to T at runtime,if followed
+                            by a number, set *print-right-margin* to it
+     %<{nopretty}         - bind *PRINT-PRETTY* to NIL at runtime
+     %<{package}          - bind *PACKAGE* to :KEYWORD package
+     %<{nopackage}        - bind *PACKAGE* to original package
 
    Both pretty and package can be used together like this %<{pretty}{package} ... %>
 
@@ -1237,32 +1238,50 @@ package does not exist at runtime"
 
 (defclass pattern-pretty-fmt-info (format-info)
   ((pretty :initarg :pretty :type (or null (member :pretty :nopretty)) :reader format-pretty)
+   (margin :initarg :margin :reader format-margin)
    (package :initarg :package :type (or null (member :package :nopackage)) :reader format-package))
   (:documentation "Extra formatting flags for %<...%> (pretty print) format"))
 
 (defmethod parse-extra-args (fmt-info (char (eql #\<)) pattern start)
   (let ((pretty nil)
-        (package nil)) 
+        (margin nil)
+        (package nil)
+        arg)
+    (declare (type (or null unsigned-byte (eql :default)) margin))
     (destructuring-bind (next-pos &rest args)
         (parse-extra-args-in-curly-braces pattern start)
-      (dolist (arg args)
-        (cond ((kw= arg "pretty")
-               (setq pretty :pretty))
-              ((kw= arg "nopretty")
-               (setq pretty :nopretty))
-              ((kw= arg "package")
-               (setq package :package))
-              ((kw= arg "nopackage")
-               (setq package :nopackage))
-              (t (pattern-layout-error
-                  "~@<Invalid extra argument ~s ~:_around ~
+      (loop
+        (if (null args) (return) (setq arg (pop args)))
+        (cond
+          ((kw= arg "pretty")
+           (setq pretty :pretty)
+           (unless (null args)
+             (cond ((null (car args))
+                    (setq margin :default
+                          args (rest args)))
+                   ((and (plusp (length (car args)))
+                         (digit-char-p (char (car args) 0)))
+                    (handler-case
+                        (setq arg (pop args)
+                              margin (parse-integer arg))
+                      (error (err)
+                        (pattern-layout-error
+                         "~@<Invalid margin argument ~_~s: ~_~a~:>" arg err)))))))
+          ((kw= arg "nopretty")
+           (setq pretty :nopretty))
+          ((kw= arg "package")
+           (setq package :package))
+          ((kw= arg "nopackage")
+           (setq package :nopackage))
+          (t (pattern-layout-error
+              "~@<Invalid extra argument ~s ~:_around ~
                       position ~d in conversion pattern ~:_~s~:>"
-                  arg start pattern))))
+              arg start pattern))))
       (values next-pos
               (change-class
                fmt-info 'pattern-pretty-fmt-info
-               :package package :pretty pretty)))))
-
+               :package package :pretty pretty
+               :margin margin)))))
 
 (define-pattern-formatter (#\< #\>)
   "Wrap content inside into PPRINT-LOGICAL-BLOCK"
@@ -1278,8 +1297,12 @@ package does not exist at runtime"
           (progn 
             (pprint-logical-block (stream nil)
               (if (eq pretty :pretty) 
-                  (let ((*print-pretty* t))
-                    (doit stream))
+                  (let* ((*print-pretty* t)
+                         (margin (format-margin fmt-info)))
+                    (if margin (let ((*print-right-margin*
+                                       (if (eq margin :default) nil margin)))
+                                 (doit stream))
+                        (doit stream)))
                   (doit stream)))) 
           (let ((*print-pretty* nil)) (doit stream))))))
 

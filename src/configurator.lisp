@@ -117,14 +117,16 @@ Without any options (LOG:CONFIG) displays current configuration
  :NOFILE       | :NOFILE does not show the file
 ---------------|---------------------------------------------------------------
  :THREAD       | Include thread name into default pattern, it will be after the
-               | time, in [%t] format
+  [<n>[<n2>]]  | time, in [%t] format. If :THERAD argument is followed by one
+               | or two numbers, they will be used as min/max field width.
 ---------------|---------------------------------------------------------------
- :NDC          | Include NDC context into default pattern, if thread is also
-               | specified, it will be after the thread name, separated by dash
-               | like this: [threadname-ndc], and will not be shown if unbound
+ :NDC          | Include NDC context into default pattern, with optional min/max
+  [<n>[<n2>]]  | field width flags. When used together with :THREAD NDC will be
+               | printed after the thread name, separated by dash, like this
+               | example: \"[threadname-ndc]\"; it will not be shown if unbound
                |
-               | If thread name is not specified, it will be included in place
-               | of a thread name, in [%x] format, not taking any space if unset
+               | Without :THREAD, its shown in its own square brackets, with
+               | entire construct not shown if unbound.
 ---------------|---------------------------------------------------------------
  :NOPACKAGE    | Add {nopackage} option to the pattern (binds orig package at
  :PACKAGE      | the site of the log statement. PACKAGE binds keyword package,
@@ -292,8 +294,20 @@ Examples:
           ((:twoline :two-line :2line) (setq oneline nil twoline t))
           ((:oneline :one-line :1line) (setq oneline t twoline nil))
           (:console (setq console t global-console t))
-          (:thread (setq thread t))
-          (:ndc (setq ndc t))
+          (:thread
+           (setq thread 
+                 (let* ((min (when (integerp (car args)) (pop args)))
+                        (max (when (integerp (car args)) (pop args))))
+                   (declare (type (or null integer) min) 
+                            (type (or null (integer 1)) max))
+                   (if (or min max) (list min max) t))))
+          (:ndc
+           (setq ndc 
+                 (let* ((min (when (integerp (car args)) (pop args)))
+                        (max (when (integerp (car args)) (pop args))))
+                   (declare (type (or null integer) min) 
+                            (type (or null (integer 1)) max))
+                   (if (or min max) (list min max) t))))
           (:pretty (setq pretty t nopretty nil))
           (:nopretty (setq nopretty t pretty nil))
           (:package (setq package t nopackage nil))
@@ -633,10 +647,21 @@ appender"
                                       (getf elem prop)))
                                '(:oneline :twoline :time :file :file2)))
                       *default-patterns*)))
-    (let ((pat (getf (or pat (first *default-patterns*)) :pattern)))
-      ;; handle pretty, ndc and thread
-      (flet ((s/ (x y)
-               (setq pat (replace-in-string pat x y)))) 
+    (let ((pat (getf (or pat (first *default-patterns*)) :pattern))
+          w1 w2
+          thread-width-fmt
+          ndc-width-fmt)
+      (flet (
+             ;; search replace once in pattern
+             (s/ (x y)
+               (setq pat (replace-in-string pat x y)))
+             ;; generate %<min.max> part of pattern if field width was
+             ;; used with :thread or :ndc
+             (figure-width (x)
+               (if (consp x)
+                   (destructuring-bind (&optional min max) x
+                     (format nil "~@[~d~]~@[.~d~]" min max)) 
+                   "")))
         (cond ((getf args :pretty)
                (s/ "%<" "%<{pretty}"))
               ((getf args :nopretty) 
@@ -646,13 +671,21 @@ appender"
               ((getf args :nopackage) 
                (s/ "%<" "%<{nopackage}")))
         (cond
-          ((and (getf args :thread)
-                (getf args :ndc))
-           (s/ "%t" " [%t%:;-;x]"))
-          ((getf args :thread)
-           (s/ "%t" " [%t]"))
-          ((getf args :ndc)
-           (s/ "%t" "%:; [;;];x"))
+          ;; figure out min/max
+          ((and (setq w1 (getf args :thread))
+                (setq w2 (getf args :ndc)))
+           (setq thread-width-fmt (figure-width w1)
+                 ndc-width-fmt (figure-width w2))
+           (s/ "%t"
+               (format nil "%; [;~At%:;-;~Ax]"
+                       thread-width-fmt
+                       ndc-width-fmt)))
+          ((setq w1 (getf args :thread))
+           (s/ "%t" (format nil "%:; [;;];~At"
+                            (figure-width w1))))
+          ((setq w1 (getf args :ndc))
+           (s/ "%t" (format nil "%:; [;;];~Ax"
+                            (figure-width w1))))
           (t (s/ "%t" "")))
         pat))))
 

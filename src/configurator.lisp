@@ -252,7 +252,8 @@ Examples:
         appender-specified-p
         force-add
         clear-levels clear-appenders
-        remove)
+        remove
+        stream-by-itself)
     (declare (type (or null stream) stream))
     (cond ((logger-p (car args))
            (setq logger (pop args)))
@@ -352,8 +353,11 @@ Examples:
                       (log4cl-error "Invalid LOG:CONFIG keyword ~s" arg))
                      (t (log4cl-error
                          "Don't know what do with argument ~S" arg))))))))
-    (if (and stream (not this-console) (not tricky-console))
-        (setq tricky-console t))
+    (when stream 
+      (if (and (not this-console) (not tricky-console))
+          (setq tricky-console t))
+      (when (and (not sane) (not daily))
+        (setq stream-by-itself t)))
     (setq
      pattern-specified-p (or pattern oneline twoline thread
                              ndc file file2 nofile time notime
@@ -458,7 +462,8 @@ Examples:
                (stream (resolve-stream (or stream *global-console*)))
                (global-stream (resolve-stream *global-console*))
                (global-stream-same-p (eq stream global-stream))
-               dups)
+               dups
+               s1 s2 s3)
           (dolist (a (logger-appenders logger))
             (when (appender-enabled-p a)
               (typecase a
@@ -480,33 +485,40 @@ Examples:
                        global-stream-same-p)
               (setq this-console nil
                     tricky-console t))
-            ;; (format t " have (this global tricky) = ~s ~%" (list have-this-console-p have-global-console-p have-tricky-console-p))
-            ;; (format t " want (this global tricky) = ~s ~%" (list this-console global-console tricky-console))
             ;; duplicate check
             (when (or (and global-console
                            (or have-global-console-p
                                (and have-this-console-p
-                                    global-stream-same-p)))
+                                    global-stream-same-p))
+                           (setq s1 t))
                       (and this-console
                            (or (and have-global-console-p global-stream-same-p)
-                               have-this-console-p))
+                               have-this-console-p)
+                           (setq s2 t))
                       (and tricky-console
                            (or have-tricky-console-p
-                               have-this-console-p))) 
-              (error "~@<Already logging to the same stream with ~4I~_~S ~%Specify either :SANE or :FORCE-ADD~:>"
-                     dups)))
-          (when global-console
-            (push (make-instance 'console-appender :layout layout)
-                  appenders))
-          (when (or tricky-console this-console) 
-            (push
-             (if tricky-console
-                 (make-instance 'tricky-console-appender
-                  :stream stream :layout layout)
-                 (make-instance 'this-console-appender
-                  :stream stream :layout layout))
-             appenders))))
-      ;; (format t "here appenders = ~s ~%" appenders)
+                               have-this-console-p)
+                           (setq s3 t)))
+              ;; Allow :stream *somewhere* :thread
+              ;; to change pattern just on that stream
+              (if (and stream-by-itself
+                       pattern-specified-p
+                       s3 (not s1) (not s2)) 
+                  (setq appender-specified-p nil)
+                  (error "~@<Already logging to the same stream with ~4I~_~S ~%Specify either :SANE or :FORCE-ADD~:>"
+                         dups))))
+          (unless s3 
+            (when global-console
+              (push (make-instance 'console-appender :layout layout)
+                    appenders))
+            (when (or tricky-console this-console) 
+              (push
+               (if tricky-console
+                   (make-instance 'tricky-console-appender
+                    :stream stream :layout layout)
+                   (make-instance 'this-console-appender
+                    :stream stream :layout layout))
+               appenders)))))
       ;; now add all of them to the logger
       (dolist (a appenders)
         (when immediate-flush
@@ -518,17 +530,20 @@ Examples:
     ;; When pattern options are specified, but not the option to add
     ;; new appender, we assume user wants to change layout for
     ;; existing console appenders
-    (when (and pattern-specified-p (not appender-specified-p))
-      (let (didit
-            (global-stream (resolve-stream *global-console*)))
+    (when (and pattern-specified-p (or (not appender-specified-p)
+                                       stream-by-itself))
+      (let* (didit
+             (stream (resolve-stream (or stream *global-console*)))
+             (global-stream (resolve-stream *global-console*))
+             (global-stream-same-p (eq stream global-stream)))
         (dolist (a (logger-appenders logger))
           ;; Only change global console appenders, or specific console
           ;; appender that log to console at log site
           (when (appender-enabled-p a) 
-            (when (or (typep a 'console-appender)
+            (when (or (and global-stream-same-p (typep a 'console-appender))
                       (and (typep a '(or this-console-appender
                                       tricky-console-appender))
-                           (eq (appender-stream a) global-stream)))
+                           (eq (appender-stream a) stream)))
               ;; Assumes slot assignments atomic, but so is everything
               ;; else in log4cl
               (setf (appender-layout a) layout)

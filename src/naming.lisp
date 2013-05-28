@@ -410,7 +410,7 @@ list of arguments to FORMAT starting with control string"
                                                  :from-end t))) 
                   (when n1 (setq arg (substr arg n1 (1+ n2)))) 
                   (cond ((position #\~ arg)
-                         (loop for c character across arg
+                         (loop for c :of-type character across arg
                                if (char= c #\~)
                                do (write-string "~~")
                                else do (write-char c)))

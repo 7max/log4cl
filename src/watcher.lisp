@@ -43,7 +43,7 @@
          (%without-interrupts
            (when (with-hierarchies-lock
                    (cond (*watcher-thread*
-                          (%allow-with-interrupts
+                          (%with-local-interrupts
                             (log-debug "Watcher thread already started") 
                             nil))
                          (t (setq *watcher-thread* (bt:current-thread)))))
@@ -60,7 +60,7 @@
                         (log-error :logger logger "Error in hierarchy watcher thread:~%~A" e))))
                (with-hierarchies-lock
                  (setf *watcher-thread* nil))
-               (%allow-with-interrupts (log-info :logger logger "Hierarchy watcher thread ended"))))))
+               (%with-local-interrupts (log-info :logger logger "Hierarchy watcher thread ended"))))))
        :name "Hierarchy Watcher"
        :initial-bindings
        `((*hierarchy* . 0)
@@ -92,7 +92,7 @@
 (defun stop-hierarchy-watcher-thread ()
   (let ((thread (with-hierarchies-lock *watcher-thread*))) 
     (when thread
-      (bt::destroy-thread thread) 
+      (ignore-errors (bt::destroy-thread thread)) 
       (ignore-errors (bt:join-thread thread)))))
 
 (defun maybe-start-watcher-thread ()

@@ -15,8 +15,8 @@
 
 (in-package #:log4cl)
 
-#-sbcl (defvar *global-console* (make-synonym-stream '*terminal-io*))
-#+sbcl (sb-ext:defglobal *global-console* (make-synonym-stream '*terminal-io*))
+#-sbcl (defvar *global-console* (make-synonym-stream '*debug-io*))
+#+sbcl (sb-ext:defglobal *global-console* (make-synonym-stream '*debug-io*))
 
 (defmethod close-appender (appender)
   (declare (ignore appender)))

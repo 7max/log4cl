@@ -862,7 +862,7 @@ Example output:
                (print-properties layout)
                (pop indents)))
       (print-one-logger logger)
-      (let* ((global-stream (resolve-stream *terminal-io*))
+      (let* ((global-stream (resolve-stream *debug-io*))
              (appenders (effective-appenders logger)))
         (unless (some (lambda (a)
                         (typecase a
@@ -871,7 +871,7 @@ Example output:
                            (eq (appender-stream a) global-stream))))
                       appenders)
           (format t "~%~@<Warning: No appenders can reach current ~9I~_~<~A: ~:_~A~:>~:>~%"
-                  (list '*terminal-io* global-stream)))))
+                  (list '*debug-io* global-stream)))))
     (values)))
 
 ;; do default configuration

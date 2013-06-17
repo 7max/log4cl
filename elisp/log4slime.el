@@ -46,11 +46,10 @@ logging event originated in"
   :group 'log4slime)
 
 (defface log4slime-level-selection-face
-  (org-compatible-face nil
-    '((((class color) (min-colors 16) (background light)) (:foreground "ForestGreen" :bold t))
-      (((class color) (min-colors 16) (background dark)) (:foreground "PaleGreen" :bold t))
-      (((class color) (min-colors 8)) (:foreground "green"))
-      (t (:bold t))))
+  '((((class color) (min-colors 16) (background light)) (:foreground "ForestGreen" :bold t))
+    (((class color) (min-colors 16) (background dark)) (:foreground "PaleGreen" :bold t))
+    (((class color) (min-colors 8)) (:foreground "green"))
+    (t (:bold t)))
   "Face for log level in `log4slime-level-selection' window"
   :group 'log4slime)
 

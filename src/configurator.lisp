@@ -253,13 +253,16 @@ Examples:
         force-add
         clear-levels clear-appenders
         remove
-        stream-by-itself)
+        stream-by-itself
+        logger-specified-how)
     (declare (type (or null stream) stream))
     (cond ((logger-p (car args))
-           (setq logger (pop args)))
+           (setq logger (pop args)
+                 logger-specified-how 'logger))
           ((consp (car args))
            (setq logger
                  (let ((cats (pop args))) 
+                   (setq logger-specified-how 'cats)
                    (or (instantiate-logger *package* cats t nil) 
                        (log4cl-error "~@<Logger named ~S not found. If you want to create it, ~
                        use (~A:~A (~A:~A ~S) ...) instead~:@>"
@@ -268,9 +271,11 @@ Examples:
                                      '#:log '#:logger
                                      cats)))))
           ((member :self args)
-           (setq logger +self-logger+ self t)
-           (setq args (remove :self args))))
-    (setq logger (or logger *root-logger*))
+           (setq logger +self-logger+ self t
+                 logger-specified-how 'self 
+                 args (remove :self args))))
+    (or logger (setq logger *root-logger*
+                     logger-specified-how nil))
     (unless (setq orig-args args)
       (return-from log-config (show-logger-settings logger)))
     (loop
@@ -364,8 +369,7 @@ Examples:
                              pretty nopretty
                              package nopackage)
      appender-specified-p (or daily sane console))
-    
-    (or logger (setq logger *root-logger*))
+
     (or level remove sane clear daily properties own noown console pattern-specified-p
         (log4cl-error "Bad combination of options"))
     (or (not properties)
@@ -379,6 +383,15 @@ Examples:
                  thread ndc pretty nopretty
                  package nopackage))
         (error ":PATTERN isn't compatible with built-in pattern selection flags"))
+    ;; If we are asked to screw with appenders, and given an source-file logger
+    ;; object, do it on the parent.. Reason is that without automatic naming
+    ;; support, or at toplevel (log:category) will return not package logger,
+    ;; but package.<source> one
+    (when (and (eq logger-specified-how 'logger)
+               (typep logger 'source-file-logger)
+               (or pattern-specified-p appender-specified-p remove))
+      (setq logger (logger-parent logger))
+      (assert (not (typep logger 'source-file-logger))))
     (when remove
       (let ((list (logger-appenders logger)))
         (if (<= 1 remove (length list))

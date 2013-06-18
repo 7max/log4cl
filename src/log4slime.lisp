@@ -254,7 +254,8 @@ be split into multiple ones, but I have no time right now"
 (defvar *old-compile-string-for-emacs*
   (fdefinition 'swank::compile-string-for-emacs))
 
-;; patch the COMPILE-STRING-FOR-EMACS
+;; Patch the COMPILE-STRING-FOR-EMACS to bind *LOGGER-TRUENAME* to the file
+;; name that C-c C-c snippet is from
 (setf (fdefinition 'swank::compile-string-for-emacs)
       (lambda (string buffer position filename policy)
         (let ((*logger-truename*
@@ -262,6 +263,11 @@ be split into multiple ones, but I have no time right now"
           (funcall *old-compile-string-for-emacs*
                    string buffer position filename policy))))
 
+;; In case SWANK was patched with the "thread stopper" patch that defines
+;; protocol for starting/stopping threads around calls to fork(), register
+;; a callback for the watcher thread
+(let ((rss-foo (find-symbol (symbol-name '#:register-thread-stopper) (find-package :swank))))
+  (and rss-foo (funcall rss-foo :log4cl #'log4cl::start/stop-watcher-hook)))
 ;;
 ;; Some copy-paste from CLHS package
 ;; 

@@ -136,6 +136,16 @@ have :immediate-flush option"
           (collect-hier *hierarchy*))
       appenders)))
 
+(defun start/stop-watcher-hook (cmd &optional arg)
+  (ecase cmd
+    (:stop (let ((thread (with-hierarchies-lock *watcher-thread*))) 
+             (when thread
+               (stop-hierarchy-watcher-thread)
+               (funcall arg))))
+    (:start (start-hierarchy-watcher-thread))))
+
 #+sbcl (pushnew 'save-hook sb-ext:*save-hooks*)
 #+sbcl (pushnew 'exit-hook sb-ext:*exit-hooks*)
 #+sbcl (pushnew 'init-hook sb-ext:*init-hooks*)
+
+

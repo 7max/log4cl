@@ -459,7 +459,8 @@ Examples:
                :name-format daily
                :backup-name-format
                (if had-backup backup
-                   (unless (position #\% daily)
+                   (unless (position #\% (if (pathnamep daily) (format nil "~a" daily)
+                                             daily))
                      (format nil "~a.%Y%m%d" daily)))
                :layout layout)
               appenders))

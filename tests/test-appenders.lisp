@@ -617,3 +617,35 @@ the log file initially, make test for the new problem"
       (is (search "hey there" (string-downcase output)))
       (is (search "hey again" (string-downcase output)))
       (is (search "hey yet again" (string-downcase output))))))
+
+(deftest test-daily-file-appender-pathname ()
+  "Test that one can specify pathname in :daily"
+  (with-package-log-hierarchy
+    (clear-logging-configuration)
+    (let* ((fname-base (merge-pathnames (rand-filename) *tests-dir*))
+           (a (make-instance 'daily-file-appender :name-format
+               (pathname (format nil "~a-%H-%M-%S.log" fname-base))
+               :rollover-check-period 1))
+           (logger (make-logger '(one two three))))
+      (add-appender logger a)
+      ;; (add-appender *root-logger* (make-instance 'console-appender))
+      (log-config :d)
+      (log-info :logger logger "Hey")
+      (let ((fname1 (appender-filename a)))
+        (log-sexp fname1)
+        (sleep 1.2)
+        (log-info :logger logger "Hey again")
+        (let ((fname2 (appender-filename a)))
+          (log-sexp fname2)
+          (unwind-protect
+               (progn
+                 (is (not (equal fname1 fname2)))
+                 (with-open-file (s fname1)
+                   (is (equal (read-line s) "INFO - Hey")))
+                 (remove-appender logger a)
+                 ;; verify it got closed
+                 (is (not (slot-boundp a 'stream)))
+                 (with-open-file (s fname2)
+                   (is (equal (read-line s) "INFO - Hey again"))))
+            (delete-file fname1)
+            (delete-file fname2)))))))

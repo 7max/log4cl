@@ -1107,7 +1107,7 @@ strftime like PATTERN."))
 (define-pattern-formatter (#\h)
   "Output the %h pattern"
   (declare (ignore logger log-level log-func))
-  (format-string (slot-value fmt-info 'hostname) stream fmt-info)
+  (format-string (or (slot-value fmt-info 'hostname) "") stream fmt-info)
   (values))
 
 (define-pattern-formatter (#\n)
@@ -1127,7 +1127,7 @@ strftime like PATTERN."))
 (define-pattern-formatter (#\t)
   "Output %t (thread name) pattern"
   (declare (ignore logger log-level log-func))
-  (format-string (thread-name (current-thread)) stream fmt-info))
+  (format-string (or (thread-name (current-thread)) "") stream fmt-info))
 
 (define-pattern-formatter (#\x)
   (declare (ignore logger log-level log-func))

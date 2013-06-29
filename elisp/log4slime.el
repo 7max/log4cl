@@ -253,7 +253,7 @@ argument, the parent effective log level (string)")
                    (insert " set to inherit level " (log4slime-format-eff-level info)))
                   (t 
                    (insert " set to level " (log4slime-format-eff-level info)))))
-          (message (buffer-substring (point-min) (point-max))))))))
+          (message "%s" (buffer-substring (point-min) (point-max))))))))
 
 (defun log4slime-eval (form)
   "Wrapper around `slime-eval' that ignores errors on the lisp side"

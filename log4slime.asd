@@ -14,7 +14,7 @@
 ;;; limitations under the License.
 
 (asdf:defsystem #:log4slime
-  :version "1.1.0"
+  :version "1.1.1"
   :depends-on (#:log4cl #:swank)
   :components ((:file "src/log4slime")))
 

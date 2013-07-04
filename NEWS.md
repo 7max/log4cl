@@ -1,3 +1,34 @@
+## 1.1.1 - Log4Slime 
+
+* LOG:CONFIG :thread or :ndc argument can be followed by two numbers,
+  which will be used as MIN/MAX width fields, this helps if you want
+  to align output from multiple threads.
+
+* Pattern layout can use {pretty}{100} to set **PRINT-RIGHT-MARGIN** in
+  addition to forcing pretty printing.
+
+* (LOG:CONFIG (LOG:CATEGORY) ...) from top level now configures the package logger 
+  instea of package.<sourcefile> logger. 
+
+* :console appender changed back to use **DEBUG-IO** instead of 
+  **TERMINAL-IO**, because on LispWorks **TERMINAL-IO** goes to actual
+  terminal.
+
+* Removed forgotten Log4Slime dependency on org-mode in faces definition.
+
+* Default logging configuration is now :SANE2
+
+* Fix LOG:CONFIG :backup option not accepting NIL argument.
+
+* Log4SLime informational message about logger level changes was giving error
+  if category name contained % character.
+
+* %t and %h pattern layout (displaying thread and host name) were crashing
+  if corresponding attribute was actually NIL (apparently its possible to 
+  do create SBCL thread with NIL name)
+
+* (LOG:CONFIG :daily ...) now accepts pathnames again
+
 ## 1.1.0 - Log4Slime 
 
 * Log4CL now has Slime/Emacs integration, which is available in a

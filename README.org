@@ -5,32 +5,21 @@
 
 * Introduction
 
-This document describes new development version of Log4CL, which is
-not yet available in QuickLisp. It will become available in QuickLisp
-after a few months shakeout. The Log4CL Emacs/Slime integration module
-is called *Log4Slime*.
+*NOTE* - Because of some mishap with QuickLisp, June 2013 QuickLisp distribution
+pulled the *master* branch of Log4CL instead of *stable* branch as intended.
 
-This guide is written with assumption you'll have Log4Slime loaded and
-enabled, because Log4Slime is the most likely reason you'll be using
-development version anyway.
+Very few incompatibilities been reported, and it makes no sense to downgrade
+version that been already available in QuickLisp, therefore QuickLisp will
+continue to pull the *master* branch from now on.
+
+The major difference of Log4CL 1.1.x version from 1.0.x is the Emacs/Slime integration
+module, called *Log4Slime*. This document is written with assumption that you will
+have Log4Slime loaded and enabled in Emacs.
 
 ** Installation
 
-You will need to use QuickLisp's =~/quicklisp/local-projects= feature
-
-#+BEGIN_SRC sh
-  cd ~/quicklisp/local-projects
-  git clone git://github.com/7max/log4cl.git 
-#+END_SRC
-
-Then use the =(ql:quickload :log4cl)= from REPL to load it. 
-
-Best effort had been made so that new development version can be
-loaded directly on top of the stable one, in the same Lisp image, but
-due to many changes to Log4CL internals, while it seems to be working,
-its recommended that you nuke FASL's from
-=~/.cache/common-lisp/**/log4cl/= directory (or use Slime's
-,delete-system-fasl command) and restart the Lisp.
+   Log4CL is available from QuickLisp. To load it use =(ql:quickload :log4cl)=
+   command from REPL. Log4Slime is available in QuickLisp since June 2013.
 
 ** Enabling Log4Slime
 

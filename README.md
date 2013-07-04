@@ -1,32 +1,21 @@
 
 # <a id="sec-1" name="sec-1"></a>Introduction
 
-This document describes new development version of Log4CL, which is
-not yet available in QuickLisp. It will become available in QuickLisp
-after a few months shakeout. The Log4CL Emacs/Slime integration module
-is called **Log4Slime**.
+**NOTE** - Because of some mishap with QuickLisp, June 2013 QuickLisp distribution
+pulled the **master** branch of Log4CL instead of **stable** branch as intended.
 
-This guide is written with assumption you'll have Log4Slime loaded and
-enabled, because Log4Slime is the most likely reason you'll be using
-development version anyway.
+Very few incompatibilities been reported, and it makes no sense to downgrade
+version that been already available in QuickLisp, therefore QuickLisp will
+continue to pull the **master** branch from now on.
+
+The major difference of Log4CL 1.1.x version from 1.0.x is the Emacs/Slime integration
+module, called **Log4Slime**. This document is written with assumption that you will
+have Log4Slime loaded and enabled in Emacs.
 
 ## <a id="sec-1-1" name="sec-1-1"></a>Installation
 
-You will need to use QuickLisp's `~/quicklisp/local-projects` feature
-
-```sh
-cd ~/quicklisp/local-projects
-git clone git://github.com/7max/log4cl.git 
-```
-
-Then use the `(ql:quickload :log4cl)` from REPL to load it. 
-
-Best effort had been made so that new development version can be
-loaded directly on top of the stable one, in the same Lisp image, but
-due to many changes to Log4CL internals, while it seems to be working,
-its recommended that you nuke FASL's from
-`~/.cache/common-lisp/**/log4cl/` directory (or use Slime's
-,delete-system-fasl command) and restart the Lisp.
+Log4CL is available from QuickLisp. To load it use `(ql:quickload :log4cl)`
+command from REPL. Log4Slime is available in QuickLisp since June 2013.
 
 ## <a id="sec-1-2" name="sec-1-2"></a>Enabling Log4Slime
 
@@ -117,16 +106,14 @@ you get the following window.
 
 ![nil](./images/screenshot-11.png)
 
-Pressing "P" to select the "Package" shows the selected [category](#category)
-current [effective](#effective) log level and offers choice to set a different
-one. In above screenshot `CL-USER` [category](#category) does not have its own log level,
-instead in inherits one from the ROOT [category](#category)
+Pressing "p" to select the package category shows effective log level
+and allows you to change like so
 
 ![nil](./images/screenshot-10.png)
 
 This concludes the very basic introduction, if you were confused by
-what various terms such as "[category](#category)" mean, click on the
-hyperlink to read more about Log4CL concepts.
+what various terms such as "[category](#category)" mean, click on the hyperlink
+to read more about Log4CL concepts.
 
 Or you can skip the theory and just continue to learn by example.
 
@@ -168,7 +155,7 @@ Also note the farthest to the right in the logging [category](#category)
 name, the more specific. The level for "hello" overrides that for
 "cl-user", which in turn overrides that of the root category.
 
-## <a id="sec-3-1" name="sec-3-1"></a>Enter the source files
+## <a id="sec-3-1" name="sec-3-1"></a>Naming in source files
 
 For the next few examples, it is recommended that you load the
 examples come together with Log4CL, by doing `(ql:quickload :log4cl-examples)`
@@ -197,10 +184,13 @@ Run a few of them from REPL, like so:
 Log statements inside of methods, are using the [category](#category) name of the 
 generic function, extended with qualifier, and all non-T specializers.
 
-Note how by changing the level of the "foobar" you control all the
+Try going to the source of the above methods by clicking on them. It should land
+in the right method, without showing Slime's XREF window.
+
+Note how by changing the level of the `foobar` you control all the
 methods, but can override them based on their specializers. Try
-setting :after category to different levels, to control all
-the :after methods together.
+setting `:after` category to different levels, to control all
+the `:after` methods together.
 
 In addition to playing with methods, try `(setf (test.package.one:greetings) "Hey")` too.
 

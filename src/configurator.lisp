@@ -91,6 +91,9 @@ Without any options (LOG:CONFIG) displays current configuration
                | FILE can also contain %Y%m%d like pattern, expansion of which
                | will determine when new log file would be opened.
 ---------------|---------------------------------------------------------------
+ :FILTER level | Makes all appenders added by above keywords drop messages
+               | below specified level
+---------------|---------------------------------------------------------------
 
                             LAYOUT OPTIONS
 
@@ -241,6 +244,7 @@ Examples:
         oneline twoline
         orig-args
         self appenders
+        filter
         immediate-flush
         properties watch
         this-console tricky-console global-console
@@ -349,6 +353,11 @@ Examples:
           (:pattern
            (setq pattern (or (pop args)
                              (log4cl-error ":PATTERN missing argument"))))
+          (:filter
+           (setq filter (or (pop args)
+                            (log4cl-error ":FILTER missing argument")))
+           (when filter
+             (setq filter (make-log-level filter))))
           (t (let ((lvl (handler-case (log-level-from-object arg *package*)
                           (log4cl-error ()))))
                (cond ((and level lvl)
@@ -462,6 +471,7 @@ Examples:
                    (unless (position #\% (if (pathnamep daily) (format nil "~a" daily)
                                              daily))
                      (format nil "~a.%Y%m%d" daily)))
+               :filter filter
                :layout layout)
               appenders))
       ;; Add new console appender, only in these situations
@@ -523,15 +533,21 @@ Examples:
                          dups))))
           (unless s3 
             (when global-console
-              (push (make-instance 'console-appender :layout layout)
+              (push (make-instance 'console-appender
+                     :filter filter
+                     :layout layout)
                     appenders))
             (when (or tricky-console this-console) 
               (push
                (if tricky-console
                    (make-instance 'tricky-console-appender
-                    :stream stream :layout layout)
+                    :stream stream
+                    :filter filter
+                    :layout layout)
                    (make-instance 'this-console-appender
-                    :stream stream :layout layout))
+                    :stream stream
+                    :filter filter
+                    :layout layout))
                appenders)))))
       ;; now add all of them to the logger
       (dolist (a appenders)
@@ -726,12 +742,14 @@ error or error count"
   (with-slots (message-count
                error-count
                ignored-error-count
+               filter
                last-error
                last-ignored-error) a 
     (append
      '((:message-count message-count nil))
      (when (plusp error-count) '((:error-count error-count nil)))
      (when (plusp ignored-error-count) '((:ignored-error-count ignored-error-count nil)))
+     (when filter '((:filter filter nil)))
      (when last-error '((:last-error last-error nil)))
      (when last-ignored-error '((:last-ignored-error last-ignored-error nil))))))
 

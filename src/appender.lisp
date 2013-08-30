@@ -29,7 +29,7 @@
   '())
 
 (defun log-appender-disabled (appender condition)
-  (ignore-errors 
+  (ignore-errors
    (log-error :logger +self-meta-logger+ "~@<Caught ~S ~:_~A ~_~
                                              Appender ~S disabled~:>"
               (type-of condition) condition appender)))
@@ -92,11 +92,11 @@ ADD-WATCH-TOKEN"))
   '((:immediate-flush immediate-flush boolean)
     (:flush-interval flush-interval number)))
 
-(defgeneric appender-stream (appender) 
+(defgeneric appender-stream (appender)
   (:documentation "Should return the stream to which appender will write log messages"))
 
 (defclass fixed-stream-appender-base (stream-appender)
-  ((stream :accessor appender-stream) 
+  ((stream :accessor appender-stream)
    (stream-owner :initarg :stream-owner :initform nil))
   (:documentation "Appender that writes message to the stream in STREAM slot"))
 
@@ -113,7 +113,7 @@ STREAM slot."))
   (append (call-next-method)
           '((:stream stream :symbol-value))))
 
-(defclass console-appender (stream-appender) () 
+(defclass console-appender (stream-appender) ()
   (:documentation "A stream appender that writes messages to
 *TERMINAL-IO* stream, which must be a synonym stream"))
 
@@ -128,8 +128,10 @@ To capture the target output stream, any chain of SYNONYM-STREAM or
 TWO-WAY-STREAM is followed recursively, until result is no longer
 either synonym or two way stream"))
 
-(defmethod initialize-instance :after ((a this-console-appender) &key &allow-other-keys)
-  (with-slots (stream) a
+(defmethod shared-initialize :after ((instance this-console-appender)
+				     (slot-names t)
+				     &key &allow-other-keys)
+  (with-slots (stream) instance
     (setf stream (resolve-stream stream))))
 
 (defclass tricky-console-appender (this-console-appender) ()
@@ -300,7 +302,7 @@ its no longer attached to loggers"))
   (maybe-close-stream appender))
 
 (defclass file-appender (file-appender-base)
-  ((filename :initarg :file :reader appender-filename)) 
+  ((filename :initarg :file :reader appender-filename))
   (:documentation "Appender that writes to a file with a fixed file
 name"))
 
@@ -316,7 +318,7 @@ to rollover the log file.
 
 Properties:
 
-ROLLOVER-CHECK-PERIOD 
+ROLLOVER-CHECK-PERIOD
 
 : An integer, when current time advances past the boundary evenly divisible by this
 number a call to MAYBE-ROLL-FILE will be made to check if log file needs
@@ -452,7 +454,7 @@ weekly backup, that is appended to each day")
       (setf %last-backup-name backup-filename)
       (call-next-method))))
 
-(defmethod maybe-roll-file ((appender daily-file-appender)) 
+(defmethod maybe-roll-file ((appender daily-file-appender))
   "Expands FILENAME and BACKUP patterns, and if one of them changed,
 switches to the new log file"
   (with-slots (name-format backup-name-format
@@ -474,11 +476,11 @@ switches to the new log file"
       ;; Normal code path
       (let ((new-bak (expand-name-format
                       (or backup-name-format name-format)
-                      time utc-p))) 
+                      time utc-p)))
         (unless (and (equal new-file %current-file-name)
                      (equal new-bak %next-backup-name))
-          (when %current-file-name 
-            (maybe-close-stream appender) 
+          (when %current-file-name
+            (maybe-close-stream appender)
             (unless (equal %current-file-name %next-backup-name)
               (backup-log-file appender %current-file-name %next-backup-name)))
           (setq %current-file-name new-file
@@ -486,13 +488,13 @@ switches to the new log file"
 
 
 (defmethod handle-appender-error ((a temp-appender) c)
-  (cond ((typep c (temp-appender-error-type a)) 
+  (cond ((typep c (temp-appender-error-type a))
          (let ((loggers (appender-loggers a)))
-           (ignore-errors 
+           (ignore-errors
             (log-error :logger +self-meta-logger+ "~@<Caught ~S ~:_~A ~_~
                                                     Removing ~S ~_from ~
                                                    ~{~S~^, ~:_~}~:>"
-                       (type-of c) c a loggers))) 
+                       (type-of c) c a loggers)))
          (dolist (l (appender-loggers a))
            (remove-appender l a))
          :ignore)

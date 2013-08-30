@@ -44,12 +44,12 @@
            (when (with-hierarchies-lock
                    (cond (*watcher-thread*
                           (%with-local-interrupts
-                            (log-debug "Watcher thread already started") 
+                            (log-debug "Watcher thread already started")
                             nil))
                          (t (setq *watcher-thread* (bt:current-thread)))))
              (unwind-protect
-                  (%with-local-interrupts 
-                    (handler-case 
+                  (%with-local-interrupts
+                    (handler-case
                         (progn
                           (log-info :logger logger "Hierarchy watcher started")
                           (loop
@@ -90,14 +90,14 @@
        *hierarchies*))
 
 (defun stop-hierarchy-watcher-thread ()
-  (let ((thread (with-hierarchies-lock *watcher-thread*))) 
+  (let ((thread (with-hierarchies-lock *watcher-thread*)))
     (when thread
-      (ignore-errors (bt::destroy-thread thread)) 
+      (ignore-errors (bt::destroy-thread thread))
       (ignore-errors (bt:join-thread thread)))))
 
 (defun maybe-start-watcher-thread ()
   (with-hierarchies-lock
-    (let* ((tokens 
+    (let* ((tokens
              (loop for h :across *hierarchies* :append (watch-tokens h)))
            (have-appenders-p
              (some (lambda (x) (and (typep x 'stream-appender)
@@ -119,11 +119,15 @@
 (defun init-hook ()
   "Starts watcher thread if any existing appenders don't
 have :immediate-flush option"
-  (ignore-errors (maybe-start-watcher-thread)))
+  (ignore-errors (maybe-start-watcher-thread))
+  (ignore-errors (dolist (appender (all-appenders))
+                   (when (typep appender 'this-console-appender)
+                     (setf (slot-value appender 'stream) *global-console*)
+                     (reinitialize-instance appender)))))
 
 (defun all-appenders (&optional (all-hierarchies t))
   "Return all existing appenders in all hierarchies"
-  (let ((appenders '())) 
+  (let ((appenders '()))
     (labels ((collect-appenders (x)
                (dolist (a (logger-appenders x))
                  (push a appenders)))
@@ -131,14 +135,14 @@ have :immediate-flush option"
                (let ((*hierarchy* x))
                  (collect-appenders *root-logger*)
                  (map-logger-descendants #'collect-appenders *root-logger*))))
-      (if all-hierarchies 
+      (if all-hierarchies
           (with-hierarchies-lock (dotimes (i *hierarchy-max*) (collect-hier i)))
           (collect-hier *hierarchy*))
       appenders)))
 
 (defun start/stop-watcher-hook (cmd &optional arg)
   (ecase cmd
-    (:stop (let ((thread (with-hierarchies-lock *watcher-thread*))) 
+    (:stop (let ((thread (with-hierarchies-lock *watcher-thread*)))
              (when thread
                (stop-hierarchy-watcher-thread)
                (funcall arg))))
@@ -147,5 +151,3 @@ have :immediate-flush option"
 #+sbcl (pushnew 'save-hook sb-ext:*save-hooks*)
 #+sbcl (pushnew 'exit-hook sb-ext:*exit-hooks*)
 #+sbcl (pushnew 'init-hook sb-ext:*init-hooks*)
-
-

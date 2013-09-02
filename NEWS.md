@@ -1,3 +1,14 @@
+## 1.1.2 - Bugfixes 
+
+* Re-initialize any appenders that remember the resolved stream in INIT-HOOK on
+  SBCL; which fixes a crash if SBCL dump is ressurected without doing
+  (CLEAR-LOGGING-CONFIGURATION). Patch by Jan Moringen.
+  
+* Add (log:config ...adding an appender... :FILTER <level>) option, which
+  causes appender to drop messages less serious then <level>.  This allows one
+  to configure per-level appenders, for example error.log and debug.log. Patch
+  by https://github.com/naryl
+
 ## 1.1.1 - Log4Slime 
 
 * LOG:CONFIG :thread or :ndc argument can be followed by two numbers,

@@ -42,7 +42,7 @@
                  (type-of condition) context condition))
     (warning (condition)
       (log-warn :logger +self-meta-logger+
-                "~@<Caught ~S during configuration: ~A; Continuing.~@:>"
+                "~@<Caught ~S during ~S: ~A; Continuing.~@:>"
                 (type-of condition) context condition))))
 
 (defmacro with-logged-problems (context &body body)

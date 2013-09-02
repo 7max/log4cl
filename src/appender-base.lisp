@@ -24,6 +24,8 @@
                  :type (integer 0))
    (loggers :initform nil :accessor appender-loggers)
    (enabled :initform t :accessor appender-enabled-p)
+   (filter :initform nil
+           :initarg :filter :accessor appender-filter)
    (last-error :initform nil :accessor appender-last-error)
    (last-ignored-error :initform nil :accessor appender-last-ignored-error)
    (error-count :initform 0 :accessor appender-error-count
@@ -89,7 +91,12 @@ Example:
                        stream logger level log-func))
    (values))
 
-Return value of this function is ignored"))
+Return value of this function is ignored")
+  (:method :around ((appender appender) logger level log-func)
+    (let ((filter (appender-filter appender)))
+      (when (or (not filter)
+                (>= filter level))
+        (call-next-method)))))
 
 (defgeneric handle-appender-error (appender condition)
   (:documentation "Called when a condition is raised doing writing to

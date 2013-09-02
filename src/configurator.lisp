@@ -92,7 +92,7 @@ Without any options (LOG:CONFIG) displays current configuration
                | will determine when new log file would be opened.
 ---------------|---------------------------------------------------------------
  :FILTER level | Makes all appenders added by above keywords drop messages
-               | below specified level
+               | below specified level.
 ---------------|---------------------------------------------------------------
 
                             LAYOUT OPTIONS
@@ -736,9 +736,9 @@ appender"
 
 
 (defun appender-extra-print-properties (a)
-  "Make an list of extra properties when printing appender configuration.
-Some of the properties are included only conditionally, such as last
-error or error count"
+  "Return a list of (PROPNAME VALUE) extra display properties to print when
+displaying an appender. Some of the properties are included only
+conditionally, such as last error or error count"
   (with-slots (message-count
                error-count
                ignored-error-count
@@ -746,12 +746,12 @@ error or error count"
                last-error
                last-ignored-error) a 
     (append
-     '((:message-count message-count nil))
-     (when (plusp error-count) '((:error-count error-count nil)))
-     (when (plusp ignored-error-count) '((:ignored-error-count ignored-error-count nil)))
-     (when filter '((:filter filter nil)))
-     (when last-error '((:last-error last-error nil)))
-     (when last-ignored-error '((:last-ignored-error last-ignored-error nil))))))
+     `((:message-count ,message-count))
+     (when (plusp error-count) `((:error-count ,error-count)))
+     (when (plusp ignored-error-count) `((:ignored-error-count ,ignored-error-count)))
+     (when filter `((:filter ,(aref +log-level-to-keyword+ filter))))
+     (when last-error `((:last-error ,last-error)))
+     (when last-ignored-error `((:last-ignored-error ,last-ignored-error))))))
 
 (defun show-logger-settings (logger)
   "Print logger settings and its children to *STANDARD-OUTPUT*
@@ -855,22 +855,25 @@ Example output:
                        (print-one-logger l))))
                  (pop indents)))
              (print-properties (obj &optional extra-props)
-               (let* ((prop-alist (append (property-alist obj) extra-props))
-                      (name-width (loop for prop in prop-alist maximize
+               (let* ((prop-alist (property-alist obj))
+                      (print-list (append
+                                   (loop for (initarg slot nil) in prop-alist
+                                         collect (list initarg (slot-value obj slot)))
+                                   extra-props))
+                      (name-width (loop for prop in print-list maximize
                                            (length (format nil "~s" (first prop)))))
                       (indent (with-output-to-string (*standard-output*)
                                 (print-indent)))
                       (*print-pretty* t))
                  (loop
-                   for (initarg slot nil) in prop-alist
+                   for (propname value) in print-list
                    do (pprint-logical-block (*standard-output* nil :per-line-prefix indent)
-                        (let ((value (slot-value obj slot))) 
-                          (pprint-indent :block 0) 
-                          (write initarg :case :downcase) 
-                          (pprint-tab :section-relative 1 (1+ name-width))
-                          (pprint-indent :block 2)
-                          (pprint-newline :fill)
-                          (write value)))
+                        (pprint-indent :block 0) 
+                        (write propname :case :downcase) 
+                        (pprint-tab :section-relative 1 (1+ name-width))
+                        (pprint-indent :block 2)
+                        (pprint-newline :fill)
+                        (write value))
                    do (terpri))))
              (print-one-appender (a num)
                ;; empty line for spacing

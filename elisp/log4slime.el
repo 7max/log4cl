@@ -259,7 +259,9 @@ argument, the parent effective log level (string)")
   "Wrapper around `slime-eval' that ignores errors on the lisp side"
   (when (log4slime-check-connection) 
     ;; I swear it something in slime-eval screws with point sometimes
-    (save-excursion (slime-eval `(cl:ignore-errors ,form)))))
+    (save-excursion
+      (let ((slime-current-thread t)) 
+        (slime-eval `(cl:ignore-errors ,form))))))
 
 (defvar log4slime-goto-definition-window nil
   "Passed as WHERE to `slime-pop-to-location', can be 'WINDOW or 'FRAME too")

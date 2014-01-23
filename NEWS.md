@@ -1,15 +1,22 @@
-## 1.1.2 - Bugfixes 
+## 1.1.3 - Syslog Appender
+
+* For SBCL, a syslog appender using sb-posix:syslog has been added.
+
+* Other implementations may be supported once cl-syslog becomes
+  available with the next Quicklisp release.
+
+## 1.1.2 - Bugfixes
 
 * Re-initialize any appenders that remember the resolved stream in INIT-HOOK on
   SBCL; which fixes a crash if SBCL dump is ressurected without doing
   (CLEAR-LOGGING-CONFIGURATION). Patch by Jan Moringen.
-  
+
 * Add (log:config ...adding an appender... :filter LEVEL) option, which causes
   appender to drop messages less serious then LEVEL. This allows one to
   configure per-level appenders, for example error.log and debug.log. Patch by
   https://github.com/naryl
 
-## 1.1.1 - Log4Slime 
+## 1.1.1 - Log4Slime
 
 * LOG:CONFIG :thread or :ndc argument can be followed by two numbers,
   which will be used as MIN/MAX width fields, this helps if you want
@@ -18,10 +25,10 @@
 * Pattern layout can use {pretty}{100} to set **PRINT-RIGHT-MARGIN** in
   addition to forcing pretty printing.
 
-* (LOG:CONFIG (LOG:CATEGORY) ...) from top level now configures the package logger 
-  instea of package.<sourcefile> logger. 
+* (LOG:CONFIG (LOG:CATEGORY) ...) from top level now configures the package logger
+  instea of package.<sourcefile> logger.
 
-* :console appender changed back to use **DEBUG-IO** instead of 
+* :console appender changed back to use **DEBUG-IO** instead of
   **TERMINAL-IO**, because on LispWorks **TERMINAL-IO** goes to actual
   terminal.
 
@@ -35,12 +42,12 @@
   if category name contained % character.
 
 * %t and %h pattern layout (displaying thread and host name) were crashing
-  if corresponding attribute was actually NIL (apparently its possible to 
+  if corresponding attribute was actually NIL (apparently its possible to
   do create SBCL thread with NIL name)
 
 * (LOG:CONFIG :daily ...) now accepts pathnames again
 
-## 1.1.0 - Log4Slime 
+## 1.1.0 - Log4Slime
 
 * Log4CL now has Slime/Emacs integration, which is available in a
   system :log4slime. It colorizes the log output, and provides
@@ -81,7 +88,7 @@
   is automatically terminated on exit, and before SAVE-LISP-AND-DIE.
 
 * Added API to flush all appenders, LOG4CL:FLUSH-ALL-APPENDERS, which
-  is automatically called on SBCL from exit hooks. 
+  is automatically called on SBCL from exit hooks.
 
 * (LOG:CONFIG) now has many new pattern layout related options
   :pretty, :nopretty, :file, :file2, :nofile, :time, :notime, :package

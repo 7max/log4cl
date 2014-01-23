@@ -55,14 +55,14 @@
                     ;; sexp version of logging macros
                     #:log-sexp-fatal #:log-sexp-error #:log-sexp-warn #:log-sexp-info #:log-sexp-debug #:log-sexp-trace
                     #:log-sexp-debu1 #:log-sexp-debu2 #:log-sexp-debu3 #:log-sexp-debu4 #:log-sexp-debu5 #:log-sexp-debu6
-                    #:log-sexp-debu7 #:log-sexp-debu8 #:log-sexp-debu9 
+                    #:log-sexp-debu7 #:log-sexp-debu8 #:log-sexp-debu9
                     #:log-indented
                     ;; logger access functions
                     #:make-log-level #:make-logger
                     #:set-log-level
                     #:logger-parent
                     #:logger-log-level
-                    #:logger-appenders 
+                    #:logger-appenders
                     #:effective-log-level
                     #:effective-appenders
                     #:add-appender
@@ -91,7 +91,7 @@
                     #:in-log-hierarchy
                     #:with-package-log-hierarchy
                     #:in-package-log-hierarchy
-                    ;; layouts & appenders 
+                    ;; layouts & appenders
                     #:layout
                     #:layout-to-stream
                     #:appender-do-append
@@ -141,7 +141,7 @@
                     #:logger-descendants
                     #:map-logger-children
                     #:map-logger-descendants
-                    #:start-hierarchy-watcher-thread 
+                    #:start-hierarchy-watcher-thread
                     #:stop-hierarchy-watcher-thread
                     #:add-watch-token
                     #:remove-watch-token
@@ -198,7 +198,8 @@
                     #:%get-logger
                     #:with-package-naming-configuration
                     #:fix-method-spec-list
-                    #:tricky-console-appender))
+                    #:tricky-console-appender
+                    #+sbcl #:syslog-appender))
                 ;; avoid SBCL (also exports) error
                 (removed-exports
                   (set-difference old-exports
@@ -214,6 +215,3 @@
              (unexport removed-exports p2))
            defpackage-form))))
   (%define-log4cl-package))
-
-
-

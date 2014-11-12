@@ -92,7 +92,7 @@ Example:
    (values))
 
 Return value of this function is ignored")
-  (:method :around ((appender appender) logger level log-func)
+  (:method :around ((appender appender) (logger t) level (log-func t))
     (let ((filter (appender-filter appender)))
       (when (or (not filter)
                 (>= filter level))

@@ -66,7 +66,7 @@ logging event originated in"
 ;; change, (log4slime-redefine-menus) needs to be called. Could be made
 ;; defcustom later
 (defvar log4slime-log-level-names
-  '("Off" "Fatal" "Error" "Warn" "Info" "Debug" 
+  '("Off" "Fatal" "Error" "Warn" "Info" "Debug"
     "Debu1" "Debu2" "Debu3" "Debu4" "Trace" "Debu5" "Debu6"
     "Debu7" "Debu8" "Debu9"))
 
@@ -78,7 +78,7 @@ argument, the parent effective log level (string)")
 
 ;; these have to match what backend prints, they are used in highlighting regexp
 (defvar log4slime-real-level-names
-  '("Off" "Fatal" "Error" "Warn" "Info" "Debug" 
+  '("Off" "Fatal" "Error" "Warn" "Info" "Debug"
     "Debu1" "Debu2" "Debu3" "Debu4" "Trace" "Debu5" "Debu6"
     "Debu7" "Debu8" "Debu9"))
 
@@ -94,7 +94,7 @@ argument, the parent effective log level (string)")
 ;; and the other way around. The first three elements below are used to identify or find
 ;; the logger in question, the rest of the elements are returned back from Lisp, if logger
 ;; exists
-;; 
+;;
 ;; :package              STRING
 ;;
 ;;     Name of the logger's package
@@ -106,7 +106,7 @@ argument, the parent effective log level (string)")
 ;; :rest                 STRING
 ;;
 ;;     Space separated list of log categories after the package if any
-;;     
+;;
 ;; :display-name         STRING
 ;;
 ;;     What to display on the bottom of the menu in (Changing log level for)
@@ -114,7 +114,7 @@ argument, the parent effective log level (string)")
 ;; :level                NUMBER
 ;;
 ;;     Logger's own log level, NIL if unset
-;; 
+;;
 ;; :inherited-level      NUMBER
 ;;
 ;;     The log level that logger would have if its own level is unset
@@ -131,9 +131,9 @@ argument, the parent effective log level (string)")
 ;;   :rest            "foo bar"
 ;;   :file            "whatever.lisp"
 ;;   :display-name    "foo bar"
-;;   
+;;
 ;; For the "com.openchat" logger values will be:
-;; 
+;;
 ;;   :package         "com.openchat.log4slime.test"
 ;;   :rest            nil
 ;;   :file            nil
@@ -141,7 +141,7 @@ argument, the parent effective log level (string)")
 ;;
 ;;
 ;; For the source-file-logger of whatever.lisp values will be:
-;; 
+;;
 ;;   :package         "com.openchat.log4slime.test"
 ;;   :rest            nil
 ;;   :file            "whatever.lisp"
@@ -186,7 +186,7 @@ argument, the parent effective log level (string)")
 
 (defun log4slime-make-keys-string (info-symbol level)
   "Return a string describing keyboard shortcut"
-  (let* ((1st-level-char 
+  (let* ((1st-level-char
           (ecase info-symbol
             (log4slime-root-logger (nth 0 log4slime-logger-keys))
             (log4slime-package-logger (nth 1 log4slime-logger-keys))
@@ -194,16 +194,16 @@ argument, the parent effective log level (string)")
             (log4slime-defun-logger (nth 3 log4slime-logger-keys))))
          (2nd-level-char
           (car (rassoc level log4slime-menu-levels))))
-    (when (and 1st-level-char 2nd-level-char) 
-      (format "\\[log4slime-level-selection] %c %c" 
+    (when (and 1st-level-char 2nd-level-char)
+      (format "\\[log4slime-level-selection] %c %c"
               1st-level-char 2nd-level-char))))
 
 (defun log4slime-level-menu-item (info-symbol level)
   "Create the easy-menu menu item that toggles the log level"
   (let* ((level (or level :unset))
          (S
-          (if (eq :unset level) 
-              `(memq (log4slime-logger-level ,info-symbol) '(:unset nil)) 
+          (if (eq :unset level)
+              `(memq (log4slime-logger-level ,info-symbol) '(:unset nil))
             `(eql ,level (log4slime-logger-level ,info-symbol))))
          (T (if (eq :unset level)
                 `(format log4slime-unset-menu-item-format
@@ -216,7 +216,7 @@ argument, the parent effective log level (string)")
       :label ,T
       :style radio
       :selected ,S
-      ,@(unless (eq info-symbol 'log4slime-popup-logger) 
+      ,@(unless (eq info-symbol 'log4slime-popup-logger)
           `(:keys ,(log4slime-make-keys-string info-symbol level)))
       ;; :active (not ,S)
       ]))
@@ -227,7 +227,7 @@ argument, the parent effective log level (string)")
          (id (log4slime-logger-id info))
          (level (or level :unset)))
     ;; (log-expr info id level)
-    (let ((result 
+    (let ((result
            (log4slime-eval `(log4slime:emacs-helper
                           '(,@id :action :set :level ,level))))
           (type (log4slime-logger-type id)))
@@ -243,24 +243,24 @@ argument, the parent effective log level (string)")
           (setf (getf info :level) new-level
                 (getf info :inherited-level) new-inherited-level)
           (if (and (eq type :root) (eq level :reset))
-              (insert "All loggers set to inherit level " (log4slime-format-eff-level info)) 
+              (insert "All loggers set to inherit level " (log4slime-format-eff-level info))
             (insert
              (if (eq type :root) "Root logger" "Logger ")
              (log4slime-format-fontified-logger-type info t nil ""))
             (cond ((eq level :reset)
                    (insert " children set to inherit level " (log4slime-format-eff-level info)))
-                  ((not (log4slime-logger-level info)) 
+                  ((not (log4slime-logger-level info))
                    (insert " set to inherit level " (log4slime-format-eff-level info)))
-                  (t 
+                  (t
                    (insert " set to level " (log4slime-format-eff-level info)))))
           (message "%s" (buffer-substring (point-min) (point-max))))))))
 
 (defun log4slime-eval (form)
   "Wrapper around `slime-eval' that ignores errors on the lisp side"
-  (when (log4slime-check-connection) 
+  (when (log4slime-check-connection)
     ;; I swear it something in slime-eval screws with point sometimes
     (save-excursion
-      (let ((slime-current-thread t)) 
+      (let ((slime-current-thread t))
         (slime-eval `(cl:ignore-errors ,form))))))
 
 (defvar log4slime-goto-definition-window nil
@@ -355,7 +355,7 @@ levels menu is not even shown"
                          `([nil nil :label (log4slime-logger-display-name ,info-symbol)]
                            "--single-line"))
                      ;; inherit
-                     ,@(when (and (not noinherit) 
+                     ,@(when (and (not noinherit)
                                   (rassoc :unset log4slime-menu-levels))
                          `(,(log4slime-level-menu-item info-symbol :unset)))
                      ;; fatal through debug
@@ -364,8 +364,8 @@ levels menu is not even shown"
                              collect (log4slime-level-menu-item info-symbol level))
                      ;; reset children
                      ,@(when (rassoc :reset log4slime-menu-levels)
-                         `(["--single-line" nil :visible (and (plusp (log4slime-children-level-count ,info-symbol)))] 
-                           ["--space" nil :visible (plusp (log4slime-children-level-count ,info-symbol))] 
+                         `(["--single-line" nil :visible (and (plusp (log4slime-children-level-count ,info-symbol)))]
+                           ["--space" nil :visible (plusp (log4slime-children-level-count ,info-symbol))]
                            [:reset
                             (log4slime-set-level ',info-symbol :reset)
                             ;; (log4slime-set-level ,info-symbol :reset)
@@ -407,7 +407,7 @@ will return \"foobar :after some-class :blah\"
 
 This also can be used is same as as a better alternative to
 default `add-log-current-defun-function' for CL code"
-  (save-excursion 
+  (save-excursion
     (let ((location (point))
           name defp methodp type qualifiers specializers
           skipped-eql-p
@@ -417,7 +417,7 @@ default `add-log-current-defun-function' for CL code"
       (beginning-of-defun)
       ;; Make sure we are really inside the defun found,
       ;; not after it.
-      (when 
+      (when
           (and (looking-at "\\s(")
                (progn (end-of-defun)
                       (< location (point)))
@@ -434,15 +434,15 @@ default `add-log-current-defun-function' for CL code"
         ;; now after 1st word, before name
         (when defp
           ;; next sexp is type
-          (goto-char (scan-sexps (point) 1)) 
-          (save-excursion 
-            (goto-char (scan-sexps (point) -1)) 
+          (goto-char (scan-sexps (point) 1))
+          (save-excursion
+            (goto-char (scan-sexps (point) -1))
             (if (not (looking-at "("))
                 (setq type (slime-symbol-at-point))
               (forward-char 1)
               (setq type (slime-symbol-at-point))
               (when (equalp type "method")
-                (ignore-errors 
+                (ignore-errors
                   (while t
                     (goto-char (scan-sexps (scan-sexps (point) 2) -1))
                     (when (looking-at ":")
@@ -451,7 +451,7 @@ default `add-log-current-defun-function' for CL code"
           (setq methodp (equalp type "method")))
         ;; back to common case
         (goto-char (scan-sexps (scan-sexps (point) 1) -1))
-        (setq name 
+        (setq name
               (if (looking-at "(")
                   (save-excursion
                     (forward-char 1)
@@ -461,19 +461,19 @@ default `add-log-current-defun-function' for CL code"
         (goto-char (scan-sexps (scan-sexps (point) 2) -1))
         ;; now after name
         (if (not methodp) name
-          (goto-char (scan-sexps (scan-sexps (point) 1) -1)) 
-          (ignore-errors 
-            (while (looking-at ":") 
+          (goto-char (scan-sexps (scan-sexps (point) 1) -1))
+          (ignore-errors
+            (while (looking-at ":")
               (push (slime-symbol-at-point) qualifiers)
               (goto-char (scan-sexps (scan-sexps (point) 2) -1))))
           ;; now at the lambda list, descend into it
-          (if (not (looking-at "(")) name 
-            (forward-char 1) 
+          (if (not (looking-at "(")) name
+            (forward-char 1)
             (ignore-errors
               (while t
                 ;; beginning of arg
                 (goto-char (scan-sexps (scan-sexps (point) 1) -1))
-                (when (looking-at "(") 
+                (when (looking-at "(")
                   (save-excursion
                     ;; down into specializer
                     (goto-char (scan-lists (point) 1 -1))
@@ -481,7 +481,7 @@ default `add-log-current-defun-function' for CL code"
                     (goto-char (scan-sexps (scan-sexps (point) 2) -1))
                     (if (not (looking-at "("))
                         (push (slime-symbol-at-point) specializers)
-                      ;; Could be an EQL specializer, down into it 
+                      ;; Could be an EQL specializer, down into it
                       (goto-char (scan-lists (point) 1 -1))
                       (goto-char (scan-sexps (scan-sexps (point) 1) -1))
                       ;; stop scanning specializers if not EQL
@@ -508,15 +508,15 @@ default `add-log-current-defun-function' for CL code"
   "Call backend to get information for root,package,file and
 defun loggers based on current Emacs context. Sets the
 log4slime-xxx-logger variables with returned info."
-  (save-excursion 
-    (when (slime-connected-p) 
+  (save-excursion
+    (when (slime-connected-p)
       (let ((pkg (slime-current-package))
             (file (buffer-file-name))
             (current-defun (ignore-errors
                              (funcall (or log4slime-current-defun-function
                                           'log4slime-lisp-current-defun)))))
         ;; (log-expr pkg file current-defun log4slime-root-logger)
-        (when (null log4slime-root-logger) 
+        (when (null log4slime-root-logger)
           (let ((result (log4slime-eval
                          `(log4slime:get-buffer-log-menu
                            :package ,pkg :file ,file :defun ,current-defun))))
@@ -529,7 +529,7 @@ log4slime-xxx-logger variables with returned info."
   "Find the package,file,and logger name at the site of the mouse click,
 returning them in the plist form, suitable for Lisp side
 EMACS-HELPER."
-  (let* ((point (if (featurep 'xemacs) (event-point event) 
+  (let* ((point (if (featurep 'xemacs) (event-point event)
                   (posn-point (event-end event))))
          (window (if (featurep 'xemacs) (event-window event) (caadr event)))
          (buffer (window-buffer window))
@@ -539,7 +539,7 @@ EMACS-HELPER."
          click-target
          rest-all)
     (with-current-buffer buffer
-      (save-excursion 
+      (save-excursion
         (goto-char point)
         (let ((start (line-beginning-position))
               (end (line-end-position))
@@ -559,10 +559,10 @@ EMACS-HELPER."
                    (when (and (>= point start) (< point next))
                      (setq click-target :file)))
                   ((eq prev 'log4slime-function-face)
-                   (unless rest-all 
+                   (unless rest-all
                      (setq rest-all (buffer-substring-no-properties
                                      start next)))
-                   (when (and (>= point start) (< point next)) 
+                   (when (and (>= point start) (< point next))
                      (setq rest (buffer-substring-no-properties
                                  start
                                  (save-excursion
@@ -581,14 +581,14 @@ EMACS-HELPER."
 
 (defun log4slime-fix-relative-file (info)
   "If its a file logger, change display name to be relative to the current buffer"
-  (let ((file (log4slime-logger-file info))) 
+  (let ((file (log4slime-logger-file info)))
     (when (and file (file-name-absolute-p file))
       (setf (getf info :display-name) (file-relative-name file))))
   info)
 
 (defun log4slime-log-category-menu (event)
   (interactive "e")
-  (let ((id (log4slime-logger-id-at-mouse event))) 
+  (let ((id (log4slime-logger-id-at-mouse event)))
     ;; (log-expr id)
     (let* ((log4slime-popup-logger
             (log4slime-fix-relative-file
@@ -603,7 +603,7 @@ EMACS-HELPER."
   "Go to the definition where log statement comes from and scroll
 to the first log statement"
   (interactive "e")
-  (let ((id (log4slime-logger-id-at-mouse event))) 
+  (let ((id (log4slime-logger-id-at-mouse event)))
     (let* ((name (log4slime-logger-rest id))
            (package (log4slime-logger-package id))
            (where log4slime-goto-definition-window)
@@ -611,7 +611,7 @@ to the first log statement"
                                  '(,@id :action :get-location)))))
       ;; Pasted from `slime-edit-definition-cont'
       (destructuring-bind (1loc file-alist) (slime-analyze-xrefs xrefs)
-        (cond ((null xrefs) 
+        (cond ((null xrefs)
                (if name (error "No known definition for: %s (in %s)" name package)
                  (error "No definition found")))
               (1loc
@@ -639,10 +639,10 @@ to the first log statement"
 
 (setq log4slime-category-package-properties (list 'face 'log4slime-package-face
                                                'keymap log4slime-category-mouse-map
-                                               'pointer 'hand) 
+                                               'pointer 'hand)
       log4slime-category-file-properties (list 'face 'log4slime-file-face
                                             'keymap log4slime-category-mouse-map
-                                            'pointer 'hand) 
+                                            'pointer 'hand)
       log4slime-category-function-properties (list 'face 'log4slime-function-face
                                                 'keymap log4slime-category-mouse-map
                                                 'pointer 'hand)
@@ -663,7 +663,7 @@ to the first log statement"
 (setq log4slime-log-level-regexp
       (concat "[[(< ]?"
               "\\(\\b"
-              (regexp-opt 
+              (regexp-opt
                log4slime-real-level-names)
               "\\b\\)"
               "[])> ]?")
@@ -673,7 +673,7 @@ to the first log statement"
       log4slime-rest-regexp "(\\([^ \n()]+[^\n()]*\\|\\))")
 
 ;; More freeform timestamp allowing %D{%c} or [Tue 13 Nov 2012 13:49:28 -0500] type format
-;; (setq log4slime-timestamp-regexp "\\[[[:alnum:]:, +-]+\\]") 
+;; (setq log4slime-timestamp-regexp "\\[[[:alnum:]:, +-]+\\]")
 
 (defvar log4slime-enabled t)
 (setq log4slime-enabled t)
@@ -706,7 +706,7 @@ to the first log statement"
                   (skip-chars-forward " :/-" lim)
                   (if (and (>= (point) level-re-beg)
                            (< (point) level-re-end))
-                      (goto-char level-re-end) 
+                      (goto-char level-re-end)
                     (cond ((and (not time-beg) (looking-at log4slime-timestamp-regexp))
                            (setq time-beg (match-beginning 1))
                            (setq time-end (match-end 1))
@@ -733,9 +733,9 @@ to the first log statement"
                 ;;   (rotatef pkg-end file-end))
                 (setq last-point (point))
                 (goto-char lim)
-                (when (and rest-beg pkg-beg) 
+                (when (and rest-beg pkg-beg)
                   (remove-text-properties bol last-point '(face nil))
-                  (when file-beg 
+                  (when file-beg
                     (add-text-properties file-beg file-end log4slime-category-file-properties))
                   (when pkg-beg
                     (add-text-properties pkg-beg pkg-end log4slime-category-package-properties))
@@ -743,13 +743,13 @@ to the first log statement"
                     (add-text-properties rest-beg rest-end log4slime-category-function-properties))
                   (when level-beg
                     (add-text-properties level-beg level-end log4slime-category-level-properties)))))
-            (goto-char next))))))) 
+            (goto-char next)))))))
 
 
 (eval-after-load 'slime-repl
   '(defadvice slime-repl-emit (around highlight-logging-category activate compile)
      (with-current-buffer (slime-output-buffer)
-       (if log4slime-mode 
+       (if log4slime-mode
            (let ((start (marker-position slime-output-end)))
              (setq ad-return-value ad-do-it)
              (log4slime-highlight-log-message start (marker-position slime-output-end)))
@@ -758,7 +758,7 @@ to the first log statement"
 (defun log4slime-make-menubar-menu ()
   (let ((C '(log4slime-check-connection)))
     ;; First level is dynamic
-    ;; :filter function 
+    ;; :filter function
     ;;    determine current defun
     ;;    make call to slime helper for the following info
     ;;      root logger log level
@@ -817,11 +817,11 @@ to the first log statement"
   "Load the :log4slime system on inferior-lisp side"
   ;; weird, point in current buffer was moved on error, wondering what
   ;; is doing in?
-  (save-excursion 
+  (save-excursion
     (when (slime-connected-p)
       (let* ((conn (slime-current-connection)))
-        (when conn 
-          (let ((try (process-get conn 'log4slime-loaded))) 
+        (when conn
+          (let ((try (process-get conn 'log4slime-loaded)))
             (cond ((eq try t) t)
                   ((eq try 'closed) nil)
                   ((not (eq (process-status conn) 'open))
@@ -835,17 +835,17 @@ to the first log statement"
                             (>= (- (float-time) try)
                                 (if from-mode 5 300))))
                    ;; mark it that we trying to do it
-                   (process-put conn 'log4slime-loaded (float-time)) 
+                   (process-put conn 'log4slime-loaded (float-time))
                    (let* ((result (slime-eval
                                    `(cl:multiple-value-bind
                                      (ok err)
-                                     (cl:ignore-errors 
+                                     (cl:ignore-errors
                                       (cl:setf (cl:get :log4slime :no-emacs-startup-message) t)
                                       (asdf:load-system :log4slime))
-                                     (cl:if ok :ok (cl:princ-to-string err)))))) 
+                                     (cl:if ok :ok (cl:princ-to-string err))))))
                      ;; (log-expr result)
                      (if (not (eq :ok result))
-                         (progn 
+                         (progn
                            (process-put conn 'log4slime-loaded (float-time))
                            (message "Can't load log4slime lisp support: %s." result)
                            nil)
@@ -875,11 +875,11 @@ variable `log4slime-menu-levels'.
   (when log4slime-mode
     (log4slime-check-connection t)))
 
-(defun log4slime-redefine-menus (&optional global) 
+(defun log4slime-redefine-menus (&optional global)
   "Redefine log4slime menus. If GLOBAL is true, make dropdown menu
 global instead of local to files with `log4slime-mode' active"
-  (easy-menu-define log4slime-popup-menu nil nil (log4slime-make-levels-menu 'log4slime-popup-logger)) 
-  (if global 
+  (easy-menu-define log4slime-popup-menu nil nil (log4slime-make-levels-menu 'log4slime-popup-logger))
+  (if global
       (easy-menu-define log4slime-menu (current-global-map) "Change Log4CL log levels" (log4slime-make-menubar-menu))
     (easy-menu-define log4slime-menu log4slime-mode-map "Change Log4CL log levels" (log4slime-make-menubar-menu))))
 
@@ -917,15 +917,15 @@ if its inherited from parent, and apply font property"
                  (length table)))
          ret)
     (while (plusp ncol)
-      (catch 'exit 
-        (setq cw (loop repeat ncol collect (loop repeat nsubcol collect 0))) 
+      (catch 'exit
+        (setq cw (loop repeat ncol collect (loop repeat nsubcol collect 0)))
         ;; lay down
         (let ((row 0)
               (col 0)
               (subcol 0))
           (dolist (e table)
             (setq subcol 0)
-            (dolist (e e) 
+            (dolist (e e)
               (let* ((len (max
                            (nth subcol (nth col cw))
                            (length e))))
@@ -942,11 +942,11 @@ if its inherited from parent, and apply font property"
                 (incf total c2)))
             (incf total (* (1- ncol) col-pad))
             ;; See if exeeds max, and try with less columns if it does
-            (when (> total width) 
+            (when (> total width)
               (decf ncol)
               (throw 'exit nil))
             ;; Found number of columns that is sufficient
-            (setq ncol 0 ret cw) 
+            (setq ncol 0 ret cw)
             (throw 'exit nil)))))
     cw))
 
@@ -961,7 +961,7 @@ if its inherited from parent, and apply font property"
 (defun log4slime-format-fontified-logger-type (info &optional notypep noupcase root-name)
   "Make fortified description of what kind of logger INFO, for
 showing in the level selection window and messages"
-  
+
   (or root-name (setq root-name "Root logger"))
   (let ((logger-type (log4slime-logger-type info))
         type name)
@@ -987,12 +987,12 @@ showing in the level selection window and messages"
 (defun log4slime-keys-case-sensitive-p (list)
   "Return if a list of keys or (key . value) pairs is case sensitive"
   (let* ((list-1 (mapcar (lambda (x)
-                           (if (consp x) (car x) x)) 
+                           (if (consp x) (car x) x))
                          list))
          (list-2 (delete-duplicates (mapcar 'downcase list-1))))
     (/= (length list-1) (length list-2))))
 
-(defun log4slime-uncontrol-char (c) 
+(defun log4slime-uncontrol-char (c)
   "If C is control character, return lower case version of regular one"
   (if (and (> c 0) (<= c 26)
            (not (eql c ?\C-g)))
@@ -1008,7 +1008,7 @@ showing in the level selection window and messages"
 (defun log4slime-find-key (key keys)
   "Find key in alist, being generous with case and control chars"
   (let ((ckey (log4slime-uncontrol-char key))
-        res alt) 
+        res alt)
     (cond ((setq res (assoc key keys))
            (cdr res))
           ((and (/= ckey key) (setq res (assoc ckey keys)))
@@ -1058,9 +1058,9 @@ menu, by customizing `log4slime-menu-levels' variable`
                      (car (rassoc :unset log4slime-menu-levels))))
         (reset-key (when (rassoc :reset log4slime-menu-levels)
                      (car (rassoc :reset log4slime-menu-levels)))))
-    (save-excursion 
-      (save-window-excursion 
-        (while (not done) 
+    (save-excursion
+      (save-window-excursion
+        (while (not done)
           (setq log4slime-root-logger nil
                 log4slime-package-logger nil
                 log4slime-file-logger nil
@@ -1071,36 +1071,36 @@ menu, by customizing `log4slime-menu-levels' variable`
                 package-info log4slime-package-logger
                 file-info log4slime-file-logger
                 defun-info log4slime-defun-logger)
-          (save-excursion 
+          (save-excursion
             (let* ((orig-buffer (current-buffer))
                    (logger-keys (append
                                  (when root-info (list (cons root-key :root)))
                                  (when package-info (list (cons package-key :package)))
                                  (when file-info (list (cons file-key :file)))
                                  (when defun-info (list (cons defun-key :defun)))))
-                   ;; Make menu prettier by upcasing keys like [D]: Debug 
+                   ;; Make menu prettier by upcasing keys like [D]: Debug
                    ;; but disable if there are both cases of same char
                    (case1 (log4slime-keys-case-sensitive-p logger-keys))
                    (root
-                    (when root-info 
+                    (when root-info
                       (list
                        (format "[%c] Root logger" (log4slime-case root-key case1)) ""
                        (format " - %s" (log4slime-format-eff-level root-info)))))
                    (package
-                    (when package-info 
+                    (when package-info
                       (list
                        (format "[%c] Package " (log4slime-case package-key case1))
                        (log4slime-format '(face log4slime-package-face)
                                       "%s" (log4slime-logger-display-name package-info))
                        (format " - %s" (log4slime-format-eff-level package-info)))))
                    (file
-                    (when file-info 
+                    (when file-info
                       (list (format "[%c] File " (log4slime-case file-key case1))
                             (log4slime-format '(face log4slime-file-face)
                                            "%s" (log4slime-logger-display-name file-info))
                             (format " - %s" (log4slime-format-eff-level file-info)))))
                    (dfun
-                    (when defun-info 
+                    (when defun-info
                       (list (format "[%c] Defun " (log4slime-case defun-key case1))
                             (log4slime-format '(face log4slime-function-face)
                                            "%s" (log4slime-logger-display-name defun-info))
@@ -1115,7 +1115,7 @@ menu, by customizing `log4slime-menu-levels' variable`
               ;; (log-expr choices)
               ;; (log-expr cols)
               ;; (create temp buffer)
-              (when (get-buffer " *Select logger*") 
+              (when (get-buffer " *Select logger*")
                 (kill-buffer " *Select logger*"))
               (set-buffer (get-buffer-create " *Select logger*"))
               (erase-buffer)
@@ -1129,7 +1129,7 @@ menu, by customizing `log4slime-menu-levels' variable`
               (while (setq e (pop choices))
                 (let ((cw1 (nth 0 (nth col cols)))
                       (cw2 (nth 1 (nth col cols)))
-                      (cw3 (nth 2 (nth col cols)))) 
+                      (cw3 (nth 2 (nth col cols))))
                   (when (zerop col)
                     (insert-char ?  6))
                   (insert (first e))
@@ -1138,7 +1138,7 @@ menu, by customizing `log4slime-menu-levels' variable`
                   (insert-char ?  (- cw2 (length (second e))))
                   (insert (third e))
                   (insert-char ?  (- cw3 (length (third e))))
-                  (incf col) 
+                  (incf col)
                   (if (< col ncol)
                       (insert (make-string 10 ?\ ))
                     (insert "\n")
@@ -1150,19 +1150,19 @@ menu, by customizing `log4slime-menu-levels' variable`
                 (incf nrows))
               (goto-char (point-min))
               (let ((note "(*) inherited level"))
-            
+
                 (setq mode-line-format
                       (format "%s%s"
                               (make-string (/ (- (frame-width) 5 (length note)) 2) ?\ )
                               note))
                 (setq mode-line-format nil))
-          
+
               (unless (eq expert 'expert)
                 (let* ((window-min-height 2)
                        (window-tree))
-                  ;; (log-expr nrows (window-height) 
+                  ;; (log-expr nrows (window-height)
                   ;;           (- (window-height) 1 nrows))
-              
+
                   (delete-other-windows)
                   (setq window (split-window nil (- (window-height) (1+ nrows))))
                   (set-window-buffer window (get-buffer-create " *Select logger*"))))
@@ -1207,10 +1207,10 @@ menu, by customizing `log4slime-menu-levels' variable`
                 ;; Include unset key anyway in the actual keys, its silly to give user
                 ;; error if hes trying to unset already unset logger, even if we don't
                 ;; show option in the menu, indicating that its already unset
-                (when (and unset-key (not (assoc unset-key level-keys))) 
+                (when (and unset-key (not (assoc unset-key level-keys)))
                   (push (cons unset-key :unset) level-keys))
 
-                ;; Make menu prettier by upcasing keys like [D]: Debug 
+                ;; Make menu prettier by upcasing keys like [D]: Debug
                 ;; but disable if there are both cases of same char
                 (setq case1 (log4slime-keys-case-sensitive-p level-keys))
                 (log-expr case1 choices)
@@ -1218,8 +1218,8 @@ menu, by customizing `log4slime-menu-levels' variable`
                       (loop for (key . level) in choices 
                             do (log-expr key level)
                             collect
-                            (list 
-                             (format "[%c]:" (log4slime-case key case1)) 
+                            (list
+                             (format "[%c]:" (log4slime-case key case1))
                              (log4slime-format '(face log4slime-level-selection-face)
                                             "%s"
                                             (log4slime-level-name level)))))
@@ -1228,16 +1228,16 @@ menu, by customizing `log4slime-menu-levels' variable`
                 (erase-buffer)
                 (insert name)
                 (if (log4slime-logger-level logger)
-                    (progn 
+                    (progn
                       (setq current-level
-                            (upcase 
+                            (upcase
                              (log4slime-format
                               '(face log4slime-level-selection-face) "%s"
                               (log4slime-level-name (log4slime-logger-level logger)))))
                       (insert " - " current-level)
                       (if is-root-p (insert "\n\n")
                         (insert
-                         (format "   %s, will inherit parent level " 
+                         (format "   %s, will inherit parent level "
                                  (if unset-key (format "[%c] to unset" (log4slime-case unset-key case1))
                                    "If unset"))
                          (log4slime-format '(face log4slime-level-selection-face) "%s"
@@ -1258,12 +1258,12 @@ menu, by customizing `log4slime-menu-levels' variable`
                   (when (zerop col)
                     (insert-char ?  6))
                   (let ((cw1 (nth 0 (nth col cols)))
-                        (cw2 (nth 1 (nth col cols)))) 
+                        (cw2 (nth 1 (nth col cols))))
                     (insert (first e))
                     (insert-char ?  (- cw1 (length (first e))))
                     (insert (second e))
                     (insert-char ?  (- cw2 (length (second e))))
-                    (incf col) 
+                    (incf col)
                     (if (< col ncol)
                         (insert (make-string 3 ?\ ))
                       (insert "\n")
@@ -1274,14 +1274,14 @@ menu, by customizing `log4slime-menu-levels' variable`
                   (incf nrows))
                 (when (and reset-key (plusp (log4slime-children-level-count logger)))
                   (insert (format "      [%c]:%s (%d) children"
-                                  (log4slime-case reset-key case1) 
+                                  (log4slime-case reset-key case1)
                                   (log4slime-format '(face log4slime-level-selection-face)
                                                  "%s" (log4slime-level-name :reset))
                                   (log4slime-children-level-count logger))
                           "\n")
                   (incf nrows 1))
-                (unless (eq expert 'expert) 
-                  (delete-window window) 
+                (unless (eq expert 'expert)
+                  (delete-window window)
                   ;; (log-expr nrows)
                   (setq window (split-window nil (- (window-height) (1+ nrows))))
                   (set-window-buffer window (get-buffer-create " *Select logger*")))
@@ -1303,12 +1303,9 @@ menu, by customizing `log4slime-menu-levels' variable`
                  ((or (eql cc ?h)
                       (eql cc ??))
                   (setq done 'help))
-                 (t 
+                 (t
                   (error "Invalid input %c" c)))))))))
     (when (eq done 'help)
       (describe-function 'log4slime-level-selection))))
 
 (provide 'log4slime)
-
-
-

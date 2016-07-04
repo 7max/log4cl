@@ -48,6 +48,8 @@
 (defmacro with-logged-problems (context &body body)
   `(call-with-logged-problems ',context (lambda () ,@body)))
 
+(defvar *stop-semaphore* (bt-sem:make-semaphore :name "stop-log4cl"))
+
 (defun start-hierarchy-watcher-thread ()
   (unless *watcher-thread*
     (let ((logger (make-logger '(log4cl))))
@@ -66,10 +68,9 @@
                     (handler-case
                         (progn
                           (log-info :logger logger "Hierarchy watcher started")
-                          (loop
-                            (let ((*watcher-event-time* (get-universal-time)))
-                              (hierarchy-watcher-once))
-                            (sleep *hierarchy-watcher-heartbeat*)))
+                          (loop for *watcher-event-time* = (get-universal-time)
+                                do (hierarchy-watcher-once)
+                                until (bt-sem:wait-on-semaphore *stop-semaphore* :timeout *hierarchy-watcher-heartbeat*)))
                       (error (e)
                         (log-error :logger logger "Error in hierarchy watcher thread:~%~A" e))))
                (with-hierarchies-lock
@@ -107,7 +108,7 @@
   (let ((thread (with-hierarchies-lock *watcher-thread*)))
     (when thread
       (with-logged-problems '(stop-hierarchy-watcher-thread :destroy-thread)
-        (bt::destroy-thread thread))
+        (bt-sem:signal-semaphore *stop-semaphore*))
       (with-logged-problems '(stop-hierarchy-watcher-thread :join-thread)
         (bt:join-thread thread)))))
 

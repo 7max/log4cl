@@ -49,7 +49,7 @@ WATCHER-HOOK of each hierarchy")
    ;; Used for auto-reloading the modified files in
    ;; PROPERTY-CONFIGURATOR but can be used for other stuff.
    (watch-tokens :initform nil :accessor watch-tokens)
-   (%lock :initform (make-lock))))
+   (%lock :initform (make-recursive-lock))))
 
 (defvar *hierarchies*
   (make-array 1 :adjustable t :fill-pointer t

@@ -746,15 +746,6 @@ to the first log statement"
             (goto-char next))))))) 
 
 
-(eval-after-load 'slime-repl
-  '(defadvice slime-repl-emit (around highlight-logging-category activate compile)
-     (with-current-buffer (slime-output-buffer)
-       (if log4slime-mode 
-           (let ((start (marker-position slime-output-end)))
-             (setq ad-return-value ad-do-it)
-             (log4slime-highlight-log-message start (marker-position slime-output-end)))
-         (setq ad-return-value ad-do-it)))))
-
 (defun log4slime-make-menubar-menu ()
   (let ((C '(log4slime-check-connection)))
     ;; First level is dynamic
@@ -874,6 +865,17 @@ variable `log4slime-menu-levels'.
   log4slime-mode-map
   (when log4slime-mode
     (log4slime-check-connection t)))
+
+
+(eval-after-load 'slime-repl
+  '(defadvice slime-repl-emit (around highlight-logging-category activate compile)
+     (with-current-buffer (slime-output-buffer)
+       (if log4slime-mode
+           (let ((start (marker-position slime-output-end)))
+             (setq ad-return-value ad-do-it)
+             (log4slime-highlight-log-message start (marker-position slime-output-end)))
+         (setq ad-return-value ad-do-it)))))
+
 
 (defun log4slime-redefine-menus (&optional global) 
   "Redefine log4slime menus. If GLOBAL is true, make dropdown menu
